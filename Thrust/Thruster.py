@@ -6,28 +6,44 @@ email: els.obrq@gmail.com
 """
 #%%
 import numpy as np
-
+import pandas as pd
 DEG2RAD = np.pi/180
+
+TUBULAR = 'tubular'
+BATES   = 'bates'
+STAR    = 'star'
 
 
 class Thruster(object):
-    def __init__(self, dt, max_time, max_thrust):
+    def __init__(self, dt, max_burn_time, max_thrust, type_propellant=TUBULAR):
+        self.typye_propellant = type_propellant
         self.step_width = dt
-        self.max_thrust_time = max_time
-        self.current_burn_time = 0
+        self.max_burn_time = max_burn_time
         self.max_thrust = max_thrust
+        self.parametric_profile = self.load_thrust_profile()
+        self.current_burn_time = 0
         self.historical_mag_thrust = []
-        self.current_thrust_i = np.zeros(3)
         self.t_ig = 0
         self.thr_is_on = False
         self.thr_is_burned = False
-        self.unit_vector_control_i = np.array([0, 0, 1])
         self.current_time = 0
         self.current_mag_thrust_c = 0
         self.lag_coef = 1
 
     def set_lag_coef(self, val):
         self.lag_coef = val
+
+    def load_thrust_profile(self):
+        if self.typye_propellant == STAR:
+            dataframe = pd.read_csv("StarGrain7.csv")
+            self.dt_profile = self.max_burn_time/(len(dataframe['Thrust(N)']) - 1)
+            return dataframe['Thrust(N)'].values * self.max_thrust / max(dataframe['Thrust(N)'].values)
+        elif self.typye_propellant == BATES:
+            dataframe = pd.read_csv("BATES.csv")
+            self.dt_profile = self.max_burn_time/(len(dataframe['Thrust(N)']) - 1)
+            return dataframe['Thrust(N)'].values * self.max_thrust / max(dataframe['Thrust(N)'].values)
+        else:
+            return []
 
     def reset_variables(self):
         self.t_ig = 0
@@ -43,6 +59,29 @@ class Thruster(object):
 
     def calc_thrust_mag(self, com_period_):
         com_period_ /= 1000
+        if self.typye_propellant == TUBULAR:
+            self.calc_tubular_thrust(com_period_)
+        else:
+            self.calc_parametric_thrust(com_period_)
+        return
+
+    def calc_parametric_thrust(self, com_period_):
+        if self.thr_is_on:
+            if self.current_burn_time == 0:
+                self.current_mag_thrust_c = self.parametric_profile[0]
+                self.current_burn_time += self.step_width
+            elif self.current_burn_time <= self.max_burn_time:
+                self.current_mag_thrust_c = self.parametric_profile[int(self.current_burn_time / self.dt_profile)]
+                self.current_burn_time += self.step_width
+            else:
+                self.current_mag_thrust_c = 0
+                self.thr_is_burned = True
+                self.current_time += self.step_width
+        else:
+            self.current_mag_thrust_c = 0
+            self.current_time += self.step_width
+
+    def calc_tubular_thrust(self, com_period_):
         if self.thr_is_on:
             if self.current_burn_time <= self.max_burn_time/2:
                 ite = 0
@@ -94,40 +133,25 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import random
 
-    thruster_pos = np.zeros(3)
-    thruster_pos[0] = 0.09
-    thruster_pos[1] = 0.13
-    thruster_pos[2] = 0.0
-    thruster_dir = np.zeros(3)
-    thruster_dir[0] = 0
-    thruster_dir[1] = 0
-    thruster_dir[2] = 1
-    step_prop = 0.01
-    burn_time = 7.5
-    data = {'prop_step': step_prop,
-            'comp_type': 'SOLID',
-            'thruster_pos': thruster_pos,
-            'thruster_dir': thruster_dir,
-            'error_pos': 1.0,
-            'error_dir': np.deg2rad(3),
-            'rotation_z': 0,
-            'max_thrust': 1.0,
-            'burn_time': burn_time}
-    n_thruster = 1
+    dt = 0.01
+    max_burn_time = 10
+    max_thrust = 150
+    n_thruster = 5
     betas = []
     time_betas = []
     current_time = 0
     max_time = 30
     comp_thrust = []
     chossing = []
-    len_vect = int((max_time/step_prop)) + 1
+    len_vect = int((max_time/dt)) + 1
     imp_thrust = np.ones(3)
+
     for i in range(n_thruster):
-        comp_thrust.append(Thruster(6, data))
+        comp_thrust.append(Thruster(dt, max_burn_time, max_thrust, type_propellant=STAR))
         comp_thrust[i].set_lag_coef(0.15)
         betas.append(np.zeros(len_vect))
-        chossing.append(random.randint(0, int(((max_time - burn_time)/step_prop)) + 1))
-        betas[i][chossing[i]: chossing[i] + int(burn_time/step_prop)] = 1
+        chossing.append(random.randint(0, int(((max_time - max_burn_time)/dt)) + 1))
+        betas[i][chossing[i]: chossing[i] + int(max_burn_time/dt)] = 1
 
     time_array = []
     k = 1
@@ -135,10 +159,12 @@ if __name__ == '__main__':
         time_array.append(current_time)
         for i in range(n_thruster):
             comp_thrust[i].set_beta(betas[i][k-1])
+            comp_thrust[i].calc_thrust_mag(100)
             comp_thrust[i].log_value()
-        current_time = round(current_time, 3) + step_prop
+        current_time = round(current_time, 3) + dt
         k += 1
     #%%
+
     fig = plt.figure(figsize=(7, 4))
     axes = fig.add_axes([0.1, 0.1, 0.7, 0.8])
     total_thrust = np.zeros(len(time_array))
@@ -154,7 +180,7 @@ if __name__ == '__main__':
 #%%
     fig_beta = plt.figure(figsize=(7, 2))
     axes = fig_beta.add_axes([0.1, 0.3, 0.7, 0.6])
-    plt.step(np.arange(0, len(betas[0]))*step_prop, betas[0], label=r'$\beta_k$: '+str(1), lw=1.0)
+    plt.step(np.arange(0, len(betas[0]))*dt, betas[0], label=r'$\beta_k$: '+str(1), lw=1.0)
     plt.legend(loc="center right", borderaxespad=-9.5)
     plt.ylabel(r'$\beta_k [-]$')
     plt.xlabel('Time [s]')
@@ -162,7 +188,7 @@ if __name__ == '__main__':
     axes.annotate('Ignition time '+r'$t_{ig}$', xy=(time_array[chossing[0]], 0.), xytext=(-1.5, 0.6),
                   arrowprops=dict(arrowstyle="->", connectionstyle="angle3,angleA=90,angleB=0"))
     axes.annotate('Burn time ' + r'$t_{b}$', xy=(time_array[chossing[0]], 0.5),
-                  xytext=(time_array[chossing[0]] + burn_time, 0.5),
+                  xytext=(time_array[chossing[0]] + max_burn_time, 0.5),
                   arrowprops=dict(arrowstyle="<->", connectionstyle="angle3,angleA=90,angleB=0"))
 
     fig_0 = plt.figure(figsize=(7, 2))

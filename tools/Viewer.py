@@ -34,7 +34,10 @@ def create_plot():
     plt.grid()
 
 
-def set_plot(n_figure, x, y, opt1, opt2):
+def set_plot(n_figure, x, y, opt1, opt2, max_H=0, max_V=0):
     plt.figure(n_figure)
-    plt.plot(x, y, opt1, markersize=4)
-    plt.plot(x[0], y[0], opt2, markersize=8)
+    plt.plot(x, y, opt1, lw=1)
+    plt.plot(x[0], y[0], opt2, markersize=4)
+    if n_figure == 3:
+        plt.hlines(max_V, 0, max_H)
+        plt.vlines(max_H, 0, max_V)
