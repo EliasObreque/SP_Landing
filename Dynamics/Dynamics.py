@@ -11,10 +11,13 @@ from tools.GeneticAlgorithm import GeneticAlgorithm
 
 
 class Dynamics(object):
-    def __init__(self, dt, Isp, g_planet, mass, alpha_min, alpha_max):
+    def __init__(self, dt, Isp, g_planet, mass, alpha_min, alpha_max, t1_min, t1_max):
         self.alpha_min = alpha_min
         self.alpha_max = alpha_max
+        self.t1_min = t1_min
+        self.t1_max = t1_max
         self.alpha_med = (alpha_max + alpha_min) * 0.5
+        self.t1_med = (t1_max + t1_min) * 0.5
         self.mass = mass
         self.step_width = dt
         self.current_time = 0
@@ -34,6 +37,7 @@ class Dynamics(object):
         current_alpha = thrust / self.c_char
         flag_1 = self.calc_first_cond(alt, vel, current_alpha)
         sf = vel - self.calc_x2_char(current_alpha, self.t1)
+        sf += alt - self.calc_x1_char(current_alpha, self.t1)
         return np.abs(sf) / sf
 
     def calc_first_cond(self, alt, vel, alpha):
@@ -45,13 +49,21 @@ class Dynamics(object):
         mass = state[2]
         rhs = np.zeros(3)
         rhs[0] = vx
-        rhs[1] = self.g_planet + T / mass
+        if x > 0.0:
+            rhs[1] = self.g_planet + T / mass
+        else:
+            if self.g_planet < - T / mass:
+                rhs[1] = 0
+            else:
+                rhs[1] = self.g_planet + T / mass
         rhs[2] = -T / self.c_char
         return rhs
 
     def rungeonestep(self, T, pos, vel, mass):
         t = self.current_time
         dt = self.step_width
+        if pos < 0:
+            vel = 0
         x = np.array([pos, vel, mass])
         k1 = self.dynamics(x, t, T)
         xk2 = x + (dt / 2.0) * k1
@@ -83,7 +95,7 @@ class Dynamics(object):
         t1 = (-B + np.sqrt(B**2 - 4*A*C))/(2 * A)
         return t1
 
-    def calc_limits(self, t1):
+    def calc_limits_const_time(self, t1):
         self.t1 = t1
         g = -self.g_planet
         # Minimum
@@ -113,48 +125,113 @@ class Dynamics(object):
         print("[", self.x1_hat_min, " ,", self.x1_hat_max, "]")
         return
 
+    def calc_limits_const_alpha(self, alpha):
+        self.alpha_const = alpha
+        g = -self.g_planet
+        # Minimum
+        self.x2_char_min_a = self.calc_x2_char(alpha, self.t1_min)
+        self.x1_char_min_a = self.calc_x1_char(alpha, self.t1_min, self.x2_char_min_a)
+        # Maximum
+        self.x2_char_max_a = self.calc_x2_char(alpha, self.t1_max)
+        self.x1_char_max_a = self.calc_x1_char(alpha, self.t1_max, self.x2_char_max_a)
+        # Medium
+        self.x2_char_med_a = self.calc_x2_char(alpha, self.t1_med)
+        self.x1_char_med_a = self.calc_x1_char(alpha, self.t1_med, self.x2_char_med_a)
+
+        print("Minimum state parameters *")
+        print(self.x2_char_min_a, " [m/s] - ", self.x1_char_min_a, " [m]\n")
+        print("Medium state parameters * ")
+        print(self.x2_char_med_a, " [m/s] - ", self.x1_char_med_a, " [m]\n")
+        print("Maximum state parameters * ")
+        print(self.x2_char_max_a, " [m/s] - ",  self.x1_char_max_a, " [m]\n")
+
+        self.t2_min_a = - self.x2_char_min_a / g
+        self.t2_max_a = - self.x2_char_max_a / g
+        self.t2_med_a = - self.x2_char_med_a / g
+        self.x1_hat_min_a = self.x1_char_min_a + 0.5 * self.x2_char_min_a ** 2 / g
+        self.x1_hat_max_a = self.x1_char_max_a + 0.5 * self.x2_char_max_a ** 2 / g
+        self.x1_hat_med_a = self.x1_char_med_a + 0.5 * self.x2_char_med_a ** 2 / g
+        print("Initial state [min, max] [m]")
+        print("[", self.x1_hat_min_a, " ,", self.x1_hat_max_a, "]")
+        return
+
     def show_limits(self):
         g = -self.g_planet
         t1 = np.linspace(0, self.t1, 200)
+        t1_max = np.linspace(0, self.t1_max, 200)
+        t1_med = np.linspace(0, self.t1_med, 200)
+        t1_min = np.linspace(0, self.t1_min, 200)
+
         t2_min = np.linspace(0, self.t2_min)
         t2_max = np.linspace(0, self.t2_max)
         t2_med = np.linspace(0, self.t2_med)
+        t2_min_a = np.linspace(0, self.t2_min_a)
+        t2_max_a = np.linspace(0, self.t2_max_a)
+        t2_med_a = np.linspace(0, self.t2_med_a)
 
         # Minimum
         x2_min = self.calc_x2_char(self.alpha_min, t1)
         x1_min = self.calc_x1_char(self.alpha_min, t1, x2_min)
+        x2_min_a = self.calc_x2_char(self.alpha_const, t1_min)
+        x1_min_a = self.calc_x1_char(self.alpha_const, t1_min, x2_min_a)
+
         # Maximum
         x2_max = self.calc_x2_char(self.alpha_max, t1)
         x1_max = self.calc_x1_char(self.alpha_max, t1, x2_max)
+        x2_max_a = self.calc_x2_char(self.alpha_const, t1_max)
+        x1_max_a = self.calc_x1_char(self.alpha_const, t1_max, x2_max_a)
+
         # Medium
         x2_med = self.calc_x2_char(self.alpha_med, t1)
         x1_med = self.calc_x1_char(self.alpha_med, t1, x2_med)
+        x2_med_a = self.calc_x2_char(self.alpha_const, t1_med)
+        x1_med_a = self.calc_x1_char(self.alpha_const, t1_med, x2_med_a)
 
         x2_hat_min = self.x2_hat_min - t2_min * g
         x2_hat_max = self.x2_hat_max - t2_max * g
         x2_hat_med = self.x2_hat_med - t2_med * g
+        x2_hat_min_a = self.x2_hat_min - t2_min_a * g
+        x2_hat_max_a = self.x2_hat_max - t2_max_a * g
+        x2_hat_med_a = self.x2_hat_med - t2_med_a * g
 
         x1_hat_min = self.x1_hat_min - 0.5 * x2_hat_min ** 2 / g
         x1_hat_max = self.x1_hat_max - 0.5 * x2_hat_max ** 2 / g
         x1_hat_med = self.x1_hat_med - 0.5 * x2_hat_med ** 2 / g
+        x1_hat_min_a = self.x1_hat_min_a - 0.5 * x2_hat_min_a ** 2 / g
+        x1_hat_max_a = self.x1_hat_max_a - 0.5 * x2_hat_max_a ** 2 / g
+        x1_hat_med_a = self.x1_hat_med_a - 0.5 * x2_hat_med_a ** 2 / g
 
         plt.figure()
+        plt.title('Total burn time: '+ str(self.t1) + '[s]')
         plt.grid()
         plt.xlabel("Altitude [m]")
         plt.ylabel("Velocity [m/s]")
         plt.plot(x1_hat_min, x2_hat_min, '--k', label='free-fall')
-        plt.plot(x1_min, x2_min, 'k', label='sf')
-        plt.plot(x1_hat_max, x2_hat_max, '--r', label='free-fall')
-        plt.plot(x1_max, x2_max, 'r', label='sf')
+        plt.plot(x1_min, x2_min, 'k', label=r'sf: $\alpha_{min}$ =' + str(round(self.alpha_min, 2)))
         plt.plot(x1_hat_med, x2_hat_med, '--b', label='free-fall')
-        plt.plot(x1_med, x2_med, 'b', label='sf')
+        plt.plot(x1_med, x2_med, 'b', label=r'sf: $\alpha_{med}$ =' + str(round(self.alpha_med, 2)))
+        plt.plot(x1_hat_max, x2_hat_max, '--r', label='free-fall')
+        plt.plot(x1_max, x2_max, 'r', label=r'sf: $\alpha_{max}$ =' + str(round(self.alpha_max, 2)))
+        plt.legend()
+
+        plt.figure()
+        plt.title('Mass flow rate: ' + str(round(self.alpha_const, 2)) + '[kg/s]')
+        plt.grid()
+        plt.xlabel("Altitude [m]")
+        plt.ylabel("Velocity [m/s]")
+        plt.plot(x1_hat_min_a, x2_hat_min_a, '--k', label='free-fall')
+        plt.plot(x1_min_a, x2_min_a, 'k', label=r'sf: $tb_{min}$ =' + str(round(self.t1_min, 2)))
+        plt.plot(x1_hat_med_a, x2_hat_med_a, '--b', label='free-fall')
+        plt.plot(x1_med_a, x2_med_a, 'b', label=r'sf: $tb_{med}$ =' + str(round(self.t1_med, 2)))
+        plt.plot(x1_hat_max_a, x2_hat_max_a, '--r', label='free-fall')
+        plt.plot(x1_max_a, x2_max_a, 'r', label=r'sf: $tb_{max}$ =' + str(round(self.t1_max, 2)))
         plt.legend()
         plt.show()
         return
 
-    def calc_optimal_parameters(self, max_generation, n_variables, n_individuals, range_variables):
-        ga = GeneticAlgorithm(max_generation, n_variables, n_individuals, range_variables)
-        ga.optimize()
+    def calc_optimal_parameters(self, init_state, max_generation, n_variables, n_individuals, range_variables):
+        ga = GeneticAlgorithm(self.step_width, init_state, max_generation, n_variables, n_individuals, range_variables)
+        ga.optimize(self.rungeonestep, self.c_char)
         return
 
     def calc_simple_optimal_parameters(self, r0):

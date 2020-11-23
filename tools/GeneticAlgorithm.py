@@ -5,16 +5,15 @@ email: els.obrq@gmail.com
 """
 
 import numpy as np
-import random
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata
-import scipy.stats as ss
-import math
-import copy
+from Thrust.Thruster import Thruster
 
 
 class GeneticAlgorithm(object):
-    def __init__(self, max_generation, n_variables, n_individuals, range_variables):
+    def __init__(self, step_w, init_state, max_generation, n_variables, n_individuals, range_variables):
+        self.init_state = init_state
+        self.step_width = step_w
         self.Ah = 0.01
         self.Bh = 10.0
         self.Ch = 0.1
@@ -24,26 +23,40 @@ class GeneticAlgorithm(object):
         self.n_individuals = n_individuals
         self.n_variables = n_variables
         self.range_variables = range_variables
-        self.ind_seleccionado = []
+        self.ind_selected = []
         self.weight_crossover = 0.2
         self.prob_mut = 0.1
         self.thrust_comp = None
         self.population = []
         self.historical_cost = []
-        self.create_first_poblation()
+        self.create_first_population()
+        self.dynamics_update = None
+        self.c_char = 200
 
-    def create_first_poblation(self):
+    def create_first_population(self):
         for k in range(self.n_individuals):
             individual = []
             for i in range(self.n_variables):
-                temp = np.random.uniform(self.range_variables[i][0], self.range_variables[i][1])
-                individual.append(temp)
+                if self.range_variables[i][0] == 'float':
+                    temp = np.random.uniform(self.range_variables[i][1], self.range_variables[i][2])
+                    individual.append(temp)
+                elif self.range_variables[i][0] == 'int':
+                    temp = np.random.randint(self.range_variables[i][1], self.range_variables[i][2])
+                    individual.append(temp)
+                elif self.range_variables[i][0] == 'str':
+                    type_pro = np.random.randint(1, len(self.range_variables[i]))
+                    temp = self.range_variables[i][type_pro]
+                    individual.append(temp)
+                else:
+                    print()
             self.population.append(individual)
         return
 
-    def optimize(self):
+    def optimize(self, dynamics_update, c_char):
+        self.c_char = c_char
+        self.dynamics_update = dynamics_update
         ge = 1
-        self.ga_evualuate()
+        self.ga_evaluate()
         print('Generation: ', ge, ', Cost: ', max(self.current_cost))
         best_index = self.current_cost.index(max(self.current_cost))
         percent = 0.8
@@ -52,15 +65,15 @@ class GeneticAlgorithm(object):
         n_indiv_by_selec -= rest_ind
         while ge < self.max_generation:  # or max(self.current_cost) <= 0.5:
             next_population = []
-            crosover_arith = True
+            crossover_arith = True
             for i in range(int(n_indiv_by_selec * 0.5)):
                 index_parents = self.ga_selection(2)
-                if crosover_arith:
+                if crossover_arith:
                     descent1, descent2  = self.ga_crossover_arithmetic(index_parents[0], index_parents[1])
-                    crosover_arith = False
+                    crossover_arith = False
                 else:
                     descent1, descent2 = self.ga_crossover_coding(index_parents[0], index_parents[1])
-                    crosover_arith = True
+                    crossover_arith = True
                 new_generation1 = self.ga_mutation(descent1, True)
                 new_generation2 = self.ga_mutation(descent2, True)
                 next_population.append(new_generation1)
@@ -71,7 +84,7 @@ class GeneticAlgorithm(object):
             self.population = next_population
             best_index = self.current_cost.index(max(self.current_cost))
             self.current_cost = []
-            Hf, Vf, Mf, Tf = self.ga_evualuate()
+            Hf, Vf, Mf, Tf = self.ga_evaluate()
             ge += 1
             if ge > self.max_generation:
                 self.max_generation = ge
@@ -114,8 +127,45 @@ class GeneticAlgorithm(object):
             current_normalize_total_thrust += self.thrust_comp[i].current_mag_thrust_c
         return current_normalize_total_thrust * population_k[-1]
 
-    def ga_evualuate(self):
-        return
+    def ga_evaluate(self):
+        POS = []
+        VEL = []
+        MASS = []
+        THR = []
+        for i in range(self.n_individuals):
+            k = 0
+            x1 = [self.init_state[0][0]]
+            x2 = [self.init_state[1][0]]
+            x3 = [self.init_state[2][0]]
+            thr = []
+            comp_thrust = []
+            end_condition = False
+            for j in range(self.population[i][2]):
+                comp_thrust.append(Thruster(self.step_width, max_burn_time=self.population[i][1],
+                                            nominal_thrust=self.population[i][0] * self.c_char,
+                                            type_propellant=self.population[i][3]))
+                comp_thrust[j].set_lag_coef(0.15)
+
+            while end_condition is False:
+
+                next_state = self.dynamics_update(thr[k], x1[k], x2[k], x3[k])
+
+                x1[i].append(next_state[0])
+                x2[i].append(next_state[1])
+                x3[i].append(next_state[2])
+
+                k += 1
+                if x1[i][k] < 0 and thr[i][k - 1] == 0.0:
+                    end_condition = True
+                    x1[i].pop(k)
+                    x2[i].pop(k)
+                    x3[i].pop(k)
+
+            POS.append(x1)
+            VEL.append(x2)
+            MASS.append(x3)
+            THR.append(thr)
+        return POS, VEL, MASS, THR
 
     def ga_selection(self, n, direct_method=False):
         if direct_method is False:
@@ -208,40 +258,11 @@ class GeneticAlgorithm(object):
         else:
             return 1 / (1 + self.Ah * np.abs(error_pos) + self.Bh * np.abs(error_vel))
 
-    def dynamics(self, state, t, T):
-        x = state[0]
-        vx = state[1]
-        mass = state[2]
-        rhs = np.zeros(3)
-        rhs[0] = vx
-        rhs[1] = self.g[2] + T / mass
-        rhs[2] = -T / self.c_char
-        return rhs
-
-    def rungeonestep(self, T, pos, vel, mass):
-        t = self.current_time
-        dt = self.step_width
-        x = np.array([pos, vel, mass])
-        k1 = self.dynamics(x, t, T)
-        xk2 = x + (dt / 2.0) * k1
-        k2 = self.dynamics(xk2, (t + dt / 2.0), T)
-        xk3 = x + (dt / 2.0) * k2
-        k3 = self.dynamics(xk3, (t + dt / 2.0), T)
-        xk4 = x + dt * k3
-        k4 = self.dynamics(xk4, (t + dt), T)
-        next_x = x + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
-        self.current_time += self.step_width
-        return next_x
-
     def calc_force_torque(self):
         self.force_ = 0
-        self.current_time += self.step_width
 
     def get_force_i(self):
         return self.force_
-
-    def get_torque_b(self):
-        return self.torque_
 
     def plot_initial_population(self):
         plt.figure()
