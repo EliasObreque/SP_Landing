@@ -11,7 +11,7 @@ from tools.GeneticAlgorithm import GeneticAlgorithm
 
 
 class Dynamics(object):
-    def __init__(self, dt, Isp, g_planet, mass, alpha_min, alpha_max, t1_min, t1_max):
+    def __init__(self, dt, Isp, g_planet, mass, alpha_min, alpha_max, t1_min, t1_max, polar_system):
         self.alpha_min = alpha_min
         self.alpha_max = alpha_max
         self.t1_min = t1_min
@@ -23,9 +23,12 @@ class Dynamics(object):
         self.current_time = 0
         self.Isp = Isp
         self.ge = 9.807
+        self.mu = 4.9048695e12
+        self.r_moon = 1738e3
         self.g_planet = g_planet
         self.c_char = Isp * self.ge
         self.alpha = 1
+        self.polar_system = polar_system
         self.T_max = alpha_max * self.c_char
         self.T_min = alpha_min * self.c_char
         self.x2_hat_min = 0
@@ -43,7 +46,7 @@ class Dynamics(object):
     def calc_first_cond(self, alt, vel, alpha):
         return np.abs(vel) - alt * alpha / self.mass
 
-    def dynamics(self, state, t, T):
+    def dynamics1D(self, state, t, T, psi=0):
         x = state[0]
         vx = state[1]
         mass = state[2]
@@ -59,19 +62,36 @@ class Dynamics(object):
         rhs[2] = -T / self.c_char
         return rhs
 
-    def rungeonestep(self, T, pos, vel, mass):
+    def dynamics_polar(self, state, t, T, psi=0):
+        r       = state[0]
+        v       = state[1]
+        theta   = state[2]
+        omega   = state[3]
+        m       = state[4]
+
+        rhs    = np.zeros(5)
+        rhs[0] = v
+        rhs[1] = T/m * np.sin(psi) - self.mu/(r ** 2) + r * omega ** 2
+        rhs[2] = omega
+        rhs[3] = -(T/m * np.cos(psi) + 2 * v * omega)/r
+        rhs[4] = - T/self.c_char
+        return rhs
+
+    def rungeonestep(self, T, state, psi=0):
         t = self.current_time
         dt = self.step_width
-        if pos < 0:
-            vel = 0
-        x = np.array([pos, vel, mass])
-        k1 = self.dynamics(x, t, T)
+        if self.polar_system:
+            dynamics_selected = self.dynamics_polar
+        else:
+            dynamics_selected = self.dynamics1D
+        x = np.array(state)
+        k1 = dynamics_selected(x, t, T, psi)
         xk2 = x + (dt / 2.0) * k1
-        k2 = self.dynamics(xk2, (t + dt / 2.0), T)
+        k2 = dynamics_selected(xk2, (t + dt / 2.0), T, psi)
         xk3 = x + (dt / 2.0) * k2
-        k3 = self.dynamics(xk3, (t + dt / 2.0), T)
+        k3 = dynamics_selected(xk3, (t + dt / 2.0), T, psi)
         xk4 = x + dt * k3
-        k4 = self.dynamics(xk4, (t + dt), T)
+        k4 = dynamics_selected(xk4, (t + dt), T, psi)
         next_x = x + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
         self.current_time += self.step_width
         return next_x
@@ -230,7 +250,7 @@ class Dynamics(object):
         return
 
     def calc_optimal_parameters(self, init_state, max_generation, n_variables, n_individuals, range_variables):
-        ga = GeneticAlgorithm(self.step_width, init_state, max_generation, n_variables, n_individuals, range_variables)
+        ga = GeneticAlgorithm(self.step_width, self.g_planet, init_state, max_generation, n_variables, n_individuals, range_variables)
         ga.optimize(self.rungeonestep, self.c_char)
         return
 

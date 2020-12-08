@@ -11,8 +11,9 @@ from Thrust.Thruster import Thruster
 
 
 class GeneticAlgorithm(object):
-    def __init__(self, step_w, init_state, max_generation, n_variables, n_individuals, range_variables):
+    def __init__(self, step_w, g_planet, init_state, max_generation, n_variables, n_individuals, range_variables):
         self.init_state = init_state
+        self.g_planet = g_planet
         self.step_width = step_w
         self.Ah = 0.01
         self.Bh = 10.0
@@ -32,6 +33,7 @@ class GeneticAlgorithm(object):
         self.create_first_population()
         self.dynamics_update = None
         self.c_char = 200
+        self.betas = []
 
     def create_first_population(self):
         for k in range(self.n_individuals):
@@ -47,8 +49,11 @@ class GeneticAlgorithm(object):
                     type_pro = np.random.randint(1, len(self.range_variables[i]))
                     temp = self.range_variables[i][type_pro]
                     individual.append(temp)
-                else:
-                    print()
+                elif self.range_variables[i][0] == 'float_iter':
+                    temp = []
+                    for m in range(individual[2]):
+                        temp.append(np.random.uniform(self.range_variables[i][1], self.range_variables[i][2]))
+                    individual.append(temp)
             self.population.append(individual)
         return
 
@@ -57,8 +62,8 @@ class GeneticAlgorithm(object):
         self.dynamics_update = dynamics_update
         ge = 1
         self.ga_evaluate()
-        print('Generation: ', ge, ', Cost: ', max(self.current_cost))
-        best_index = self.current_cost.index(max(self.current_cost))
+        print('Generation: ', ge, ', Cost: ', min(self.current_cost))
+        best_index = self.current_cost.index(min(self.current_cost))
         percent = 0.8
         n_indiv_by_selec = round(self.n_individuals * percent)
         rest_ind = n_indiv_by_selec % 2
@@ -116,56 +121,58 @@ class GeneticAlgorithm(object):
         plt.legend()
         plt.show()
 
-    def calc_thrust(self, current_high, num_individual):
-        population_k = self.population[num_individual]
-        current_normalize_total_thrust = 0
-        for i in range(self.n_thruster):
-            ign_alt = population_k[i]
-            if current_high <= ign_alt:
-                self.thrust_comp[i].set_beta(1)
-                self.thrust_comp[i].calc_thrust_mag(self.step_width * 1000)
-            current_normalize_total_thrust += self.thrust_comp[i].current_mag_thrust_c
-        return current_normalize_total_thrust * population_k[-1]
-
     def ga_evaluate(self):
         POS = []
         VEL = []
         MASS = []
         THR = []
-        for i in range(self.n_individuals):
+        for indv in range(self.n_individuals):
             k = 0
             x1 = [self.init_state[0][0]]
             x2 = [self.init_state[1][0]]
-            x3 = [self.init_state[2][0]]
+            x3 = [self.init_state[2]]
             thr = []
             comp_thrust = []
             end_condition = False
-            for j in range(self.population[i][2]):
-                comp_thrust.append(Thruster(self.step_width, max_burn_time=self.population[i][1],
-                                            nominal_thrust=self.population[i][0] * self.c_char,
-                                            type_propellant=self.population[i][3]))
+            for j in range(self.population[indv][2]):
+                comp_thrust.append(Thruster(self.step_width, max_burn_time=self.population[indv][1],
+                                            nominal_thrust=self.population[indv][0] * self.c_char,
+                                            type_propellant=self.population[indv][3]))
                 comp_thrust[j].set_lag_coef(0.15)
 
             while end_condition is False:
+                total_thr = 0
+                for j in range(self.population[indv][2]):
+                    current_beta = self.get_beta(self.population[indv][4][j], x1[k])
+                    comp_thrust[j].set_beta(current_beta)
+                    comp_thrust[j].calc_thrust_mag(self.step_width * 1000)
+                    total_thr += comp_thrust[j].current_mag_thrust_c
+                thr.append(total_thr)
+                next_state = self.rungeonestep(thr[k], x1[k], x2[k], x3[k])
 
-                next_state = self.dynamics_update(thr[k], x1[k], x2[k], x3[k])
-
-                x1[i].append(next_state[0])
-                x2[i].append(next_state[1])
-                x3[i].append(next_state[2])
-
+                x1.append(next_state[0])
+                x2.append(next_state[1])
+                x3.append(next_state[2])
                 k += 1
-                if x1[i][k] < 0 and thr[i][k - 1] == 0.0:
+                if x1[k] < 0 and thr[k - 1] == 0.0:
                     end_condition = True
-                    x1[i].pop(k)
-                    x2[i].pop(k)
-                    x3[i].pop(k)
+                    x1.pop(k)
+                    x2.pop(k)
+                    x3.pop(k)
 
+            jcost = self.calc_cost_function(x1, x2, x3, thr, indv)
+            self.current_cost.append(jcost)
             POS.append(x1)
             VEL.append(x2)
             MASS.append(x3)
             THR.append(thr)
         return POS, VEL, MASS, THR
+
+    def get_beta(self, ignition_alt, current_alt):
+        if current_alt <= ignition_alt:
+            return 1
+        else:
+            return 0
 
     def ga_selection(self, n, direct_method=False):
         if direct_method is False:
@@ -248,15 +255,38 @@ class GeneticAlgorithm(object):
         return descent
 
     def calc_cost_function(self, pos_, vel_, mass_, thrust, k):
-        error_pos = pos_[-1] - self.tar_pos
-        error_vel = vel_[-1] - self.tar_vel
+        error_pos = pos_[-1] - self.init_state[0][1]
+        error_vel = vel_[-1] - self.init_state[1][1]
         max_engine = 2
-        current_thrust = self.population[k][-1]
-        current_engine = np.max(thrust) / current_thrust
-        if np.min(np.array(pos_)) < 0.0:
-            return (max_engine / current_engine) * 0.01 / (1 + self.Ah * np.abs(error_pos) + self.Bh * np.abs(error_vel))
-        else:
-            return 1 / (1 + self.Ah * np.abs(error_pos) + self.Bh * np.abs(error_vel))
+        current_alpha = self.population[k][0]
+        current_engine = np.max(thrust) / current_alpha / self.c_char
+        return self.Ah * np.abs(error_pos) + self.Bh * np.abs(error_vel) + current_engine/max_engine
+
+    def dynamics(self, state, t, T):
+        x = state[0]
+        vx = state[1]
+        mass = state[2]
+        rhs = np.zeros(3)
+        rhs[0] = vx
+        rhs[1] = self.g_planet + T / mass
+        rhs[2] = -T / self.c_char
+        return rhs
+
+    def rungeonestep(self, T, pos, vel, mass):
+        dt = self.step_width
+        t = 0
+        if pos < 0:
+            vel = 0
+        x = np.array([pos, vel, mass])
+        k1 = self.dynamics(x, t, T)
+        xk2 = x + (dt / 2.0) * k1
+        k2 = self.dynamics(xk2, (t + dt / 2.0), T)
+        xk3 = x + (dt / 2.0) * k2
+        k3 = self.dynamics(xk3, (t + dt / 2.0), T)
+        xk4 = x + dt * k3
+        k4 = self.dynamics(xk4, (t + dt), T)
+        next_x = x + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+        return next_x
 
     def calc_force_torque(self):
         self.force_ = 0

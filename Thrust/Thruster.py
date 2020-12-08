@@ -34,7 +34,7 @@ class Thruster(object):
         self.current_beta = 0
 
     def set_nominal_thrust(self):
-        med_thrust = np.mean(self.parametric_profile)
+        med_thrust = np.max(self.parametric_profile)
         factor = self.nominal_thrust / med_thrust
         self.parametric_profile *= factor
 
@@ -51,7 +51,7 @@ class Thruster(object):
             self.dt_profile = self.max_burn_time/(len(dataframe['Thrust(N)']) - 1)
             return dataframe['Thrust(N)'].values / max(dataframe['Thrust(N)'].values)
         else:
-            return 0.0
+            return 1.0
 
     def reset_variables(self):
         self.t_ig = 0
@@ -103,7 +103,7 @@ class Thruster(object):
                 ite = 0
                 while ite < com_period_ / self.step_width:
                     self.current_mag_thrust_c = self.nominal_thrust * (1 - np.exp((self.current_burn_time -
-                                                                               self.max_burn_time) / self.lag_coef))
+                                                                                   self.max_burn_time) / self.lag_coef))
                     ite += 1
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
@@ -125,6 +125,8 @@ class Thruster(object):
                 self.thr_is_on = True
             elif beta == 1 and self.current_beta == 1:
                 self.current_beta = beta
+            elif self.thr_is_on:
+                self.current_beta = 1
             else:
                 self.current_beta = 0
                 self.thr_is_on = False
