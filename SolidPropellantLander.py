@@ -11,7 +11,10 @@ from Thrust.Thruster import Thruster
 from tools.MonteCarlo import MonteCarlo
 from tools.Viewer import create_plot, set_plot
 from Dynamics.Dynamics import Dynamics
-
+from Thrust.PropellantGrain import PropellantGrain
+TUBULAR = 'tubular'
+BATES   = 'bates'
+STAR    = 'star'
 
 # Data Mars lander (12U (24 kg), 27U (54 kg))
 m0      = 24
@@ -95,18 +98,29 @@ dead_time   = 0.1
 t_burn_min  = 1
 t_burn_max  = 5
 par_force   = 2
-n_thruster = 16
+n_thruster = 30
 pulse_thruster  = int(n_thruster / par_force)
 
 max_fuel_mass   = 1.05 * mp
 alpha_min       = - g * m0 / c_char * 0.1
-alpha_max       = alpha_min * 60.0
+alpha_max       = alpha_min * 100.0
 print('Mass flow rate: (min, max) [kg/s]', alpha_min, alpha_max)
 print('Required engines: (min-min, min-max, max-min, max-max) [-]',
       max_fuel_mass / alpha_min / t_burn_min,
       max_fuel_mass / alpha_min / t_burn_max,
       max_fuel_mass / alpha_max / t_burn_min,
       max_fuel_mass / alpha_max / t_burn_max)
+
+# Available space for engine (square)
+space_max = 200  # mm
+thickness_case_factor = 1.4
+aux_dimension = 100     # mm
+# propellant grain
+array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)',
+                          'TRX-H609', 'KNSU']
+
+propellant_grain_endburn = PropellantGrain(array_propellant_names[2], 2, 30, 100, STAR, 8)
+propellant_grain_endburn.simulate_profile(init_pressure, init_r, dt)
 
 T_min   = alpha_min * c_char
 T_max   = alpha_max * c_char
@@ -129,10 +143,6 @@ dynamics.calc_limits_const_alpha(alpha_max)
 dynamics.show_limits()
 optimal_alpha = dynamics.calc_simple_optimal_parameters(r0)
 print(optimal_alpha)
-
-TUBULAR = 'tubular'
-BATES   = 'bates'
-STAR    = 'star'
 
 n_min_thr, n_max_thr = 1, 10
 t_burn_min, t_burn_max = 2, 20
