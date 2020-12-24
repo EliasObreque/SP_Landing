@@ -117,32 +117,32 @@ class Dynamics(object):
 
     def calc_limits_const_time(self, t1):
         self.t1 = t1
-        g = -self.g_planet
-        # Minimum
-        self.x2_char_min = self.calc_x2_char(self.alpha_min, self.t1)
-        self.x1_char_min = self.calc_x1_char(self.alpha_min, self.t1, self.x2_char_min)
-        # Maximum
-        self.x2_char_max = self.calc_x2_char(self.alpha_max, self.t1)
-        self.x1_char_max = self.calc_x1_char(self.alpha_max, self.t1, self.x2_char_max)
-        # Medium
-        self.x2_char_med = self.calc_x2_char(self.alpha_med, self.t1)
-        self.x1_char_med = self.calc_x1_char(self.alpha_med, self.t1, self.x2_char_med)
-
-        print("Minimum state parameters *")
-        print(self.x2_char_min, " [m/s] - ", self.x1_char_min, " [m]\n")
-        print("Medium state parameters * ")
-        print(self.x2_char_med, " [m/s] - ", self.x1_char_med, " [m]\n")
-        print("Maximum state parameters * ")
-        print(self.x2_char_max, " [m/s] - ",  self.x1_char_max, " [m]\n")
-
-        self.t2_min = - self.x2_char_min / g
-        self.t2_max = - self.x2_char_max / g
-        self.t2_med = - self.x2_char_med / g
-        self.x1_hat_min = self.x1_char_min + 0.5 * self.x2_char_min ** 2 / g
-        self.x1_hat_max = self.x1_char_max + 0.5 * self.x2_char_max ** 2 / g
-        self.x1_hat_med = self.x1_char_med + 0.5 * self.x2_char_med ** 2 / g
-        print("Initial state [min, max] [m]")
-        print("[", self.x1_hat_min, " ,", self.x1_hat_max, "]")
+        # g = -self.g_planet
+        # # Minimum
+        # self.x2_char_min = self.calc_x2_char(self.alpha_min, self.t1)
+        # self.x1_char_min = self.calc_x1_char(self.alpha_min, self.t1, self.x2_char_min)
+        # # Maximum
+        # self.x2_char_max = self.calc_x2_char(self.alpha_max, self.t1)
+        # self.x1_char_max = self.calc_x1_char(self.alpha_max, self.t1, self.x2_char_max)
+        # # Medium
+        # self.x2_char_med = self.calc_x2_char(self.alpha_med, self.t1)
+        # self.x1_char_med = self.calc_x1_char(self.alpha_med, self.t1, self.x2_char_med)
+        #
+        # print("Minimum state parameters *")
+        # print(self.x2_char_min, " [m/s] - ", self.x1_char_min, " [m]\n")
+        # print("Medium state parameters * ")
+        # print(self.x2_char_med, " [m/s] - ", self.x1_char_med, " [m]\n")
+        # print("Maximum state parameters * ")
+        # print(self.x2_char_max, " [m/s] - ",  self.x1_char_max, " [m]\n")
+        #
+        # self.t2_min = - self.x2_char_min / g
+        # self.t2_max = - self.x2_char_max / g
+        # self.t2_med = - self.x2_char_med / g
+        # self.x1_hat_min = self.x1_char_min + 0.5 * self.x2_char_min ** 2 / g
+        # self.x1_hat_max = self.x1_char_max + 0.5 * self.x2_char_max ** 2 / g
+        # self.x1_hat_med = self.x1_char_med + 0.5 * self.x2_char_med ** 2 / g
+        # print("Initial state [min, max] [m]")
+        # print("[", self.x1_hat_min, " ,", self.x1_hat_max, "]")
         return
 
     def calc_limits_const_alpha(self, alpha):

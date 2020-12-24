@@ -32,18 +32,24 @@ v0  = 0
 # Initial position Polar
 r_moon = 1738e3
 mu = 4.9048695e12
-rrp = 2000 + r_moon
-rra = 68000  + r_moon
+rrp = 2000e3
+rra = 68000e3
 ra = 0.5 * (rra + rrp)
 # Orbital velocity
 vp = np.sqrt(mu * (2 / rrp - 1 / ra))
+va = np.sqrt(mu * (2 / rra - 1 / ra))
+
 print('Perilune velocity [m/s]: ', vp)
+print('Apolune velocity [m/s]: ', va)
 moon_period = 2 * np.pi * np.sqrt(ra ** 3 / mu)
-print('Moon period: ', moon_period / 86400, ' days')
+
 # Falling speed required
 vfp = np.sqrt(2 * mu / rrp * (1 - r_moon / rrp))
+vfa = np.sqrt(2 * mu / rra * (1 - r_moon / rra))
 dv_req_p = vp + vfp
-
+dv_req_a = vp + vfa
+print('Accumulated velocity from perilune [m/s]: ', dv_req_p)
+print('Accumulated velocity from apolune [m/s]: ', dv_req_a)
 
 # Mass required
 mass_ratio = np.exp(dv_req_p / c_char)
@@ -93,10 +99,10 @@ p_mf = m0
 
 
 # Set propellant
-dt          = 0.1
+dt          = 10
 dead_time   = 0.1
 t_burn_min  = 1
-t_burn_max  = 5
+t_burn_max  = 10
 par_force   = 2
 n_thruster = 30
 pulse_thruster  = int(n_thruster / par_force)
@@ -119,8 +125,10 @@ aux_dimension = 100     # mm
 array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)',
                           'TRX-H609', 'KNSU']
 
-propellant_grain_endburn = PropellantGrain(array_propellant_names[2], 2, 30, 100, STAR, 8)
-propellant_grain_endburn.simulate_profile(init_pressure, init_r, dt)
+propellant_grain_endburn = PropellantGrain(array_propellant_names[2], 4,  30, 100, BATES, 8)
+sim_data_endburn = propellant_grain_endburn.simulate_profile(init_pressure=101325, init_temperature=25, dt=0.1)
+plt.plot(sim_data_endburn[0], sim_data_endburn[4])
+plt.show()
 
 T_min   = alpha_min * c_char
 T_max   = alpha_max * c_char
@@ -138,11 +146,11 @@ sf   = []
 
 polar_system = True
 dynamics = Dynamics(dt, Isp, g, m0, alpha_min, alpha_max, 2, 20.0, polar_system=polar_system)
-dynamics.calc_limits_const_time(t_burn_total)
-dynamics.calc_limits_const_alpha(alpha_max)
-dynamics.show_limits()
-optimal_alpha = dynamics.calc_simple_optimal_parameters(r0)
-print(optimal_alpha)
+# dynamics.calc_limits_const_time(t_burn_max)
+# dynamics.calc_limits_const_alpha(alpha_max)
+# dynamics.show_limits()
+# optimal_alpha = dynamics.calc_simple_optimal_parameters(r0)
+# print(optimal_alpha)
 
 n_min_thr, n_max_thr = 1, 10
 t_burn_min, t_burn_max = 2, 20
@@ -155,13 +163,12 @@ init_state = [[x1_0, x1_f],
               m0]
 
 sim_time = moon_period
-
 # dynamics.calc_optimal_parameters(init_state, max_generation=100, n_variables=5, n_individuals=20,
 #                                  range_variables=[['float', alpha_min, alpha_max], ['float', t_burn_min, t_burn_max],
 #                                                   ['int', n_min_thr, n_max_thr], ['str', TUBULAR, BATES, STAR],
 #                                                   ['float_iter', x1_0, x1_f]])
-T_opt = optimal_alpha * c_char
-opt_thruster = Thruster(dt, t_burn_total, nominal_thrust=T_opt, type_propellant=BATES)
+# T_opt = optimal_alpha * c_char
+#opt_thruster = Thruster(dt, t_burn_total, nominal_thrust=T_opt, type_propellant=BATES)
 
 for i in range(N_case):
     k = 0
@@ -193,14 +200,14 @@ for i in range(N_case):
     temp_t_burn = 0
     temp_dt = 0
     while end_condition is False:
-        sf[i].append(dynamics.control_sf(x1[i][k], x2[i][k], x3[i][k], T_opt))
-        if sf[i][k] <= 0.0:
-            temp_thr = T_opt
-            opt_thruster.set_beta(1.0)
-            temp_dt = dt
-        if temp_t_burn >= t_burn_total:
-            temp_thr = 0.0
-            opt_thruster.set_beta(0.0)
+        # sf[i].append(dynamics.control_sf(x1[i][k], x2[i][k], x3[i][k], T_opt))
+        # if sf[i][k] <= 0.0:
+        #     temp_thr = T_opt
+        #     opt_thruster.set_beta(1.0)
+        #     temp_dt = dt
+        # if temp_t_burn >= t_burn_total:
+        #     temp_thr = 0.0
+        #     opt_thruster.set_beta(0.0)
 
         # opt_thruster.calc_thrust_mag(100)
         # opt_thruster.log_value()
