@@ -12,6 +12,8 @@ from tools.MonteCarlo import MonteCarlo
 from tools.Viewer import create_plot, set_plot
 from Dynamics.Dynamics import Dynamics
 from Thrust.PropellantGrain import PropellantGrain
+
+LINEAR  = 'linear'
 TUBULAR = 'tubular'
 BATES   = 'bates'
 STAR    = 'star'
@@ -19,19 +21,21 @@ STAR    = 'star'
 # Data Mars lander (12U (24 kg), 27U (54 kg))
 m0      = 24
 Isp     = 325
-g       = -1.62
 ge      = 9.807
-den_p   = 1.74
-
 c_char  = Isp * ge
 
+# Moon data
+g       = -1.62
+den_p   = 1.74
+r_moon = 1738e3
+mu = 4.9048695e12
+
 # Initial position 1D
-r0  = 5000
+r0  = 2000e3 - r_moon
 v0  = 0
 
 # Initial position Polar
-r_moon = 1738e3
-mu = 4.9048695e12
+
 rrp = 2000e3
 rra = 68000e3
 ra = 0.5 * (rra + rrp)
@@ -99,7 +103,7 @@ p_mf = m0
 
 
 # Set propellant
-dt          = 10
+dt          = 0.1
 dead_time   = 0.1
 t_burn_min  = 1
 t_burn_max  = 10
@@ -108,8 +112,8 @@ n_thruster = 30
 pulse_thruster  = int(n_thruster / par_force)
 
 max_fuel_mass   = 1.05 * mp
-alpha_min       = - g * m0 / c_char * 0.1
-alpha_max       = alpha_min * 100.0
+alpha_min       = - g * m0 / c_char
+alpha_max       = alpha_min * 50.0
 print('Mass flow rate: (min, max) [kg/s]', alpha_min, alpha_max)
 print('Required engines: (min-min, min-max, max-min, max-max) [-]',
       max_fuel_mass / alpha_min / t_burn_min,
@@ -125,10 +129,10 @@ aux_dimension = 100     # mm
 array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)',
                           'TRX-H609', 'KNSU']
 
-propellant_grain_endburn = PropellantGrain(array_propellant_names[2], 4,  30, 100, BATES, 8)
-sim_data_endburn = propellant_grain_endburn.simulate_profile(init_pressure=101325, init_temperature=25, dt=0.1)
-plt.plot(sim_data_endburn[0], sim_data_endburn[4])
-plt.show()
+# propellant_grain_endburn = PropellantGrain(array_propellant_names[2], 4,  30, 100, BATES, 8)
+# sim_data_endburn = propellant_grain_endburn.simulate_profile(init_pressure=101325, init_temperature=25, dt=0.1)
+# plt.plot(sim_data_endburn[0], sim_data_endburn[4])
+# plt.show()
 
 T_min   = alpha_min * c_char
 T_max   = alpha_max * c_char
@@ -145,15 +149,16 @@ psi  = []
 sf   = []
 
 polar_system = True
-dynamics = Dynamics(dt, Isp, g, m0, alpha_min, alpha_max, 2, 20.0, polar_system=polar_system)
+dynamics = Dynamics(dt, Isp, g, m0, alpha_min, alpha_max, 2, 20.0, polar_system=False)
 # dynamics.calc_limits_const_time(t_burn_max)
 # dynamics.calc_limits_const_alpha(alpha_max)
 # dynamics.show_limits()
 # optimal_alpha = dynamics.calc_simple_optimal_parameters(r0)
 # print(optimal_alpha)
 
-n_min_thr, n_max_thr = 1, 10
-t_burn_min, t_burn_max = 2, 20
+n_min_thr, n_max_thr = 10, 10
+t_burn_min, t_burn_max = 2, 100
+r0 = 5000
 x1_0 = r0
 x2_0 = v0
 x1_f = 0
@@ -163,12 +168,12 @@ init_state = [[x1_0, x1_f],
               m0]
 
 sim_time = moon_period
-# dynamics.calc_optimal_parameters(init_state, max_generation=100, n_variables=5, n_individuals=20,
-#                                  range_variables=[['float', alpha_min, alpha_max], ['float', t_burn_min, t_burn_max],
-#                                                   ['int', n_min_thr, n_max_thr], ['str', TUBULAR, BATES, STAR],
-#                                                   ['float_iter', x1_0, x1_f]])
+dynamics.calc_optimal_parameters(init_state, max_generation=20, n_individuals=20,
+                                 range_variables=[['float', alpha_min/n_min_thr, alpha_max], ['float', t_burn_min, t_burn_max],
+                                                  ['int', n_max_thr], ['str', LINEAR],
+                                                  ['float_iter', x1_0, x1_f]])
 # T_opt = optimal_alpha * c_char
-#opt_thruster = Thruster(dt, t_burn_total, nominal_thrust=T_opt, type_propellant=BATES)
+# opt_thruster = Thruster(dt, t_burn_total, nominal_thrust=T_opt, type_propellant=BATES)
 
 for i in range(N_case):
     k = 0

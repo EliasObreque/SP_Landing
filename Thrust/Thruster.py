@@ -8,8 +8,10 @@ email: els.obrq@gmail.com
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from .PropellantGrain import PropellantGrain
 DEG2RAD = np.pi/180
 
+LINEAR  = 'linear'
 TUBULAR = 'tubular'
 BATES   = 'bates'
 STAR    = 'star'
@@ -69,6 +71,8 @@ class Thruster(object):
         com_period_ /= 1000
         if self.typye_propellant == TUBULAR:
             self.calc_tubular_thrust(com_period_)
+        elif self.typye_propellant == LINEAR:
+            self.calc_linear_thrust(com_period_)
         else:
             self.calc_parametric_thrust(com_period_)
         return
@@ -105,6 +109,20 @@ class Thruster(object):
                     self.current_mag_thrust_c = self.nominal_thrust * (1 - np.exp((self.current_burn_time -
                                                                                    self.max_burn_time) / self.lag_coef))
                     ite += 1
+                self.current_time += self.step_width
+                self.current_burn_time += self.step_width
+            else:
+                self.current_mag_thrust_c = 0
+                self.thr_is_burned = True
+                self.current_time += self.step_width
+        else:
+            self.current_mag_thrust_c = 0
+            self.current_time += self.step_width
+
+    def calc_linear_thrust(self, com_period_):
+        if self.thr_is_on:
+            if self.current_burn_time <= self.max_burn_time:
+                self.current_mag_thrust_c = self.nominal_thrust
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             else:

@@ -249,8 +249,8 @@ class Dynamics(object):
         plt.show()
         return
 
-    def calc_optimal_parameters(self, init_state, max_generation, n_variables, n_individuals, range_variables):
-        ga = GeneticAlgorithm(self.step_width, self.g_planet, init_state, max_generation, n_variables, n_individuals, range_variables)
+    def calc_optimal_parameters(self, init_state, max_generation, n_individuals, range_variables):
+        ga = GeneticAlgorithm(1, self.g_planet, init_state, max_generation, n_individuals, range_variables)
         ga.optimize(self.rungeonestep, self.c_char)
         return
 
