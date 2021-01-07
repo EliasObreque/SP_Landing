@@ -3,66 +3,68 @@ Created: 9/14/2020
 Autor: Elias Obreque Sepulveda
 email: els.obrq@gmail.com
 
+array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)', 'TRX-H609', 'KNSU']
+
 """
 from matplotlib import pyplot as plt
 import numpy as np
-import copy
-from Thrust.Thruster import Thruster
+from tools.ext_requirements import velocity_req, mass_req
 from tools.MonteCarlo import MonteCarlo
 from tools.Viewer import create_plot, set_plot
 from Dynamics.Dynamics import Dynamics
-from Thrust.PropellantGrain import PropellantGrain
+from Thrust.PropellantGrain import propellant_data
 
-LINEAR  = 'linear'
+LINEAR = 'linear'
 TUBULAR = 'tubular'
-BATES   = 'bates'
-STAR    = 'star'
+BATES = 'bates'
+STAR = 'star'
+ONE_D = '1D'
+POLAR = 'polar'
 
+reference_frame = ONE_D
+
+# -----------------------------------------------------------------------------------------------------#
 # Data Mars lander (12U (24 kg), 27U (54 kg))
-m0      = 24
-Isp     = 325
-ge      = 9.807
-c_char  = Isp * ge
+m0 = 24
+propellant_name = 'CDT(80)'
+selected_propellant = propellant_data[propellant_name]
+Isp   = selected_propellant['Isp']
+den_p = selected_propellant['density']
+ge    = 9.807
+c_char = Isp * ge
 
-# Moon data
-g       = -1.62
-den_p   = 1.74
+# Available space for engine (square)
+space_max = 200  # mm
+thickness_case_factor = 1.4
+aux_dimension = 100  # mm
+
+# -----------------------------------------------------------------------------------------------------#
+# Center body data
+# Moon
+g_center_body = -1.62
 r_moon = 1738e3
 mu = 4.9048695e12
 
-# Initial position 1D
-r0  = 2000e3 - r_moon
-v0  = 0
+# -----------------------------------------------------------------------------------------------------#
+# Initial position for 1D
+r0 = 2000e3 - r_moon
+v0 = 0
 
-# Initial position Polar
+# Target localization
+rd = 0
+vd = 0
 
+# -----------------------------------------------------------------------------------------------------#
+# Initial position for Polar coordinate
 rrp = 2000e3
 rra = 68000e3
 ra = 0.5 * (rra + rrp)
 # Orbital velocity
 vp = np.sqrt(mu * (2 / rrp - 1 / ra))
 va = np.sqrt(mu * (2 / rra - 1 / ra))
-
 print('Perilune velocity [m/s]: ', vp)
 print('Apolune velocity [m/s]: ', va)
 moon_period = 2 * np.pi * np.sqrt(ra ** 3 / mu)
-
-# Falling speed required
-vfp = np.sqrt(2 * mu / rrp * (1 - r_moon / rrp))
-vfa = np.sqrt(2 * mu / rra * (1 - r_moon / rra))
-dv_req_p = vp + vfp
-dv_req_a = vp + vfa
-print('Accumulated velocity from perilune [m/s]: ', dv_req_p)
-print('Accumulated velocity from apolune [m/s]: ', dv_req_a)
-
-# Mass required
-mass_ratio = np.exp(dv_req_p / c_char)
-m1 = m0 / mass_ratio
-mp = m0 - m1
-print('Required mass for propulsion: ', mp, ' [kg]')
-print('Required volume for propulsion: ', mp/den_p, ' [cc]')
-
-print('Available mass for payload, structure, and subsystems', m1, ' [kg]')
 
 p_r0 = rrp
 p_v0 = 0
@@ -70,9 +72,146 @@ p_theta0 = 0
 p_omega0 = vp / rrp
 p_m0 = m0
 
+# Target localization
+p_rf = r_moon
+p_vf = 0
+p_thetaf = 0
+p_omegaf = 0
+p_mf = m0
 
+# -----------------------------------------------------------------------------------------------------#
+# Initial requirements for 1D
+print('--------------------------------------------------------------------------')
+print('1D requirements')
+dv_req = np.sqrt(2 * r0 * np.abs(g_center_body))
+print('Accumulated velocity[m/s]: ', dv_req)
+mp, m1 = mass_req(dv_req, c_char, den_p, m0)
+
+
+# Initial requirements for polar
+print('\nPolar requirements')
+dv_req_p, dv_req_a = velocity_req(vp, va, r_moon, mu, rrp, rra)
+p_mp, p_m1 = mass_req(dv_req_p, c_char, den_p, m0)
+print('--------------------------------------------------------------------------')
+
+# -----------------------------------------------------------------------------------------------------#
+# Simulation time
+dt = 0.1
+simulation_time = moon_period
+# -----------------------------------------------------------------------------------------------------#
+# System Propulsion properties
+t_burn_min = 4  # s
+t_burn_max = 50  # s
+n_thruster = 20
+par_force  = 2  # Engines working simultaneously
+
+pulse_thruster = int(n_thruster / par_force)
+
+total_alpha_min = - g_center_body * m0 / c_char
+
+# for 1D
+total_alpha_max = mp / t_burn_min
+print('Mass flow rate (1D): (min, max) [kg/s]', total_alpha_min, total_alpha_max)
+
+# for Polar
+total_alpha_max_p = p_mp / t_burn_min
+print('Mass flow rate (Polar): (min, max) [kg/s]', total_alpha_min, total_alpha_max_p)
+
+max_fuel_mass = 1.05 * mp  # Factor: 1.05
+
+print('Required engines: (min-min, min-max, max-min, max-max) [-]',
+      max_fuel_mass / total_alpha_min / t_burn_min,
+      max_fuel_mass / total_alpha_min / t_burn_max,
+      max_fuel_mass / total_alpha_max / t_burn_min,
+      max_fuel_mass / total_alpha_max / t_burn_max)
+
+print('Required engines: (min-min, min-max, max-min, max-max) [-]',
+      max_fuel_mass / total_alpha_min / t_burn_min,
+      max_fuel_mass / total_alpha_min / t_burn_max,
+      max_fuel_mass / total_alpha_max_p / t_burn_min,
+      max_fuel_mass / total_alpha_max_p / t_burn_max)
+
+T_min = total_alpha_min * c_char
+T_max = total_alpha_max * c_char
+print('Max thrust: (min, max) [N]', T_min, T_max)
+print('--------------------------------------------------------------------------')
+
+# -----------------------------------------------------------------------------------------------------#
+# Simple one engine example of solution for 1D
+dynamics = Dynamics(dt, Isp, g_center_body, mu, r_moon, m0, reference_frame)
+dynamics.calc_limits_by_single_hamiltonian(t_burn_min, t_burn_max, total_alpha_min, total_alpha_max)
+# Calc. optimal alpha (m_dot)
+optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(r0, total_alpha_min, total_alpha_max,
+                                                                            t_burn_min)
+print(optimal_alpha)
+x0 = [r0, v0, m0]
+xf = [0, 0, m1]
+time_options = [0, simulation_time, dt]
+
+x_states, time_series, thr = dynamics.run_simulation(x0, xf, time_options, optimal_alpha, t_burn_min)
+
+plt.figure()
+plt.plot(time_series, x_states[:, 0])
+plt.show()
+
+# -----------------------------------------------------------------------------------------------------#
+# Optimal solution with GA and PMP
+n_min_thr, n_max_thr = 10, 10
+t_burn_min, t_burn_max = 2, 100
+
+x1_0 = r0
+x2_0 = v0
+x1_f = 0
+x2_f = 0
+init_state = [[x1_0, x1_f],
+              [x2_0, x2_f],
+              m0]
+
+
+dynamics.calc_optimal_parameters(init_state, max_generation=100, n_individuals=40,
+                                 range_variables=[['float', total_alpha_min / n_min_thr, total_alpha_max],
+                                                  ['float', t_burn_min, t_burn_max],
+                                                  ['int', n_max_thr], ['str', LINEAR],
+                                                  ['float_iter', x1_0, x1_f]])
+# T_opt = optimal_alpha * c_char
+# opt_thruster = Thruster(dt, t_burn_total, nominal_thrust=T_opt, type_propellant=BATES)
+
+
+time = []
+x1 = []
+x2 = []
+x3 = []
+x4 = []
+x5 = []
+thr = []
+psi = []
+sf = []
+
+# plot
+opt_plot1 = '-b'
+opt_plot2 = 'or'
+create_plot()
+
+# for i in range(N_case):
+#     set_plot(1, time[i], x1[i], opt_plot1, opt_plot2)
+#     set_plot(2, time[i], x2[i], opt_plot1, opt_plot2)
+#     set_plot(3, time[i], x3[i], opt_plot1, opt_plot2)
+#     set_plot(4, time[i], x4[i], opt_plot1, opt_plot2)
+#     set_plot(5, time[i], x5[i], opt_plot1, opt_plot2)
+#     set_plot(6, time[i], thr[i], opt_plot1, opt_plot2)
+#     set_plot(7, time[i], (np.array(x1[i]) - r_moon), opt_plot1, opt_plot2)
+#     set_plot(8, np.array(x1[i]) * (np.sin(x3[i])), np.array(x1[i]) * (np.cos(x3[i])), opt_plot1, opt_plot2)
+# plt.show()
+
+# thrust_comp_class = Thruster(dt, t_act_max, max_thrust=T_max, type_propellant=STAR)
+# thrust_comp = []
+# for i in range(n_thruster):
+#     thrust_comp.append(copy.deepcopy(thrust_comp_class))
+#     thrust_comp[i].set_lag_coef(0.2)
+
+print('Finished')
 # Standard dev.
-perc = 0    # 0 - 100%
+perc = 0  # 0 - 100%
 sdr = r0 * perc / 100
 sdv = 0 * perc / 100
 sdm = 0 * perc / 100
@@ -84,187 +223,8 @@ rN = MonteCarlo(r0, sdr, N_case).random_value()
 vN = MonteCarlo(v0, sdv, N_case).random_value()
 mN = MonteCarlo(m0, sdm, N_case).random_value()
 
-p_rN     = MonteCarlo(p_r0, sdr, N_case).random_value()
-p_vN     = MonteCarlo(p_v0, sdv, N_case).random_value()
+p_rN = MonteCarlo(p_r0, sdr, N_case).random_value()
+p_vN = MonteCarlo(p_v0, sdv, N_case).random_value()
 p_thetaN = MonteCarlo(p_theta0, sdv, N_case).random_value()
 p_omegaN = MonteCarlo(p_omega0, sdv, N_case).random_value()
-p_mN     = MonteCarlo(p_m0, sdm, N_case).random_value()
-
-# Target localitation
-rd = 0
-vd = 0
-
-# Target localitation
-p_rf = r_moon
-p_vf = 0
-p_thetaf = 0
-p_omegaf = 0
-p_mf = m0
-
-
-# Set propellant
-dt          = 0.1
-dead_time   = 0.1
-t_burn_min  = 1
-t_burn_max  = 10
-par_force   = 2
-n_thruster = 30
-pulse_thruster  = int(n_thruster / par_force)
-
-max_fuel_mass   = 1.05 * mp
-alpha_min       = - g * m0 / c_char
-alpha_max       = alpha_min * 50.0
-print('Mass flow rate: (min, max) [kg/s]', alpha_min, alpha_max)
-print('Required engines: (min-min, min-max, max-min, max-max) [-]',
-      max_fuel_mass / alpha_min / t_burn_min,
-      max_fuel_mass / alpha_min / t_burn_max,
-      max_fuel_mass / alpha_max / t_burn_min,
-      max_fuel_mass / alpha_max / t_burn_max)
-
-# Available space for engine (square)
-space_max = 200  # mm
-thickness_case_factor = 1.4
-aux_dimension = 100     # mm
-# propellant grain
-array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)',
-                          'TRX-H609', 'KNSU']
-
-# propellant_grain_endburn = PropellantGrain(array_propellant_names[2], 4,  30, 100, BATES, 8)
-# sim_data_endburn = propellant_grain_endburn.simulate_profile(init_pressure=101325, init_temperature=25, dt=0.1)
-# plt.plot(sim_data_endburn[0], sim_data_endburn[4])
-# plt.show()
-
-T_min   = alpha_min * c_char
-T_max   = alpha_max * c_char
-print('Max thrust: (min, max) [N]', T_min, T_max)
-
-time = []
-x1   = []
-x2   = []
-x3   = []
-x4   = []
-x5   = []
-thr  = []
-psi  = []
-sf   = []
-
-polar_system = True
-dynamics = Dynamics(dt, Isp, g, m0, alpha_min, alpha_max, 2, 20.0, polar_system=False)
-# dynamics.calc_limits_const_time(t_burn_max)
-# dynamics.calc_limits_const_alpha(alpha_max)
-# dynamics.show_limits()
-# optimal_alpha = dynamics.calc_simple_optimal_parameters(r0)
-# print(optimal_alpha)
-
-n_min_thr, n_max_thr = 10, 10
-t_burn_min, t_burn_max = 2, 100
-r0 = 5000
-x1_0 = r0
-x2_0 = v0
-x1_f = 0
-x2_f = 0
-init_state = [[x1_0, x1_f],
-              [x2_0, x2_f],
-              m0]
-
-sim_time = moon_period
-dynamics.calc_optimal_parameters(init_state, max_generation=20, n_individuals=20,
-                                 range_variables=[['float', alpha_min/n_min_thr, alpha_max], ['float', t_burn_min, t_burn_max],
-                                                  ['int', n_max_thr], ['str', LINEAR],
-                                                  ['float_iter', x1_0, x1_f]])
-# T_opt = optimal_alpha * c_char
-# opt_thruster = Thruster(dt, t_burn_total, nominal_thrust=T_opt, type_propellant=BATES)
-
-for i in range(N_case):
-    k = 0
-    x1.append([])
-    x2.append([])
-    x3.append([])
-    x4.append([])
-    x5.append([])
-    sf.append([])
-    thr.append([])
-    psi.append([])
-    time.append([])
-
-    if polar_system:
-        x1[i].append(p_rN[i])
-        x2[i].append(p_vN[i])
-        x3[i].append(p_thetaN[i])
-        x4[i].append(p_omegaN[i])
-        x5[i].append(p_mN[i])
-    else:
-        x1[i].append(rN[i])
-        x2[i].append(vN[i])
-        x3[i].append(mN[i])
-        x4[i].append(mN[i])
-        x5[i].append(mN[i])
-
-    end_condition = False
-    temp_thr = 0
-    temp_t_burn = 0
-    temp_dt = 0
-    while end_condition is False:
-        # sf[i].append(dynamics.control_sf(x1[i][k], x2[i][k], x3[i][k], T_opt))
-        # if sf[i][k] <= 0.0:
-        #     temp_thr = T_opt
-        #     opt_thruster.set_beta(1.0)
-        #     temp_dt = dt
-        # if temp_t_burn >= t_burn_total:
-        #     temp_thr = 0.0
-        #     opt_thruster.set_beta(0.0)
-
-        # opt_thruster.calc_thrust_mag(100)
-        # opt_thruster.log_value()
-        # print(temp_thr, opt_thruster.current_mag_thrust_c)
-        # temp_thr = opt_thruster.current_mag_thrust_c
-        temp_t_burn += temp_dt
-        thr[i].append(0)
-        psi[i].append(0)
-        state = [x1[i][k], x2[i][k], x3[i][k], x4[i][k], x5[i][k]]
-        next_state = dynamics.rungeonestep(thr[i][k], state, psi[i][k])
-        x1[i].append(next_state[0])
-        x2[i].append(next_state[1])
-        x3[i].append(next_state[2])
-        x4[i].append(next_state[3])
-        x5[i].append(next_state[4])
-
-        k += 1
-        if sim_time < k * dt or (x1[i][k] < 0 and thr[i][k-1] == 0.0):
-            end_condition = True
-            x1[i].pop(k)
-            x2[i].pop(k)
-            x3[i].pop(k)
-            x4[i].pop(k)
-            x5[i].pop(k)
-
-    time[i] = np.arange(0, len(x1[i])) * dt
-
-# plot
-opt_plot1 = '-b'
-opt_plot2 = 'or'
-create_plot()
-
-for i in range(N_case):
-    set_plot(1, time[i], x1[i], opt_plot1, opt_plot2)
-    set_plot(2, time[i], x2[i], opt_plot1, opt_plot2)
-    set_plot(3, time[i], x3[i], opt_plot1, opt_plot2)
-    set_plot(4, time[i], x4[i], opt_plot1, opt_plot2)
-    set_plot(5, time[i], x5[i], opt_plot1, opt_plot2)
-    set_plot(6, time[i], thr[i], opt_plot1, opt_plot2)
-    set_plot(7, time[i], (np.array(x1[i]) - r_moon), opt_plot1, opt_plot2)
-    set_plot(8, np.array(x1[i]) * (np.sin(x3[i])), np.array(x1[i]) * (np.cos(x3[i])), opt_plot1, opt_plot2)
-plt.show()
-
-# thrust_comp_class = Thruster(dt, t_act_max, max_thrust=T_max, type_propellant=STAR)
-# thrust_comp = []
-# for i in range(n_thruster):
-#     thrust_comp.append(copy.deepcopy(thrust_comp_class))
-#     thrust_comp[i].set_lag_coef(0.2)
-
-print('Finished')
-
-
-
-
-
+p_mN = MonteCarlo(p_m0, sdm, N_case).random_value()
