@@ -5,10 +5,14 @@ Created by:
 @Date: 1/6/2021 5:33 PM 
 els.obrq@gmail.com
 
+ref: Meditch. J. On the Problem of Optimal Thrust Programming For a Lunar Soft Landing
 """
 import numpy as np
 from matplotlib import pyplot as plt
-tolerance = 1e-6
+tolerance = 1e-9
+TUBULAR = 'tubular'
+BATES = 'bates'
+STAR = 'star'
 
 
 class HamilCalcLimit(object):
@@ -18,6 +22,8 @@ class HamilCalcLimit(object):
         self.g_planet = g_planet
         self.t1 = 0
         self.alpha = 0
+        self.b = 0
+        self.a = 0
         # Variables for constant time
         self.t2_min_t = 0
         self.t2_max_t = 0
@@ -105,21 +111,19 @@ class HamilCalcLimit(object):
     def calc_x2_char(self, alpha, t1):
         g = self.g_planet
         arg_ = 1 - alpha * t1 / self.mass
-        return self.c_char * np.log(arg_) + g * t1
+        return self.c_char * np.log(arg_) - g * t1
 
     def calc_x1_char(self, alpha, t1, x2_c=None):
         g = self.g_planet
         arg_ = 1 - alpha * t1 / self.mass
-        if x2_c is None:
-            x2_c = self.calc_x2_char(alpha, t1)
-        return 0.5 * g * t1 ** 2 - self.c_char * t1 - self.c_char * self.mass * arg_ * np.log(arg_) / alpha - x2_c * t1
+        return 0.5 * g * t1 ** 2 - self.c_char * t1 - self.c_char * self.mass * np.log(arg_) / alpha
 
     def calc_simple_optimal_parameters(self, r0, alpha_min, alpha_max, t_burn):
         a_cur = alpha_min
         b_cur = alpha_max
         f_l, f_r = self.bisection_method(a_cur, b_cur, r0, t_burn)
         c_cur = (a_cur + b_cur)/2
-        f_c, _ = self.bisection_method(c_cur, 5, r0, t_burn)
+        f_c, _ = self.bisection_method(c_cur, 0, r0, t_burn)
         c_last = c_cur
         while np.abs(f_c) > tolerance:
             if f_c < 0 and f_l < 0:
@@ -135,19 +139,49 @@ class HamilCalcLimit(object):
                 a_cur = c_last
                 f_l, f_r = self.bisection_method(a_cur, b_cur, r0, t_burn)
             c_cur = (a_cur + b_cur)/2
-            f_c, _ = self.bisection_method(c_cur, 5, r0, t_burn)
+            f_c, _ = self.bisection_method(c_cur, 0, r0, t_burn)
             c_last = c_cur
-        return c_cur
+        self.alpha = c_last
+        self.b = self.c_char * self.alpha ** 2 / (2 * self.mass ** 2)
+        self.a = 0.5 * (self.c_char * self.alpha + self.g_planet * self.mass) / self.mass
+        print('--------------------------------------------------------------------------')
+        print("Optimal alpha (m_dot) for t_burn = ", t_burn, " [s]: ", self.alpha)
+        print('Parameters [a] and [b]: ', self.a, ' - ', self.b)
+        print('Height error: ', f_c)
+        return self.alpha
 
     def bisection_method(self, var_left, var_right, r0, t_burn):
         f_l = r0 - self.calc_x1_char(var_left, t_burn) +\
               0.5 * self.calc_x2_char(var_left, t_burn) ** 2 / self.g_planet
-        f_r = r0 - self.calc_x1_char(var_right, t_burn) +\
-              0.5 * self.calc_x2_char(var_right, t_burn) ** 2 / self.g_planet
+        if var_right != 0:
+            f_r = r0 - self.calc_x1_char(var_right, t_burn) +\
+                  0.5 * self.calc_x2_char(var_right, t_burn) ** 2 / self.g_planet
+        else:
+            f_r = 0
         return -f_l, -f_r
 
     def calc_first_cond(self, alt, vel, alpha):
         return np.abs(vel) - alt * alpha / self.mass
+
+    def get_signal_control(self, state):
+        x1 = state[0]
+        x2 = state[1]
+        if x1 >= 0:
+            sf = (self.b / self.a) * x1 + 2 * self.a * np.sqrt(x1 / self.a) + x2 + 10
+        else:
+            sf = 0
+        return sf
+
+    @staticmethod
+    def print_simulation_data(x_states, mp, m0, r0):
+        print('--------------------------------------------------------------------------')
+        print('Error position [m]: ', abs(round(x_states[-1, 0], 2)),
+              ' - Error velocity [m/s]: ', abs(round(x_states[-1, 1], 2)),
+              'Final mass [kg]: ', round(x_states[-1, 2], 2))
+        print('Error position %: ', abs(round(x_states[-1, 0] / r0 * 100.0, 2)),
+              'Used mass [kg]: ', round(m0 - x_states[-1, 2], 2), '[', round(x_states[-1, 2] / m0 * 100.0, 2), ' %]',
+              'Theoretical mass [kg]:', mp)
+        return
 
     def calc_online_t1(self, x1, x2, x3, alpha):
         A = -0.5*self.g_planet * alpha
@@ -244,3 +278,36 @@ class HamilCalcLimit(object):
         plt.plot(x1_max_a, x2_max_a, 'r', label=r'sf: $tb_{max}$ =' + str(round(t_burn_max, 2)))
         plt.legend()
         return
+
+    @staticmethod
+    def plot_1d_simulation(x_states, time_series, thr):
+        """
+        Comments:
+        - The graphs show a decrease close to the optimum
+        - The relative error is low at the endpoint
+        - Although the error is small, in practice this solution is not viable because it does not consider the
+         constraint x1> 0.
+        """
+        plt.figure()
+        plt.grid()
+        plt.xlabel('Altitude [m]')
+        plt.ylabel('Velocity [m/s]')
+        plt.plot(x_states[:, 0], x_states[:, 1])
+
+        plt.figure()
+        plt.ylabel('Altitude [m]')
+        plt.xlabel('Time [s]')
+        plt.grid()
+        plt.plot(time_series, x_states[:, 0])
+
+        plt.figure()
+        plt.ylabel('Velocity [m/s]')
+        plt.xlabel('Time [s]')
+        plt.grid()
+        plt.plot(time_series, x_states[:, 1])
+
+        plt.figure()
+        plt.ylabel('Thrust [N]')
+        plt.xlabel('Time [s]')
+        plt.grid()
+        plt.plot(time_series, thr)

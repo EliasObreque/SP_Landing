@@ -32,24 +32,31 @@ g2kg = 1e-3
 mm3_2_cm3 = 1e-3
 R_g = 8314.0  # J/kmol K
 C2K = 273.15
+ge  = 9.807
 
 
 class PropellantGrain(GeometryGrain):
-    def __init__(self, selected_propellant, diameter_int, diameter_ext, large, geometry_grain, *aux_dimension):
-        GeometryGrain.__init__(geometry_grain, diameter_int, diameter_ext, large, *aux_dimension)
+    def __init__(self, dt, propellant_properties, *aux_dimension):
+        # Geometry
+        self.geometry_grain = propellant_properties['geometry']
+        if self.geometry_grain is not None:
+            diameter_int = propellant_properties['geometry']['diameter_int']
+            diameter_ext = propellant_properties['geometry']['diameter_ext']
+            large        = propellant_properties['geometry']['large']
+            GeometryGrain.__init__(self.geometry_grain, diameter_int, diameter_ext, large, *aux_dimension)
+            volume_convergent       = (np.pi * 10 * (diameter_ext * 0.5) ** 2) / 3
+            self.volume_case        = volume_convergent + self.selected_geometry.free_volume
+            self.init_volume_case   = self.volume_case
+            self.init_mass = self.density * self.selected_geometry.volume_propellant  # kg
         # Propellant
+        selected_propellant = propellant_properties['propellant_name']
         self.selected_propellant = propellant_data[selected_propellant]
+        self.c_char              = self.selected_propellant['Isp'] * ge
         self.r_gases             = R_g / self.selected_propellant['molecular_weight']
         self.small_gamma         = self.selected_propellant['small_gamma']
         self.big_gamma           = self.calc_big_gamma()
         self.density             = self.selected_propellant['density'] * 1e3
-
-        volume_convergent = (np.pi * 10 * (diameter_ext * 0.5) ** 2) / 3
-        self.volume_case = volume_convergent
-
-        self.init_volume_case = self.volume_case
         self.area_throat = np.pi * 1 ** 2
-        self.init_mass = self.density * self.selected_geometry.volume_propellant  # kg
 
     def set_throat_diameter(self, dia):
         self.area_throat = np.pi * (dia * 0.5) ** 2

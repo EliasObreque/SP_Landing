@@ -12,7 +12,6 @@ ge = 9.807
 
 class LinearCoordinate(object):
     def __init__(self, dt, Isp, g_planet, mass):
-        self.mass = mass
         self.dt = dt
         self.Isp = Isp
         self.g_planet = g_planet

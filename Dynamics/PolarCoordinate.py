@@ -37,7 +37,7 @@ class PolarCoordinate(object):
         rhs[4] = - T/self.c_char
         return rhs
 
-    def rungeonestep(self, T, state, psi=0):
+    def rungeonestep(self, state, T, psi=0):
         x = np.array(state)
         k1 = self.dynamics_polar(x, T, psi)
         xk2 = x + (self.dt / 2.0) * k1

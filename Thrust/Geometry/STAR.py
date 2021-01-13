@@ -24,7 +24,7 @@ class STAR(object):
         area_triangle = self.calc_triangle_area(self.diameter_int)
         self.volume_propellant = large * np.pi * (diameter_ext * 0.5) ** 2 \
                                  - large * area_triangle * self.n_point * 2
-        self.volume_case = large * np.pi * (diameter_ext * 0.5) ** 2 - self.volume_propellant
+        self.free_volume = large * np.pi * (diameter_ext * 0.5) ** 2 - self.volume_propellant
         return
 
     def calc_triangle_area(self, current_diameter_int):
