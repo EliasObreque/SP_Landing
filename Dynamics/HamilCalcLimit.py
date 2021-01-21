@@ -150,6 +150,11 @@ class HamilCalcLimit(object):
         print('Height error: ', f_c)
         return self.alpha
 
+    def calc_parameters(self):
+        self.b = self.c_char * self.alpha ** 2 / (2 * self.mass ** 2)
+        self.a = 0.5 * (self.c_char * self.alpha + self.g_planet * self.mass) / self.mass
+        return
+
     def bisection_method(self, var_left, var_right, r0, t_burn):
         f_l = r0 - self.calc_x1_char(var_left, t_burn) +\
               0.5 * self.calc_x2_char(var_left, t_burn) ** 2 / self.g_planet

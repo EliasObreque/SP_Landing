@@ -1,12 +1,11 @@
 """
 Created: 9/15/2020
-Autor: Elias Obreque Sepulveda
+Author: Elias Obreque
 email: els.obrq@gmail.com
 
 """
 from .HamilCalcLimit import HamilCalcLimit
 import numpy as np
-from tools.GeneticAlgorithm import GeneticAlgorithm
 from .LinearCoordinate import LinearCoordinate
 from .PolarCoordinate import PolarCoordinate
 from Thrust.Thruster import Thruster
@@ -15,8 +14,9 @@ POLAR = 'polar'
 
 
 class Dynamics(object):
-    def __init__(self, dt, Isp, g_planet, mu_planet, r_planet, mass, reference_frame):
+    def __init__(self, dt, Isp, g_planet, mu_planet, r_planet, mass, reference_frame, controller='basic_hamilton'):
         self.mass = mass
+        self.controller_type = controller
         self.step_width = dt
         self.current_time = 0
         self.Isp = Isp
@@ -34,54 +34,74 @@ class Dynamics(object):
             print('Reference frame not selected')
         self.basic_hamilton_calc = HamilCalcLimit(self.mass, self.c_char, g_planet)
         self.thrusters = []
+        self.controller_parameters = None
+        self.controller_function = None
 
-    def set_engine_properties(self, thruster_properties, propellant_properties):
+    def set_engines_properties(self, thruster_properties, propellant_properties):
+        self.thrusters = []
         pulse_thruster = propellant_properties['pulse_thruster']
         for i in range(pulse_thruster):
             self.thrusters.append(Thruster(self.step_width, thruster_properties, propellant_properties))
         return
 
+    def modify_individual_engine(self, n_engine, side, value):
+        if side == 'alpha':
+            self.thrusters[n_engine].set_alpha(value)
+            self.basic_hamilton_calc.alpha = value
+            self.basic_hamilton_calc.calc_parameters()
+        elif side == 't_burn':
+            self.thrusters[n_engine].set_t_burn(value)
+        return
+
     def run_simulation(self, x0, xf, time_options):
         x_states = [np.array(x0)]
         time_series = [time_options[0]]
-        thr = [0]
+        self.step_width = time_options[2]
+        self.dynamic_model.dt = self.step_width
+        for thruster in self.thrusters:
+            thruster.step_width = self.step_width
+        thr = []
+        index_control = []
+        end_index_control = []
         end_condition = False
         k = 0
         current_x = x0
         while end_condition is False:
             total_thrust = 0
-            if self.thrusters[0].selected_propellant.geometry_grain is None:
+            if self.controller_type == 'basic_hamilton':
                 control_signal = self.basic_hamilton_calc.get_signal_control(current_x)
                 self.thrusters[0].set_beta(1 if np.sign(control_signal) < 0 else 0)
                 self.thrusters[0].propagate_thr()
-                total_thrust += self.thrusters[0].get_current_thrust()
-            else:
-                print('GA used')
-                control_signal = 0
+                total_thrust = self.thrusters[0].get_current_thrust()
+            elif self.controller_type == 'ga_wo_hamilton':
                 # Get total thrust
-                for thruster in self.thrusters:
-                    thruster.set_beta(1 if np.sign(control_signal) < 0 else 0)
-                    thruster.propagate_thr()
-                    total_thrust += thruster.get_current_thrust()
+                for j in range(len(self.thrusters)):
+                    control_signal = self.controller_function(self.controller_parameters[j], current_x)
+                    if control_signal == 1 and self.thrusters[j].current_beta == 0:
+                        index_control.append(k)
+                    if self.thrusters[j].thr_is_burned and self.thrusters[j].thr_is_on:
+                        end_index_control.append(k - 1)
+                    self.thrusters[j].set_beta(control_signal, n_engine=j)
+                    self.thrusters[j].propagate_thr()
+                    total_thrust += self.thrusters[j].get_current_thrust()
+            thr.append(total_thrust)
 
             # dynamics
             next_x = self.dynamic_model.rungeonestep(current_x, total_thrust)
-            # Solid rocket engine
+
             # ....................
             k += 1
+            x_states.append(next_x)
+            time_series.append(time_options[0] + k * self.step_width)
             current_x = next_x
-            if time_options[1] < k * self.step_width or (next_x[0] < xf[0] and thr[k - 1] == 0.0):
+            all_thrust_burned = [self.thrusters[j].thr_is_burned for j in range(len(self.thrusters))]
+            if (time_options[1] < k * self.step_width or (next_x[0] < xf[0])) and np.all(np.array(all_thrust_burned)):
                 end_condition = True
-            else:
-                x_states.append(next_x)
-                time_series.append(time_options[0] + k * self.step_width)
-                thr.append(total_thrust)
-        return np.array(x_states), np.array(time_series), np.array(thr)
-
-    def calc_optimal_parameters(self, init_state, max_generation, n_individuals, range_variables):
-        ga = GeneticAlgorithm(0.1, self.g_planet, init_state, max_generation, n_individuals, range_variables)
-        ga.optimize(self.dynamic_model.rungeonestep, self.c_char)
-        return
+                end_index_control.append(k - 1)
+                thr.append(0)
+            elif next_x[2] < 0:
+                end_condition = True
+        return np.array(x_states), np.array(time_series), np.array(thr), index_control, end_index_control
 
     def calc_limits_by_single_hamiltonian(self, t_burn_min, t_burn_max, alpha_min, alpha_max, plot_data=False):
         self.basic_hamilton_calc.calc_limits_with_const_time(t_burn_min, alpha_min, alpha_max)
@@ -91,3 +111,6 @@ class Dynamics(object):
             self.basic_hamilton_calc.show_alpha_limits(alpha_min, alpha_max)
         return
 
+    def set_controller_parameters(self, parameters):
+        self.controller_parameters = parameters
+        return

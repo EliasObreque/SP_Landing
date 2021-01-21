@@ -59,9 +59,6 @@ class Thruster(object):
         self.current_mag_thrust_c = 0
         self.thr_is_burned = False
 
-    def set_mag_thrust(self, max_thrust):
-        self.max_thrust = max_thrust
-
     def propagate_thr(self):
         if self.selected_propellant.geometry_grain is not None:
             """Propagate propellant"""
@@ -89,6 +86,12 @@ class Thruster(object):
 
     def get_current_thrust(self):
         return self.current_mag_thrust_c
+
+    def set_alpha(self, value):
+        self.current_alpha = value
+
+    def set_t_burn(self, value):
+        self.t_burn = value
 
     def calc_parametric_thrust(self):
         if self.thr_is_on:
@@ -146,7 +149,7 @@ class Thruster(object):
             self.current_mag_thrust_c = 0
             self.current_time += self.step_width
 
-    def set_beta(self, beta):
+    def set_beta(self, beta, n_engine=0):
         if self.thr_is_burned:
             self.thr_is_on = False
         else:
@@ -154,6 +157,7 @@ class Thruster(object):
                 self.current_beta = beta
                 self.t_ig = self.current_time
                 self.thr_is_on = True
+                # print('thrust ', n_engine, ' ON')
             elif beta == 1 and self.current_beta == 1:
                 self.current_beta = beta
             elif self.thr_is_on:
@@ -161,9 +165,6 @@ class Thruster(object):
             else:
                 self.current_beta = 0
                 self.thr_is_on = False
-
-    def set_max_thrust(self, max_thrust):
-        self.max_thrust = max_thrust
 
     def log_value(self):
         self.historical_mag_thrust.append(self.current_mag_thrust_c)
