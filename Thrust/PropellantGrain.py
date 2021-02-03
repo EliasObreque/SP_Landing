@@ -51,7 +51,10 @@ class PropellantGrain(GeometryGrain):
         # Propellant
         selected_propellant = propellant_properties['propellant_name']
         self.selected_propellant = propellant_data[selected_propellant]
-        self.c_char              = self.selected_propellant['Isp'] * ge
+        self.isp0                = self.selected_propellant['Isp']
+        self.std_sigma           = propellant_properties['isp_std']
+        self.bias                = propellant_properties['isp_bias']
+        self.c_char              = self.isp0 * ge
         self.r_gases             = R_g / self.selected_propellant['molecular_weight']
         self.small_gamma         = self.selected_propellant['small_gamma']
         self.big_gamma           = self.calc_big_gamma()
@@ -65,6 +68,19 @@ class PropellantGrain(GeometryGrain):
             print('Warning: kn out of range. Kn: ', kn)
             sys.exit()
         return
+
+    def update_noise_isp(self):
+        if self.std_sigma is not None:
+            isp = np.random.normal(self.isp0, self.std_sigma)
+            self.c_char = isp * ge
+
+    def update_bias_isp(self):
+        if self.bias is not None:
+            isp = np.random.normal(self.isp0, self.bias)
+            self.c_char = isp * ge
+
+    def get_c_char(self):
+        return self.c_char
 
     def calc_mass_flow_propellant_(self, area_p, r_rate):
         den_p = self.selected_propellant['density']

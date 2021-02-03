@@ -58,6 +58,7 @@ class Dynamics(object):
         time_series = [time_options[0]]
         self.step_width = time_options[2]
         self.dynamic_model.dt = self.step_width
+
         for thruster in self.thrusters:
             thruster.step_width = self.step_width
         thr = []
@@ -91,16 +92,17 @@ class Dynamics(object):
 
             # ....................
             k += 1
-            x_states.append(next_x)
-            time_series.append(time_options[0] + k * self.step_width)
             current_x = next_x
             all_thrust_burned = [self.thrusters[j].thr_is_burned for j in range(len(self.thrusters))]
-            if (time_options[1] < k * self.step_width or (next_x[0] < xf[0])) and np.all(np.array(all_thrust_burned)):
+            if next_x[2] < 0:
                 end_condition = True
-                end_index_control.append(k - 1)
-                thr.append(0)
-            elif next_x[2] < 0:
+            elif time_options[1] < k * self.step_width or (next_x[0] < xf[0]):
                 end_condition = True
+                for h in range(len(end_index_control), len(index_control)):
+                    end_index_control.append(k - 1)
+            else:
+                x_states.append(next_x)
+                time_series.append(time_options[0] + k * self.step_width)
         return np.array(x_states), np.array(time_series), np.array(thr), index_control, end_index_control
 
     def calc_limits_by_single_hamiltonian(self, t_burn_min, t_burn_max, alpha_min, alpha_max, plot_data=False):

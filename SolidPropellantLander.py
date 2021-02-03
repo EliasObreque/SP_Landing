@@ -20,7 +20,8 @@ BATES = 'bates'
 STAR = 'star'
 ONE_D = '1D'
 POLAR = 'polar'
-
+now = datetime.now()
+now = now.strftime("%Y-%m-%d")
 reference_frame = ONE_D
 # -----------------------------------------------------------------------------------------------------#
 # Data Mars lander (12U (24 kg), 27U (54 kg))
@@ -153,7 +154,9 @@ propellant_properties = {'propellant_name': propellant_name,
                          'n_thrusters': 1,
                          'pulse_thruster': 1,
                          'geometry': None,
-                         'propellant_geometry': propellant_geometry}
+                         'propellant_geometry': propellant_geometry,
+                         'isp_std': None,
+                         'isp_bias': None}
 
 engine_diameter_ext = None
 throat_diameter = 1.0  # mm
@@ -177,22 +180,30 @@ time_options = [0, simulation_time, dt]
 x_states, time_series, thr, _, _ = dynamics.run_simulation(x0, xf, time_options)
 dynamics.basic_hamilton_calc.print_simulation_data(x_states, mp, m0, r0)
 # dynamics.basic_hamilton_calc.plot_1d_simulation(x_states, time_series, thr)
-# plt.show()
 
 # -----------------------------------------------------------------------------------------------------#
-# Optimal solution with GA and PMP for constant thrust and multi-engines array
-t_burn_min, t_burn_max = 2, 100
+# Optimal solution with GA for constant thrust and multi-engines array
+t_burn_min, t_burn_max = 2, 60
 dynamics.controller_type = 'ga_wo_hamilton'
 
-x0 = [2000.0, v0, m0]
+# initial condition
+x0 = [20000.0, v0, m0]
 time_options = [0.0, simulation_time, 0.05]
+N_case = 20  # Case number
 
-propellant_properties = {'propellant_name': propellant_name,
-                         'n_thrusters': n_thruster,
-                         'pulse_thruster': pulse_thruster,
-                         'geometry': None,
-                         'propellant_geometry': propellant_geometry}
-dynamics.set_engines_properties(thruster_properties, propellant_properties)
+n_thruster = 12
+pulse_thruster = int(n_thruster / par_force)
+
+propellant_properties['n_thrusters'] = n_thruster
+propellant_properties['pulse_thruster'] = pulse_thruster
+# +-10% and multi-engines array
+percentage_variation = 5
+lower_isp = Isp * (1.0 - percentage_variation / 100.0)
+upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+
+# gauss_factor = 1 for 68.3%, = 2 for 95.45%, = 3 for 99.74%
+propellant_properties['isp_std'] = (upper_isp - Isp) / 3
+propellant_properties['isp_bias'] = None
 
 # Calculate optimal alpha (m_dot) for a given t_burn
 t_burn = 0.5 * (t_burn_min + t_burn_max)
@@ -200,8 +211,9 @@ total_alpha_max = 0.9 * m0 / t_burn
 optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(x0[0], total_alpha_min,
                                                                             total_alpha_max,
                                                                             t_burn)
-ga = GeneticAlgorithm(max_generation=200, n_individuals=40,
-                      ranges_variable=[['float_iter', 0, optimal_alpha * 2 / pulse_thruster, pulse_thruster],
+ga = GeneticAlgorithm(max_generation=200, n_individuals=50,
+                      ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
+                                        optimal_alpha * 2 / pulse_thruster, pulse_thruster],
                                        ['float_iter', 0, t_burn_max, pulse_thruster], ['str', LINEAR],
                                        ['float_iter', x0[0], xf[0], pulse_thruster]],
                       mutation_probability=0.2)
@@ -211,46 +223,54 @@ def sp_cost_function(ga_x_states, thr, Ah, Bh):
     error_pos = ga_x_states[-1][0] - xf[0]
     error_vel = ga_x_states[-1][1] - xf[1]
     if max(np.array(ga_x_states)[:, 1]) > 0:
-        error_vel *= 10
+        error_vel *= 100
     if max(np.array(ga_x_states)[:, 0]) < 0:
-        error_pos *= 10
+        error_pos *= 100
     return Ah * error_pos ** 2 + Bh * error_vel ** 2 + 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2
 
 
 start_time = time.time()
-best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control =\
-    ga.optimize(cost_function=sp_cost_function,
-                restriction_function=[dynamics, x0, xf, time_options, propellant_properties,
-                                      thruster_properties])
+best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control = ga.optimize(
+    cost_function=sp_cost_function, n_case=N_case, restriction_function=[dynamics, x0, xf, time_options,
+                                                                         propellant_properties,
+                                                                         thruster_properties])
 finish_time = time.time()
-print('Time: ', finish_time - start_time)
-best_pos    = best_states[:, 0]
-best_vel    = best_states[:, 1]
-best_mass   = best_states[:, 2]
+print('Time to optimize: ', finish_time - start_time)
+
+best_pos    = [best_states[i][:, 0] for i in range(N_case)]
+best_vel    = [best_states[i][:, 1] for i in range(N_case)]
+best_mass   = [best_states[i][:, 2] for i in range(N_case)]
 best_thrust = best_Tf
 
-df = {'Time[s]': best_time_data,
-      'Pos[m]': best_pos,
-      'V[m/s]': best_vel,
-      'mass[kg]': best_mass,
-      'T[N]': best_thrust}
-df_cost = {'Cost_function[-]': ga.historical_cost}
-now = datetime.now()
-now = now.strftime("%Y-%m-%d")
-folder_name = "Only_GA_example/" + str(int(x0[0])) + "m/"
+df_list = []
+df_cost_list = []
+for k in range(N_case):
+    df = {'Time[s]': best_time_data[k], 'Pos[m]': best_pos[k],
+          'V[m/s]': best_vel[k], 'mass[kg]': best_mass[k],
+          'T[N]': best_thrust[k]}
+    df_cost = {'Cost_function[-]': np.array(ga.historical_cost)[:, k]}
+    df_list.append(df)
+    df_cost_list.append(df_cost)
+
+# folder_name = "Only_GA_isp_noise/" + str(int(x0[0])) + "m/"
+folder_name = "Only_GA_isp_noise/" + "n_t-" + str(n_thruster) + "_ h-" + str(int(x0[0])) + "m/"
+
 file_name_1 = "Out_data_" + now
 file_name_2 = "Cost_function_" + now
-ga.save_data(df, folder_name, file_name_1)
-ga.save_data(df_cost, folder_name, file_name_2)
+file_name_3 = "Distribution_" + now
+ga.save_data(df_list, folder_name, file_name_1)
+ga.save_data(df_cost_list, folder_name, file_name_2)
 
 print(best_individuals[1])
+lim_std3sigma = [1, 3]  # [m, m/S]
+ga.plot_distribution(best_pos, best_vel, folder_name, file_name_3, lim_std3sigma, save=True)
 ga.plot_best(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
              end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
 ga.plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
                      folder_name=folder_name, file_name=file_name_2)
 ga.show_plot()
 # -----------------------------------------------------------------------------------------------------#
-
+# Optimal solution with GA for constant thrust with a
 
 # plot
 # opt_plot1 = '-b'
@@ -267,19 +287,8 @@ ga.show_plot()
 #     set_plot(7, time[i], (np.array(x1[i]) - r_moon), opt_plot1, opt_plot2)
 #     set_plot(8, np.array(x1[i]) * (np.sin(x3[i])), np.array(x1[i]) * (np.cos(x3[i])), opt_plot1, opt_plot2)
 # plt.show()
-
-# thrust_comp_class = Thruster(dt, t_act_max, max_thrust=T_max, type_propellant=STAR)
-# thrust_comp = []
-# for i in range(n_thruster):
-#     thrust_comp.append(copy.deepcopy(thrust_comp_class))
-#     thrust_comp[i].set_lag_coef(0.2)
-
 # print('Finished')
-# # Standard dev.
-# perc = 0  # 0 - 100%
-# sdr = r0 * perc / 100
-# sdv = 0 * perc / 100
-# sdm = 0 * perc / 100
+
 #
 # N_case = 1  # Case number
 #

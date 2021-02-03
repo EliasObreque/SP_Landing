@@ -72,8 +72,13 @@ class Thruster(object):
 
     def get_constant_thrust(self):
         if self.thr_is_on:
-            if self.current_burn_time <= self.t_burn:
-                self.current_mag_thrust_c = self.current_alpha * self.selected_propellant.c_char
+            if self.current_burn_time == 0:
+                self.selected_propellant.update_bias_isp()
+                self.current_mag_thrust_c = self.current_alpha * self.selected_propellant.get_c_char()
+                self.current_burn_time += self.step_width
+            elif self.current_burn_time <= self.t_burn:
+                self.selected_propellant.update_noise_isp()
+                self.current_mag_thrust_c = self.current_alpha * self.selected_propellant.get_c_char()
                 self.current_burn_time += self.step_width
             else:
                 self.current_mag_thrust_c = 0
