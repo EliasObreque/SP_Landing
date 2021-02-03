@@ -142,7 +142,7 @@ dynamics = Dynamics(dt, Isp, g_center_body, mu, r_moon, m0, reference_frame, con
 
 # -----------------------------------------------------------------------------------------------------#
 # Simple example solution with constant one engine for 1D
-dynamics.calc_limits_by_single_hamiltonian(t_burn_min, t_burn_max, total_alpha_min, total_alpha_max, plot_data=True)
+dynamics.calc_limits_by_single_hamiltonian(t_burn_min, t_burn_max, total_alpha_min, total_alpha_max, plot_data=False)
 
 # Calculate optimal alpha (m_dot) for a given t_burn
 t_burn = 0.5 * (t_burn_min + t_burn_max)
