@@ -187,88 +187,91 @@ t_burn_min, t_burn_max = 2, 60
 dynamics.controller_type = 'ga_wo_hamilton'
 
 # initial condition
-x0 = [20000.0, v0, m0]
+x0 = [5000.0, v0, m0]
 time_options = [0.0, simulation_time, 0.05]
 N_case = 20  # Case number
 
-n_thruster = 12
-pulse_thruster = int(n_thruster / par_force)
+n_thruster = [8, 12, 16, 20, 24, 28]
 
-propellant_properties['n_thrusters'] = n_thruster
-propellant_properties['pulse_thruster'] = pulse_thruster
-# +-10% and multi-engines array
-percentage_variation = 5
-lower_isp = Isp * (1.0 - percentage_variation / 100.0)
-upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+for n_thr in n_thruster:
+    pulse_thruster = int(n_thr / par_force)
 
-# gauss_factor = 1 for 68.3%, = 2 for 95.45%, = 3 for 99.74%
-propellant_properties['isp_std'] = (upper_isp - Isp) / 3
-propellant_properties['isp_bias'] = None
+    propellant_properties['n_thrusters'] = n_thr
+    propellant_properties['pulse_thruster'] = pulse_thruster
+    # +-10% and multi-engines array
+    percentage_variation = 5
+    lower_isp = Isp * (1.0 - percentage_variation / 100.0)
+    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
 
-# Calculate optimal alpha (m_dot) for a given t_burn
-t_burn = 0.5 * (t_burn_min + t_burn_max)
-total_alpha_max = 0.9 * m0 / t_burn
-optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(x0[0], total_alpha_min,
-                                                                            total_alpha_max,
-                                                                            t_burn)
-ga = GeneticAlgorithm(max_generation=200, n_individuals=50,
-                      ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
-                                        optimal_alpha * 2 / pulse_thruster, pulse_thruster],
-                                       ['float_iter', 0, t_burn_max, pulse_thruster], ['str', LINEAR],
-                                       ['float_iter', x0[0], xf[0], pulse_thruster]],
-                      mutation_probability=0.2)
+    # gauss_factor = 1 for 68.3%, = 2 for 95.45%, = 3 for 99.74%
+    propellant_properties['isp_std'] = (upper_isp - Isp) / 3
+    propellant_properties['isp_bias'] = None
 
-
-def sp_cost_function(ga_x_states, thr, Ah, Bh):
-    error_pos = ga_x_states[-1][0] - xf[0]
-    error_vel = ga_x_states[-1][1] - xf[1]
-    if max(np.array(ga_x_states)[:, 1]) > 0:
-        error_vel *= 100
-    if max(np.array(ga_x_states)[:, 0]) < 0:
-        error_pos *= 100
-    return Ah * error_pos ** 2 + Bh * error_vel ** 2 + 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2
+    # Calculate optimal alpha (m_dot) for a given t_burn
+    t_burn = 0.5 * (t_burn_min + t_burn_max)
+    total_alpha_max = 0.9 * m0 / t_burn
+    optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(x0[0], total_alpha_min,
+                                                                                total_alpha_max,
+                                                                                t_burn)
+    ga = GeneticAlgorithm(max_generation=200, n_individuals=50,
+                          ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
+                                            optimal_alpha * 2 / pulse_thruster, pulse_thruster],
+                                           ['float_iter', 0, t_burn_max, pulse_thruster], ['str', LINEAR],
+                                           ['float_iter', x0[0], xf[0], pulse_thruster]],
+                          mutation_probability=0.2)
 
 
-start_time = time.time()
-best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control = ga.optimize(
-    cost_function=sp_cost_function, n_case=N_case, restriction_function=[dynamics, x0, xf, time_options,
-                                                                         propellant_properties,
-                                                                         thruster_properties])
-finish_time = time.time()
-print('Time to optimize: ', finish_time - start_time)
+    def sp_cost_function(ga_x_states, thr, Ah, Bh):
+        error_pos = ga_x_states[-1][0] - xf[0]
+        error_vel = ga_x_states[-1][1] - xf[1]
+        if max(np.array(ga_x_states)[:, 1]) > 0:
+            error_vel *= 100
+        if max(np.array(ga_x_states)[:, 0]) < 0:
+            error_pos *= 100
+        return Ah * error_pos ** 2 + Bh * error_vel ** 2 + 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2
 
-best_pos    = [best_states[i][:, 0] for i in range(N_case)]
-best_vel    = [best_states[i][:, 1] for i in range(N_case)]
-best_mass   = [best_states[i][:, 2] for i in range(N_case)]
-best_thrust = best_Tf
 
-df_list = []
-df_cost_list = []
-for k in range(N_case):
-    df = {'Time[s]': best_time_data[k], 'Pos[m]': best_pos[k],
-          'V[m/s]': best_vel[k], 'mass[kg]': best_mass[k],
-          'T[N]': best_thrust[k]}
-    df_cost = {'Cost_function[-]': np.array(ga.historical_cost)[:, k]}
-    df_list.append(df)
-    df_cost_list.append(df_cost)
+    start_time = time.time()
+    best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control = ga.optimize(
+        cost_function=sp_cost_function, n_case=N_case, restriction_function=[dynamics, x0, xf, time_options,
+                                                                             propellant_properties,
+                                                                             thruster_properties])
+    finish_time = time.time()
+    print('Time to optimize: ', finish_time - start_time)
 
-# folder_name = "Only_GA_isp_noise/" + str(int(x0[0])) + "m/"
-folder_name = "Only_GA_isp_noise/" + "n_t-" + str(n_thruster) + "_ h-" + str(int(x0[0])) + "m/"
+    best_pos    = [best_states[i][:, 0] for i in range(N_case)]
+    best_vel    = [best_states[i][:, 1] for i in range(N_case)]
+    best_mass   = [best_states[i][:, 2] for i in range(N_case)]
+    best_thrust = best_Tf
 
-file_name_1 = "Out_data_" + now
-file_name_2 = "Cost_function_" + now
-file_name_3 = "Distribution_" + now
-ga.save_data(df_list, folder_name, file_name_1)
-ga.save_data(df_cost_list, folder_name, file_name_2)
+    df_list = []
+    df_cost_list = []
+    for k in range(N_case):
+        df = {'Time[s]': best_time_data[k], 'Pos[m]': best_pos[k],
+              'V[m/s]': best_vel[k], 'mass[kg]': best_mass[k],
+              'T[N]': best_thrust[k]}
+        df_cost = {'Cost_function[-]': np.array(ga.historical_cost)[:, k]}
+        df_list.append(df)
+        df_cost_list.append(df_cost)
 
-print(best_individuals[1])
-lim_std3sigma = [1, 3]  # [m, m/S]
-ga.plot_distribution(best_pos, best_vel, folder_name, file_name_3, lim_std3sigma, save=True)
-ga.plot_best(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
-             end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
-ga.plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
-                     folder_name=folder_name, file_name=file_name_2)
-ga.show_plot()
+    folder_name = "Only_GA_isp_noise/" + "n_thr-" + str(n_thr) + "_h-" + str(int(x0[0])) + "m/"
+
+    file_name_1 = "Out_data_" + now
+    file_name_2 = "Cost_function_" + now
+    file_name_3 = "Sigma_Distribution_" + now
+    file_name_4 = "Normal_Distribution_" + now
+    ga.save_data(df_list, folder_name, file_name_1)
+    ga.save_data(df_cost_list, folder_name, file_name_2)
+
+    print(best_individuals[1])
+    lim_std3sigma = [1, 3]  # [m, m/S]
+    ga.plot_sigma_distribution(best_pos, best_vel, folder_name, file_name_3, lim_std3sigma, save=True)
+    ga.plot_gauss_distribution(best_pos, best_vel, folder_name, file_name_4, save=True)
+    ga.plot_best(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
+                 end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
+    ga.plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
+                         folder_name=folder_name, file_name=file_name_2)
+
 # -----------------------------------------------------------------------------------------------------#
 # Optimal solution with GA for constant thrust with a
 

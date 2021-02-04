@@ -409,7 +409,24 @@ class GeneticAlgorithm(object):
         return
 
     @staticmethod
-    def plot_distribution(pos_, vel_, folder_name, file_name, lim_std3sigma, save=False):
+    def plot_gauss_distribution(pos_, vel_, folder_name, file_name, save=False):
+        fig_gauss, axs_gauss = plt.subplots(1, 2)
+        axs_gauss[0].set_xlabel('Altitude [m]')
+        axs_gauss[1].set_xlabel('Velocity [m/s]')
+        for k in range(len(pos_)):
+            axs_gauss[0].hist(pos_[k][-1])
+            axs_gauss[1].hist(vel_[k][-1])
+        plt.grid()
+        if save:
+            if os.path.isdir("./logs/" + folder_name) is False:
+                os.mkdir("./logs/" + folder_name)
+            fig_gauss.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
+            fig_gauss.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
+        plt.draw()
+        return
+
+    @staticmethod
+    def plot_sigma_distribution(pos_, vel_, folder_name, file_name, lim_std3sigma, save=False):
         fig_dist, axs_dist = plt.subplots(1, 1)
         plt.xlabel('Velocity [m/s]')
         plt.ylabel('Altitude [m]')
@@ -423,9 +440,9 @@ class GeneticAlgorithm(object):
         axs_dist.add_patch(e1)
         axs_dist.add_patch(e2)
         axs_dist.add_patch(e3)
-        plt.text(lim_std3sigma[1] + 0.1, 0, r'$3 \sigma$', fontsize=15)
-        plt.text(2 * lim_std3sigma[1] / 3 + 0.1, 0, r'$2 \sigma$', fontsize=15)
-        plt.text(lim_std3sigma[1] / 3 + 0.1, 0, r'$1 \sigma$', fontsize=15)
+        plt.text(- lim_std3sigma[1] + 0.1, 0, r'$3 \sigma$', fontsize=15)
+        plt.text(- 2 * lim_std3sigma[1] / 3 + 0.1, 0, r'$2 \sigma$', fontsize=15)
+        plt.text(- lim_std3sigma[1] / 3 + 0.1, 0, r'$1 \sigma$', fontsize=15)
         for k in range(len(pos_)):
             plt.plot(vel_[k][-1], pos_[k][-1], 'bo')
         plt.grid()
