@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from .PropellantGrain import PropellantGrain
 DEG2RAD = np.pi/180
 
-LINEAR  = 'linear'
+CONSTANT  = 'constant'
 TUBULAR = 'tubular'
 BATES   = 'bates'
 STAR    = 'star'

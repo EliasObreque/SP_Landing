@@ -11,6 +11,7 @@ import pandas as pd
 import os
 from matplotlib import patches
 from copy import deepcopy
+plt.rcParams["font.family"] = "Times New Roman"
 plt.ion()
 
 
@@ -63,7 +64,20 @@ class GeneticAlgorithm(object):
                 elif self.range_variables[i][0] == 'float_iter':
                     temp = []
                     for m in range(int(self.range_variables[i][3])):
-                        temp.append(np.random.uniform(self.range_variables[i][1], self.range_variables[i][2]))
+                        # temp.append(np.random.uniform(self.range_variables[i][1], self.range_variables[i][2]))
+                        # loc = 0.5 * (self.range_variables[i][1] + self.range_variables[i][2])
+                        mean = 0.5 * (self.range_variables[i][2] - self.range_variables[i][1])
+                        if self.range_variables[i][1] < self.range_variables[i][2]:
+                            left = self.range_variables[i][1]
+                            right = self.range_variables[i][2]
+                            mean = 0.5 * (self.range_variables[i][2] - self.range_variables[i][1])
+                        else:
+                            left = self.range_variables[i][2]
+                            right = self.range_variables[i][1]
+                            mean = 0.5 * (self.range_variables[i][1] - self.range_variables[i][2])
+                        temp.append(np.random.triangular(left,
+                                                         left + mean * 0.7,
+                                                         right))
                     individual.append(temp)
             self.population.append(individual)
         return
@@ -129,7 +143,7 @@ class GeneticAlgorithm(object):
         plt.xlabel('Generation')
         plt.ylabel('Optimization function')
         for k in range(n_case):
-            plt.plot(np.arange(1, self.max_generation + 1), np.array(self.historical_cost)[:, k])
+            plt.plot(np.arange(1, self.max_generation + 1), np.array(self.historical_cost)[:, k], lw=0.8)
         plt.grid()
 
     def ga_evaluate(self, next_population, n_case):
@@ -309,7 +323,7 @@ class GeneticAlgorithm(object):
         plt.xlabel('Velocity [m/s]')
         plt.ylabel('Position [m]')
         for k in range(len(best_pos)):
-            plt.plot(np.array(best_vel[k]), best_pos[k], lw=1.0)
+            plt.plot(np.array(best_vel[k]), best_pos[k], lw=0.8)
             plt.scatter(np.array(best_vel[k])[ini_best_individuals[k]], np.array(best_pos[k])[ini_best_individuals[k]],
                         s=15, facecolors='none', edgecolors='g', label='StartBurnTime')
             plt.scatter(np.array(best_vel[k])[end_best_individuals[k]],
@@ -341,7 +355,7 @@ class GeneticAlgorithm(object):
         axs_best[0, 0].set_xlabel('Time [s]')
         axs_best[0, 0].set_ylabel('Position [m]')
         for k in range(len(best_pos)):
-            axs_best[0, 0].plot(time_best[k], best_pos[k], lw=1.0)
+            axs_best[0, 0].plot(time_best[k], best_pos[k], lw=0.8)
             axs_best[0, 0].scatter(time_best[k][ini_best_individuals[k]],
                                    np.array(best_pos[k])[ini_best_individuals[k]],
                                    s=sq, facecolors='none', edgecolors='g', label='StartBurnTime')
@@ -353,7 +367,7 @@ class GeneticAlgorithm(object):
         axs_best[0, 1].set_xlabel('Time [s]')
         axs_best[0, 1].set_ylabel('Velocity [m/s]')
         for k in range(len(best_pos)):
-            axs_best[0, 1].plot(time_best[k], np.array(best_vel[k]), lw=1.0)
+            axs_best[0, 1].plot(time_best[k], np.array(best_vel[k]), lw=0.8)
             axs_best[0, 1].scatter(time_best[k][ini_best_individuals[k]],
                                    np.array(best_vel[k])[ini_best_individuals[k]],
                                    s=sq, facecolors='none', edgecolors='g', label='StartBurnTime')
@@ -365,7 +379,7 @@ class GeneticAlgorithm(object):
         axs_best[1, 0].set_xlabel('Time [s]')
         axs_best[1, 0].set_ylabel('Mass [kg]')
         for k in range(len(best_pos)):
-            axs_best[1, 0].plot(time_best[k], best_mass[k], lw=1.0)
+            axs_best[1, 0].plot(time_best[k], best_mass[k], lw=0.8)
             axs_best[1, 0].scatter(time_best[k][ini_best_individuals[k]],
                                    np.array(best_mass[k])[ini_best_individuals[k]],
                                    s=sq, facecolors='none', edgecolors='g', label='StartBurnTime')
@@ -377,7 +391,7 @@ class GeneticAlgorithm(object):
         axs_best[1, 1].set_xlabel('Time [s]')
         axs_best[1, 1].set_ylabel('Thrust [N]')
         for k in range(len(best_pos)):
-            axs_best[1, 1].plot(time_best[k], np.array(best_thrust[k]), lw=1.0)
+            axs_best[1, 1].plot(time_best[k], np.array(best_thrust[k]), lw=0.8)
             axs_best[1, 1].scatter(time_best[k][ini_best_individuals[k]],
                                    np.array(best_thrust[k])[ini_best_individuals[k]],
                                    s=sq, facecolors='none', edgecolors='g', label='StartBurnTime')
@@ -413,10 +427,16 @@ class GeneticAlgorithm(object):
         fig_gauss, axs_gauss = plt.subplots(1, 2)
         axs_gauss[0].set_xlabel('Altitude [m]')
         axs_gauss[1].set_xlabel('Velocity [m/s]')
-        for k in range(len(pos_)):
-            axs_gauss[0].hist(pos_[k][-1])
-            axs_gauss[1].hist(vel_[k][-1])
-        plt.grid()
+        final_pos = [pos_[k][-1] for k in range(len(pos_))]
+        final_vel = [vel_[k][-1] for k in range(len(pos_))]
+        w = 4
+        n = int(len(final_pos) / w)
+        axs_gauss[0].hist(final_pos, bins=n, color='#0D3592', rwidth=0.85)
+        axs_gauss[0].axvline(np.mean(final_pos), color='k', linestyle='dashed', linewidth=0.8)
+        axs_gauss[0].grid()
+        axs_gauss[1].hist(final_vel, bins=n, color='#0D3592', rwidth=0.85)
+        axs_gauss[1].axvline(np.mean(final_vel), color='k', linestyle='dashed', linewidth=0.8)
+        axs_gauss[1].grid()
         if save:
             if os.path.isdir("./logs/" + folder_name) is False:
                 os.mkdir("./logs/" + folder_name)
@@ -455,6 +475,10 @@ class GeneticAlgorithm(object):
         return
 
     @staticmethod
+    def close_plot():
+        plt.close('all')
+
+    @staticmethod
     def save_data(master_data, folder_name, filename):
         """
         :param master_data: Dictionary
@@ -464,9 +488,12 @@ class GeneticAlgorithm(object):
         """
         if os.path.isdir("./logs/" + folder_name) is False:
             temp_list = folder_name.split("/")
-            if os.path.isdir("./logs/" + temp_list[0]) is False:
-                os.mkdir("./logs/" + temp_list[0])
-            os.mkdir("./logs/" + folder_name)
+            fname = ''
+            for i in range(len(temp_list) - 1):
+                fname += temp_list[:i + 1][i]
+                if os.path.isdir("./logs/" + fname) is False:
+                    os.mkdir("./logs/" + fname)
+                fname += "/"
         for k in range(len(master_data)):
             database = pd.DataFrame(master_data[k], columns=master_data[k].keys())
             database.to_csv("./logs/" + folder_name + filename + "_case" + str(k) + ".csv", index=False, header=True)

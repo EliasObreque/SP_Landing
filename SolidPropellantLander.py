@@ -8,16 +8,18 @@ array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)', 'TRX-H609', 'KNSU
 """
 import numpy as np
 import time
+import sys
 from datetime import datetime
 from tools.GeneticAlgorithm import GeneticAlgorithm
 from tools.ext_requirements import velocity_req, mass_req
 from Dynamics.Dynamics import Dynamics
 from Thrust.PropellantGrain import propellant_data
 
-LINEAR = 'linear'
+CONSTANT  = 'constant'
 TUBULAR = 'tubular'
 BATES = 'bates'
 STAR = 'star'
+
 ONE_D = '1D'
 POLAR = 'polar'
 now = datetime.now()
@@ -173,7 +175,7 @@ thruster_properties = {'throat_diameter': 2,
 dynamics.set_engines_properties(thruster_properties, propellant_properties)
 
 # Initial and final condition
-x0 = [10000.0, v0, m0]
+x0 = [r0, v0, m0]
 xf = [0.0, 0.0, m1]
 time_options = [0, simulation_time, dt]
 
@@ -186,50 +188,67 @@ dynamics.basic_hamilton_calc.print_simulation_data(x_states, mp, m0, r0)
 t_burn_min, t_burn_max = 2, 60
 dynamics.controller_type = 'ga_wo_hamilton'
 
-# initial condition
-x0 = [5000.0, v0, m0]
-time_options = [0.0, simulation_time, 0.05]
-N_case = 20  # Case number
+r0 = 5000
+type_problem = "bias"
+type_propellant = CONSTANT
+N_case = 60  # Case number
+n_thruster = [4, 8]
 
-n_thruster = [8, 12, 16, 20, 24, 28]
+if len(sys.argv) > 1:
+    print(list(sys.argv))
+    r0 = float(sys.argv[1])  # altitude [m]
+    type_propellant = sys.argv[2]  # Burn propellant geometry: 'constant' - 'tubular' - 'bates' - 'star'
+    type_problem    = sys.argv[3]  # Problem: "noise" - "bias" - "normal" - "bias-noise"
+    n_thruster      = [int(x) for x in sys.argv[4].split(',')]  # Engines: [list]
+    N_case = int(sys.argv[5])  # Case number
+
+# initial condition
+x0 = [r0, v0, m0]
+time_options = [0.0, simulation_time, 0.1]
+
+print("Initial condition: ", str(x0))
+print("N_case: ", N_case)
+
+# +-10% and multi-engines array
+percentage_variation = 2
+lower_isp = Isp * (1.0 - percentage_variation / 100.0)
+upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+
+# gauss_factor = 1 for 68.3%, = 2 for 95.45%, = 3 for 99.74%
+propellant_properties['isp_std'] = (upper_isp - Isp) / 3
+propellant_properties['isp_bias'] = None
+
+# Calculate optimal alpha (m_dot) for a given t_burn
+t_burn = 0.5 * (t_burn_min + t_burn_max)
+total_alpha_max = 0.9 * m0 / t_burn
+optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(x0[0], total_alpha_min,
+                                                                            total_alpha_max,
+                                                                            t_burn)
+
+
+def sp_cost_function(ga_x_states, thr, Ah, Bh):
+    error_pos = ga_x_states[-1][0] - xf[0]
+    error_vel = ga_x_states[-1][1] - xf[1]
+    if max(np.array(ga_x_states)[:, 1]) > 0:
+        error_vel *= 100
+    if max(np.array(ga_x_states)[:, 0]) < 0:
+        error_pos *= 100
+    return Ah * error_pos ** 2 + Bh * error_vel ** 2 + 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2
+
 
 for n_thr in n_thruster:
+    print('N thrust: ', n_thr)
     pulse_thruster = int(n_thr / par_force)
 
     propellant_properties['n_thrusters'] = n_thr
     propellant_properties['pulse_thruster'] = pulse_thruster
-    # +-10% and multi-engines array
-    percentage_variation = 5
-    lower_isp = Isp * (1.0 - percentage_variation / 100.0)
-    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
 
-    # gauss_factor = 1 for 68.3%, = 2 for 95.45%, = 3 for 99.74%
-    propellant_properties['isp_std'] = (upper_isp - Isp) / 3
-    propellant_properties['isp_bias'] = None
-
-    # Calculate optimal alpha (m_dot) for a given t_burn
-    t_burn = 0.5 * (t_burn_min + t_burn_max)
-    total_alpha_max = 0.9 * m0 / t_burn
-    optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(x0[0], total_alpha_min,
-                                                                                total_alpha_max,
-                                                                                t_burn)
-    ga = GeneticAlgorithm(max_generation=200, n_individuals=50,
+    ga = GeneticAlgorithm(max_generation=100, n_individuals=50,
                           ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
                                             optimal_alpha * 2 / pulse_thruster, pulse_thruster],
-                                           ['float_iter', 0, t_burn_max, pulse_thruster], ['str', LINEAR],
+                                           ['float_iter', 0, t_burn_max, pulse_thruster], ['str', type_propellant],
                                            ['float_iter', x0[0], xf[0], pulse_thruster]],
                           mutation_probability=0.2)
-
-
-    def sp_cost_function(ga_x_states, thr, Ah, Bh):
-        error_pos = ga_x_states[-1][0] - xf[0]
-        error_vel = ga_x_states[-1][1] - xf[1]
-        if max(np.array(ga_x_states)[:, 1]) > 0:
-            error_vel *= 100
-        if max(np.array(ga_x_states)[:, 0]) < 0:
-            error_pos *= 100
-        return Ah * error_pos ** 2 + Bh * error_vel ** 2 + 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2
-
 
     start_time = time.time()
     best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control = ga.optimize(
@@ -254,7 +273,8 @@ for n_thr in n_thruster:
         df_list.append(df)
         df_cost_list.append(df_cost)
 
-    folder_name = "Only_GA_isp_noise/" + "n_thr-" + str(n_thr) + "_h-" + str(int(x0[0])) + "m/"
+    folder_name = "Only_GA_isp_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m/" +\
+                  "n_thr-" + str(n_thr) + "/"
 
     file_name_1 = "Out_data_" + now
     file_name_2 = "Cost_function_" + now
@@ -271,6 +291,7 @@ for n_thr in n_thruster:
                  end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
     ga.plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
                          folder_name=folder_name, file_name=file_name_2)
+    ga.close_plot()
 
 # -----------------------------------------------------------------------------------------------------#
 # Optimal solution with GA for constant thrust with a
