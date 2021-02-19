@@ -10,7 +10,8 @@ from .BATES import BATES
 from .STAR import STAR
 from .EndBurning import EndBurning
 import numpy as np
-end_burning = 'end_burning'
+
+end_burning = 'tubular'
 bates = 'bates'
 star = 'star'
 

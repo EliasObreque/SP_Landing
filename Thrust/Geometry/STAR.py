@@ -65,5 +65,4 @@ class STAR(object):
     def calc_neutral_theta(self):
         def f(theta):
             return (np.pi * 0.5 + np.pi / self.n_point - theta * 0.5) - 1 / np.tan(theta * 0.5)
-
         return self.bisection(f, 0.001, np.pi)

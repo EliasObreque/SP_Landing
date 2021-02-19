@@ -49,7 +49,7 @@ class PropellantGrain(GeometryGrain):
             self.init_volume_case   = self.volume_case
             self.init_mass = self.density * self.selected_geometry.volume_propellant  # kg
         # Propellant
-        selected_propellant = propellant_properties['propellant_name']
+        selected_propellant      = propellant_properties['propellant_name']
         self.selected_propellant = propellant_data[selected_propellant]
         self.isp0                = self.selected_propellant['Isp']
         self.std_sigma           = propellant_properties['isp_std']

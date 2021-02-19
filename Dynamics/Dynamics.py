@@ -42,6 +42,8 @@ class Dynamics(object):
         pulse_thruster = propellant_properties['pulse_thruster']
         for i in range(pulse_thruster):
             self.thrusters.append(Thruster(self.step_width, thruster_properties, propellant_properties))
+            if thruster_properties['delay'] is not None:
+                self.thrusters[i].lag_coef = thruster_properties['delay']
         return
 
     def modify_individual_engine(self, n_engine, side, value):
@@ -96,7 +98,7 @@ class Dynamics(object):
             all_thrust_burned = [self.thrusters[j].thr_is_burned for j in range(len(self.thrusters))]
             if next_x[2] < 0:
                 end_condition = True
-            elif time_options[1] < k * self.step_width or (next_x[0] < xf[0]):
+            elif (time_options[1] < k * self.step_width or (next_x[0] < xf[0])) and np.all(all_thrust_burned):
                 end_condition = True
                 for h in range(len(end_index_control), len(index_control)):
                     end_index_control.append(k - 1)

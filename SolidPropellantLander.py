@@ -6,14 +6,16 @@ email: els.obrq@gmail.com
 array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)', 'TRX-H609', 'KNSU']
 
 """
-import numpy as np
 import time
 import sys
+import codecs
+import json
 from datetime import datetime
 from tools.GeneticAlgorithm import GeneticAlgorithm
 from tools.ext_requirements import velocity_req, mass_req
 from Dynamics.Dynamics import Dynamics
 from Thrust.PropellantGrain import propellant_data
+from tools.Viewer import *
 
 CONSTANT  = 'constant'
 TUBULAR = 'tubular'
@@ -138,10 +140,30 @@ T_max = total_alpha_max * c_char
 print('Max thrust: (min, max) [N]', T_min, T_max)
 print('--------------------------------------------------------------------------')
 
+
+def save_data(master_data, folder_name, filename):
+    """
+    :param master_data: Dictionary
+    :param folder_name: an Name with /, for example folder_name = "2000m/"
+    :param filename: string name
+    :return:
+    """
+    if os.path.isdir("./logs/" + folder_name) is False:
+        temp_list = folder_name.split("/")
+        fname = ''
+        for i in range(len(temp_list) - 1):
+            fname += temp_list[:i + 1][i]
+            if os.path.isdir("./logs/" + fname) is False:
+                os.mkdir("./logs/" + fname)
+            fname += "/"
+    with codecs.open("./logs/" + folder_name + filename + ".json", 'w') as file:
+        json.dump(master_data, file)
+    print("Data saved to file:")
+
+
 # -----------------------------------------------------------------------------------------------------#
 # Create dynamics object for 1D and Polar
 dynamics = Dynamics(dt, Isp, g_center_body, mu, r_moon, m0, reference_frame, controller='basic_hamilton')
-
 # -----------------------------------------------------------------------------------------------------#
 # Simple example solution with constant one engine for 1D
 dynamics.calc_limits_by_single_hamiltonian(t_burn_min, t_burn_max, total_alpha_min, total_alpha_max, plot_data=False)
@@ -170,7 +192,8 @@ thruster_properties = {'throat_diameter': 2,
                        'performance': {'alpha': optimal_alpha,
                                        't_burn': t_burn},
                        'load_thrust_profile': False,
-                       'file_name': file_name}
+                       'file_name': file_name,
+                       'delay': None}
 
 dynamics.set_engines_properties(thruster_properties, propellant_properties)
 
@@ -188,11 +211,11 @@ dynamics.basic_hamilton_calc.print_simulation_data(x_states, mp, m0, r0)
 t_burn_min, t_burn_max = 2, 60
 dynamics.controller_type = 'ga_wo_hamilton'
 
-r0 = 5000
-type_problem = "bias"
+r0 = 2000
+type_problem = "bias-noise"
 type_propellant = CONSTANT
 N_case = 60  # Case number
-n_thruster = [4, 8]
+n_thruster = [2, 4, 6]
 
 if len(sys.argv) > 1:
     print(list(sys.argv))
@@ -210,13 +233,27 @@ print("Initial condition: ", str(x0))
 print("N_case: ", N_case)
 
 # +-10% and multi-engines array
-percentage_variation = 2
-lower_isp = Isp * (1.0 - percentage_variation / 100.0)
-upper_isp = Isp * (1.0 + percentage_variation / 100.0)
-
 # gauss_factor = 1 for 68.3%, = 2 for 95.45%, = 3 for 99.74%
-propellant_properties['isp_std'] = (upper_isp - Isp) / 3
-propellant_properties['isp_bias'] = None
+if type_problem == 'noise':
+    percentage_variation = 1
+    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    propellant_properties['isp_std'] = (upper_isp - Isp) / 3
+    propellant_properties['isp_bias'] = None
+elif type_problem == 'bias':
+    percentage_variation = 5
+    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    propellant_properties['isp_bias'] = (upper_isp - Isp) / 3
+    propellant_properties['isp_std'] = None
+elif type_problem == 'bias-noise':
+    percentage_variation = 1
+    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    propellant_properties['isp_std'] = (upper_isp - Isp) / 3
+    percentage_variation = 5
+    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    propellant_properties['isp_bias'] = (upper_isp - Isp) / 3
+else:
+    propellant_properties['isp_std'] = None
+    propellant_properties['isp_bias'] = None
 
 # Calculate optimal alpha (m_dot) for a given t_burn
 t_burn = 0.5 * (t_burn_min + t_burn_max)
@@ -236,14 +273,22 @@ def sp_cost_function(ga_x_states, thr, Ah, Bh):
     return Ah * error_pos ** 2 + Bh * error_vel ** 2 + 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2
 
 
+json_list = {}
+file_name_1 = "Out_data_" + now
+file_name_2 = "State_variable" + now
+file_name_3 = "Sigma_Distribution_" + now
+file_name_4 = "Normal_Distribution_" + now
+json_list['N_case'] = N_case
+thruster_properties['delay'] = 0.3
 for n_thr in n_thruster:
     print('N thrust: ', n_thr)
+    json_list[str(n_thr)] = {}
     pulse_thruster = int(n_thr / par_force)
 
     propellant_properties['n_thrusters'] = n_thr
     propellant_properties['pulse_thruster'] = pulse_thruster
 
-    ga = GeneticAlgorithm(max_generation=100, n_individuals=50,
+    ga = GeneticAlgorithm(max_generation=200, n_individuals=50,
                           ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
                                             optimal_alpha * 2 / pulse_thruster, pulse_thruster],
                                            ['float_iter', 0, t_burn_max, pulse_thruster], ['str', type_propellant],
@@ -263,36 +308,32 @@ for n_thr in n_thruster:
     best_mass   = [best_states[i][:, 2] for i in range(N_case)]
     best_thrust = best_Tf
 
-    df_list = []
-    df_cost_list = []
     for k in range(N_case):
-        df = {'Time[s]': best_time_data[k], 'Pos[m]': best_pos[k],
-              'V[m/s]': best_vel[k], 'mass[kg]': best_mass[k],
-              'T[N]': best_thrust[k]}
-        df_cost = {'Cost_function[-]': np.array(ga.historical_cost)[:, k]}
-        df_list.append(df)
-        df_cost_list.append(df_cost)
+        json_list[str(n_thr)]['Case' + str(k)] = {}
+        df = {'Time[s]': best_time_data[k].tolist(), 'Pos[m]': best_pos[k].tolist(),
+              'V[m/s]': best_vel[k].tolist(), 'mass[kg]': best_mass[k].tolist(),
+              'T[N]': best_thrust[k].tolist()}
+        df_cost = {'Cost_function[-]': np.array(ga.historical_cost)[:, k].tolist()}
+
+        json_list[str(n_thr)]['Case' + str(k)]['response'] = df
+        json_list[str(n_thr)]['Case' + str(k)]['cost'] = df_cost
 
     folder_name = "Only_GA_isp_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m/" +\
                   "n_thr-" + str(n_thr) + "/"
 
-    file_name_1 = "Out_data_" + now
-    file_name_2 = "Cost_function_" + now
-    file_name_3 = "Sigma_Distribution_" + now
-    file_name_4 = "Normal_Distribution_" + now
-    ga.save_data(df_list, folder_name, file_name_1)
-    ga.save_data(df_cost_list, folder_name, file_name_2)
-
     print(best_individuals[1])
     lim_std3sigma = [1, 3]  # [m, m/S]
-    ga.plot_sigma_distribution(best_pos, best_vel, folder_name, file_name_3, lim_std3sigma, save=True)
-    ga.plot_gauss_distribution(best_pos, best_vel, folder_name, file_name_4, save=True)
-    ga.plot_best(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
+    plot_sigma_distribution(best_pos, best_vel, folder_name, file_name_3, lim_std3sigma, save=True)
+    plot_gauss_distribution(best_pos, best_vel, folder_name, file_name_4, save=True)
+    plot_best(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
                  end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
-    ga.plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
+    plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
                          folder_name=folder_name, file_name=file_name_2)
-    ga.close_plot()
+    # close_plot()
 
+file_name_1 = "Out_data_" + now
+folder_name = "Only_GA_isp_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m/"
+save_data(json_list, folder_name, file_name_1)
 # -----------------------------------------------------------------------------------------------------#
 # Optimal solution with GA for constant thrust with a
 

@@ -44,7 +44,7 @@ class Thruster(object):
         self.thr_is_burned = False
         self.current_time = 0
         self.current_mag_thrust_c = 0
-        self.lag_coef = 0.2
+        self.lag_coef = 0.0
         self.current_beta = 0
 
     def set_lag_coef(self, val):
@@ -61,13 +61,16 @@ class Thruster(object):
 
     def propagate_thr(self):
         if self.selected_propellant.geometry_grain is not None:
-            """Propagate propellant"""
+            """Propagate propellant by model"""
         elif self.thrust_profile is not None:
-            """Propagate loaded profile"""
+            """Propagate loaded profile by file"""
             self.calc_parametric_thrust()
         else:
             """Propagate an constant thrust"""
-            self.get_constant_thrust()
+            if self.lag_coef == 0.0:
+                self.get_constant_thrust()
+            else:
+                self.get_constant_thrust_with_delay()
         return
 
     def get_constant_thrust(self):
@@ -114,36 +117,22 @@ class Thruster(object):
             self.current_mag_thrust_c = 0
             self.current_time += self.step_width
 
-    def calc_tubular_thrust(self, com_period_):
+    def get_constant_thrust_with_delay(self):
         if self.thr_is_on:
-            if self.current_burn_time <= self.max_burn_time/2:
-                ite = 0
-                while ite < com_period_ / self.step_width:
-
-                    self.current_mag_thrust_c = self.nominal_thrust * (1 - np.exp(- self.current_burn_time / self.lag_coef))
-                    ite += 1
-                self.current_time += self.step_width
-                self.current_burn_time += self.step_width
-            elif self.max_burn_time >= self.current_burn_time > self.max_burn_time/2:
-                ite = 0
-                while ite < com_period_ / self.step_width:
-                    self.current_mag_thrust_c = self.nominal_thrust * (1 - np.exp((self.current_burn_time -
-                                                                                   self.max_burn_time) / self.lag_coef))
-                    ite += 1
-                self.current_time += self.step_width
-                self.current_burn_time += self.step_width
-            else:
+            if self.current_burn_time == 0:
+                self.selected_propellant.update_bias_isp()
                 self.current_mag_thrust_c = 0
-                self.thr_is_burned = True
+                self.current_burn_time += self.step_width
+            elif self.current_burn_time <= self.t_burn/2:
+                self.selected_propellant.update_noise_isp()
+                current_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                self.current_mag_thrust_c = current_thrust * (1 - np.exp(- self.current_burn_time / self.lag_coef))
                 self.current_time += self.step_width
-        else:
-            self.current_mag_thrust_c = 0
-            self.current_time += self.step_width
-
-    def calc_linear_thrust(self, com_period_):
-        if self.thr_is_on:
-            if self.current_burn_time <= self.max_burn_time:
-                self.current_mag_thrust_c = self.nominal_thrust
+                self.current_burn_time += self.step_width
+            elif self.t_burn >= self.current_burn_time > self.t_burn/2:
+                current_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                self.current_mag_thrust_c = current_thrust * (1 - np.exp((self.current_burn_time -
+                                                                                   self.t_burn) / self.lag_coef))
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             else:
@@ -176,7 +165,7 @@ class Thruster(object):
 
     @staticmethod
     def load_thrust_profile(file_name):
-        dataframe = pd.read_csv("Thrust/StarGrain7.csv")
+        dataframe = pd.read_csv("Thrust/" + file_name)
         return dataframe['Thrust(N)'].values, dataframe['Time(s)'].values
 
 
