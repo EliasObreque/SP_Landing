@@ -98,7 +98,7 @@ class Dynamics(object):
             all_thrust_burned = [self.thrusters[j].thr_is_burned for j in range(len(self.thrusters))]
             if next_x[2] < 0:
                 end_condition = True
-            elif (time_options[1] < k * self.step_width or (next_x[0] < xf[0])) and np.all(all_thrust_burned):
+            elif (time_options[1] < k * self.step_width or (next_x[0] <= xf[0])) and np.all(all_thrust_burned):
                 end_condition = True
                 for h in range(len(end_index_control), len(index_control)):
                     end_index_control.append(k - 1)
@@ -115,6 +115,6 @@ class Dynamics(object):
             self.basic_hamilton_calc.show_alpha_limits(alpha_min, alpha_max)
         return
 
-    def set_controller_parameters(self, parameters):
-        self.controller_parameters = parameters
+    def set_controller_parameters(self, par_a, par_b):
+        self.controller_parameters = [[par_a[i], par_b[i]] for i in range(len(par_b))]
         return

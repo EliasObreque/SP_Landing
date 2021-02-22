@@ -7,6 +7,7 @@ email: els.obrq@gmail.com
 import numpy as np
 from scipy.stats import rankdata
 from matplotlib import pyplot as plt
+from tools.MonteCarlo import MonteCarlo
 from copy import deepcopy
 plt.rcParams["font.family"] = "Times New Roman"
 plt.ion()
@@ -79,7 +80,7 @@ class GeneticAlgorithm(object):
             self.population.append(individual)
         return
 
-    def optimize(self, cost_function=None, n_case=1, restriction_function=None):
+    def optimize(self, cost_function=None, n_case=1, restriction_function=None, alt_noise=False):
         self.cost_function = cost_function
         self.ga_dynamics   = restriction_function[0]
         self.init_state    = restriction_function[1:3]
@@ -88,7 +89,7 @@ class GeneticAlgorithm(object):
 
         print('Running...')
         generation = 1
-        states, time_data, Tf, index_control, end_index_control = self.ga_evaluate(self.population, n_case)
+        states, time_data, Tf, index_control, end_index_control = self.ga_evaluate(self.population, n_case, alt_noise)
         temp = np.mean(self.current_cost, 1) + np.std(self.current_cost, 1)
         print('Generation: ', generation, ', Cost: ', min(temp))
         self.historical_cost.append(self.current_cost[int(np.argmin(temp))])
@@ -118,7 +119,8 @@ class GeneticAlgorithm(object):
                 next_population.append(new_generation2)
             del self.population
             self.population = deepcopy(next_population)
-            states, time_data, Tf, index_control, end_index_control = self.ga_evaluate(next_population, n_case)
+            states, time_data, Tf, index_control, end_index_control = self.ga_evaluate(next_population, n_case,
+                                                                                       alt_noise)
             generation += 1
             if generation > self.max_generation:
                 self.max_generation = generation
@@ -143,7 +145,7 @@ class GeneticAlgorithm(object):
             plt.plot(np.arange(1, self.max_generation + 1), np.array(self.historical_cost)[:, k], lw=0.8)
         plt.grid()
 
-    def ga_evaluate(self, next_population, n_case):
+    def ga_evaluate(self, next_population, n_case, alt_noise):
         self.current_cost = []
         X_states = []
         THR      = []
@@ -151,6 +153,15 @@ class GeneticAlgorithm(object):
         EC       = []
         TIME     = []
         self.ga_dynamics.controller_function = self.get_beta
+
+        # # Generation of case (Monte Carlo)
+        sdr = 20
+        sdv = 0
+        sdm = 0
+        rN = MonteCarlo(self.init_state[0][0], sdr, n_case).random_value()
+        vN = MonteCarlo(self.init_state[0][1], sdv, n_case).random_value()
+        mN = MonteCarlo(self.init_state[0][2], sdm, n_case).random_value()
+
         for indv in range(self.n_individuals):
             X_states.append([])
             THR.append([])
@@ -158,15 +169,20 @@ class GeneticAlgorithm(object):
             EC.append([])
             TIME.append([])
             self.current_cost.append([])
-            self.ga_dynamics.set_controller_parameters(next_population[indv][3])
+            self.ga_dynamics.set_controller_parameters(next_population[indv][3], next_population[indv][4])
 
             for j in range(len(self.ga_dynamics.thrusters)):
                 self.ga_dynamics.modify_individual_engine(j, 'alpha', next_population[indv][0][j])
                 self.ga_dynamics.modify_individual_engine(j, 't_burn', next_population[indv][1][j])
 
             for k in range(n_case):
+                if alt_noise:
+                    x0 = [rN[k], vN[k], mN[k]]
+                else:
+                    x0 = self.init_state[0]
+
                 x_states, time_series, thr, index_control, end_index_control = self.ga_dynamics.run_simulation(
-                    self.init_state[0],
+                    x0,
                     self.init_state[1],
                     self.time_options)
 
@@ -183,9 +199,13 @@ class GeneticAlgorithm(object):
         return X_states, TIME, THR, IC, EC
 
     @staticmethod
-    def get_beta(ignition_alt, current_state):
+    def get_beta(control_par, current_state):
+        a = control_par[0]
+        b = control_par[1]
         current_alt = current_state[0]
-        if current_alt <= ignition_alt:
+        current_vel = current_state[1]
+        f = a * current_alt + b * current_vel
+        if f <= 0:
             return 1
         else:
             return 0

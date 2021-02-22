@@ -27,9 +27,11 @@ class LinearCoordinate(object):
         if x > 0.0:
             rhs[1] = self.g_planet + T / mass
         else:
-            if self.g_planet < - T / mass:
+            if np.abs(self.g_planet) > np.abs(T / mass):
+                rhs[0] = 0
                 rhs[1] = 0
             else:
+                rhs[0] = 0
                 rhs[1] = self.g_planet + T / mass
         rhs[2] = -T / self.c_char
         return rhs

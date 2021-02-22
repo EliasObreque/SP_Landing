@@ -25,7 +25,7 @@ STAR = 'star'
 ONE_D = '1D'
 POLAR = 'polar'
 now = datetime.now()
-now = now.strftime("%Y-%m-%d")
+now = now.strftime("%Y-%m-%dT%H-%M-%S")
 reference_frame = ONE_D
 # -----------------------------------------------------------------------------------------------------#
 # Data Mars lander (12U (24 kg), 27U (54 kg))
@@ -212,16 +212,16 @@ t_burn_min, t_burn_max = 2, 60
 dynamics.controller_type = 'ga_wo_hamilton'
 
 r0 = 2000
-type_problem = "bias-noise"
+type_problem = "alt_noise"
 type_propellant = CONSTANT
-N_case = 60  # Case number
+N_case = 30  # Case number
 n_thruster = [2, 4, 6]
 
 if len(sys.argv) > 1:
     print(list(sys.argv))
     r0 = float(sys.argv[1])  # altitude [m]
     type_propellant = sys.argv[2]  # Burn propellant geometry: 'constant' - 'tubular' - 'bates' - 'star'
-    type_problem    = sys.argv[3]  # Problem: "noise" - "bias" - "normal" - "bias-noise"
+    type_problem    = sys.argv[3]  # Problem: "isp_noise"-"isp_bias"-"normal"-"isp_bias-noise"-"alt_noise"-"all"
     n_thruster      = [int(x) for x in sys.argv[4].split(',')]  # Engines: [list]
     N_case = int(sys.argv[5])  # Case number
 
@@ -231,26 +231,31 @@ time_options = [0.0, simulation_time, 0.1]
 
 print("Initial condition: ", str(x0))
 print("N_case: ", N_case)
+alt_noise = False
 
 # +-10% and multi-engines array
 # gauss_factor = 1 for 68.3%, = 2 for 95.45%, = 3 for 99.74%
-if type_problem == 'noise':
+if type_problem == 'isp_noise':
     percentage_variation = 1
     upper_isp = Isp * (1.0 + percentage_variation / 100.0)
     propellant_properties['isp_std'] = (upper_isp - Isp) / 3
     propellant_properties['isp_bias'] = None
-elif type_problem == 'bias':
+elif type_problem == 'isp_bias':
     percentage_variation = 5
     upper_isp = Isp * (1.0 + percentage_variation / 100.0)
     propellant_properties['isp_bias'] = (upper_isp - Isp) / 3
     propellant_properties['isp_std'] = None
-elif type_problem == 'bias-noise':
+elif type_problem == 'isp_bias-noise':
     percentage_variation = 1
     upper_isp = Isp * (1.0 + percentage_variation / 100.0)
     propellant_properties['isp_std'] = (upper_isp - Isp) / 3
     percentage_variation = 5
     upper_isp = Isp * (1.0 + percentage_variation / 100.0)
     propellant_properties['isp_bias'] = (upper_isp - Isp) / 3
+elif type_problem == 'alt_noise':
+    propellant_properties['isp_std'] = None
+    propellant_properties['isp_bias'] = None
+    alt_noise = True
 else:
     propellant_properties['isp_std'] = None
     propellant_properties['isp_bias'] = None
@@ -267,17 +272,18 @@ def sp_cost_function(ga_x_states, thr, Ah, Bh):
     error_pos = ga_x_states[-1][0] - xf[0]
     error_vel = ga_x_states[-1][1] - xf[1]
     if max(np.array(ga_x_states)[:, 1]) > 0:
-        error_vel *= 100
+        error_vel *= 10
     if max(np.array(ga_x_states)[:, 0]) < 0:
         error_pos *= 100
     return Ah * error_pos ** 2 + Bh * error_vel ** 2 + 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2
 
 
 json_list = {}
-file_name_1 = "Out_data_" + now
-file_name_2 = "State_variable" + now
-file_name_3 = "Sigma_Distribution_" + now
-file_name_4 = "Normal_Distribution_" + now
+file_name_1 = "Out_data"
+file_name_2 = "State_variable"
+file_name_3 = "Sigma_Distribution"
+file_name_4 = "Normal_Distribution"
+
 json_list['N_case'] = N_case
 thruster_properties['delay'] = 0.3
 for n_thr in n_thruster:
@@ -288,18 +294,20 @@ for n_thr in n_thruster:
     propellant_properties['n_thrusters'] = n_thr
     propellant_properties['pulse_thruster'] = pulse_thruster
 
-    ga = GeneticAlgorithm(max_generation=200, n_individuals=50,
+    ga = GeneticAlgorithm(max_generation=100, n_individuals=50,
                           ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
                                             optimal_alpha * 2 / pulse_thruster, pulse_thruster],
-                                           ['float_iter', 0, t_burn_max, pulse_thruster], ['str', type_propellant],
-                                           ['float_iter', x0[0], xf[0], pulse_thruster]],
+                                           ['float_iter', 0.0, t_burn_max, pulse_thruster], ['str', type_propellant],
+                                           ['float_iter', 0.0, 1.0, pulse_thruster],
+                                           ['float_iter', 0.0, x0[0] / np.sqrt(2 * np.abs(g_center_body) * x0[0]),
+                                            pulse_thruster]],
                           mutation_probability=0.2)
 
     start_time = time.time()
     best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control = ga.optimize(
         cost_function=sp_cost_function, n_case=N_case, restriction_function=[dynamics, x0, xf, time_options,
                                                                              propellant_properties,
-                                                                             thruster_properties])
+                                                                             thruster_properties], alt_noise=alt_noise)
     finish_time = time.time()
     print('Time to optimize: ', finish_time - start_time)
 
@@ -318,8 +326,8 @@ for n_thr in n_thruster:
         json_list[str(n_thr)]['Case' + str(k)]['response'] = df
         json_list[str(n_thr)]['Case' + str(k)]['cost'] = df_cost
 
-    folder_name = "Only_GA_isp_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m/" +\
-                  "n_thr-" + str(n_thr) + "/"
+    folder_name = "Only_GA_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m_" + now + "/"\
+                  + "n_thr-" + str(n_thr) + "/"
 
     print(best_individuals[1])
     lim_std3sigma = [1, 3]  # [m, m/S]
@@ -332,39 +340,6 @@ for n_thr in n_thruster:
     # close_plot()
 
 file_name_1 = "Out_data_" + now
-folder_name = "Only_GA_isp_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m/"
+folder_name = "Only_GA_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m_" + now + "/"
 save_data(json_list, folder_name, file_name_1)
-# -----------------------------------------------------------------------------------------------------#
-# Optimal solution with GA for constant thrust with a
-
-# plot
-# opt_plot1 = '-b'
-# opt_plot2 = 'or'
-# create_plot()
-
-# for i in range(N_case):
-#     set_plot(1, time[i], x1[i], opt_plot1, opt_plot2)
-#     set_plot(2, time[i], x2[i], opt_plot1, opt_plot2)
-#     set_plot(3, time[i], x3[i], opt_plot1, opt_plot2)
-#     set_plot(4, time[i], x4[i], opt_plot1, opt_plot2)
-#     set_plot(5, time[i], x5[i], opt_plot1, opt_plot2)
-#     set_plot(6, time[i], thr[i], opt_plot1, opt_plot2)
-#     set_plot(7, time[i], (np.array(x1[i]) - r_moon), opt_plot1, opt_plot2)
-#     set_plot(8, np.array(x1[i]) * (np.sin(x3[i])), np.array(x1[i]) * (np.cos(x3[i])), opt_plot1, opt_plot2)
-# plt.show()
-# print('Finished')
-
-#
-# N_case = 1  # Case number
-#
-# # Generation of case (Monte Carlo)
-# rN = MonteCarlo(r0, sdr, N_case).random_value()
-# vN = MonteCarlo(v0, sdv, N_case).random_value()
-# mN = MonteCarlo(m0, sdm, N_case).random_value()
-#
-# p_rN = MonteCarlo(p_r0, sdr, N_case).random_value()
-# p_vN = MonteCarlo(p_v0, sdv, N_case).random_value()
-# p_thetaN = MonteCarlo(p_theta0, sdv, N_case).random_value()
-# p_omegaN = MonteCarlo(p_omega0, sdv, N_case).random_value()
-# p_mN = MonteCarlo(p_m0, sdm, N_case).random_value()
 print("Finished")
