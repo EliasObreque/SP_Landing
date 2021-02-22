@@ -159,7 +159,7 @@ def plot_gauss_distribution(pos_, vel_, folder_name, file_name, save=False):
         fig_gauss.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_gauss.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
     plt.draw()
-    return
+    return [np.mean(final_pos), np.mean(final_vel), np.std(final_pos), np.std(final_vel)]
 
 
 def plot_sigma_distribution(pos_, vel_, folder_name, file_name, lim_std3sigma, save=False):

@@ -208,14 +208,14 @@ dynamics.basic_hamilton_calc.print_simulation_data(x_states, mp, m0, r0)
 
 # -----------------------------------------------------------------------------------------------------#
 # Optimal solution with GA for constant thrust and multi-engines array
-t_burn_min, t_burn_max = 2, 60
+t_burn_min, t_burn_max   = 2, 60
 dynamics.controller_type = 'ga_wo_hamilton'
 
-r0 = 2000
-type_problem = "alt_noise"
+r0              = 2000
+type_problem    = "alt_noise"
 type_propellant = CONSTANT
-N_case = 30  # Case number
-n_thruster = [2, 4, 6]
+N_case          = 60  # Case number
+n_thruster      = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
 
 if len(sys.argv) > 1:
     print(list(sys.argv))
@@ -294,7 +294,7 @@ for n_thr in n_thruster:
     propellant_properties['n_thrusters'] = n_thr
     propellant_properties['pulse_thruster'] = pulse_thruster
 
-    ga = GeneticAlgorithm(max_generation=100, n_individuals=50,
+    ga = GeneticAlgorithm(max_generation=200, n_individuals=50,
                           ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
                                             optimal_alpha * 2 / pulse_thruster, pulse_thruster],
                                            ['float_iter', 0.0, t_burn_max, pulse_thruster], ['str', type_propellant],
@@ -332,11 +332,15 @@ for n_thr in n_thruster:
     print(best_individuals[1])
     lim_std3sigma = [1, 3]  # [m, m/S]
     plot_sigma_distribution(best_pos, best_vel, folder_name, file_name_3, lim_std3sigma, save=True)
-    plot_gauss_distribution(best_pos, best_vel, folder_name, file_name_4, save=True)
+    performance = plot_gauss_distribution(best_pos, best_vel, folder_name, file_name_4, save=True)
     plot_best(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
                  end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
     plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
                          folder_name=folder_name, file_name=file_name_2)
+    json_list[str(n_thr)]['performance'] = {'mean_pos': performance[0],
+                                            'mean_vel': performance[1],
+                                            'std_pos': performance[2],
+                                            'std_vel': performance[3]}
     # close_plot()
 
 file_name_1 = "Out_data_" + now
