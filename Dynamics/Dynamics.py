@@ -69,6 +69,8 @@ class Dynamics(object):
         end_condition = False
         k = 0
         current_x = x0
+        touch_surface = False
+        land_index = 0
         while end_condition is False:
             total_thrust = 0
             if self.controller_type == 'basic_hamilton':
@@ -96,6 +98,10 @@ class Dynamics(object):
             k += 1
             current_x = next_x
             all_thrust_burned = [self.thrusters[j].thr_is_burned for j in range(len(self.thrusters))]
+            if next_x[0] <= xf[0] and touch_surface is False:
+                land_index = k
+                touch_surface = True
+
             if next_x[2] < 0:
                 end_condition = True
             elif (time_options[1] < k * self.step_width or (next_x[0] <= xf[0])) and np.all(all_thrust_burned):
@@ -105,7 +111,9 @@ class Dynamics(object):
             else:
                 x_states.append(next_x)
                 time_series.append(time_options[0] + k * self.step_width)
-        return np.array(x_states), np.array(time_series), np.array(thr), index_control, end_index_control
+        if land_index == len(x_states):
+            land_index -= 1
+        return np.array(x_states), np.array(time_series), np.array(thr), index_control, end_index_control, land_index
 
     def calc_limits_by_single_hamiltonian(self, t_burn_min, t_burn_max, alpha_min, alpha_max, plot_data=False):
         self.basic_hamilton_calc.calc_limits_with_const_time(t_burn_min, alpha_min, alpha_max)

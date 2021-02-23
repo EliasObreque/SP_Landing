@@ -202,7 +202,7 @@ x0 = [r0, v0, m0]
 xf = [0.0, 0.0, m1]
 time_options = [0, simulation_time, dt]
 
-x_states, time_series, thr, _, _ = dynamics.run_simulation(x0, xf, time_options)
+x_states, time_series, thr, _, _, _ = dynamics.run_simulation(x0, xf, time_options)
 dynamics.basic_hamilton_calc.print_simulation_data(x_states, mp, m0, r0)
 # dynamics.basic_hamilton_calc.plot_1d_simulation(x_states, time_series, thr)
 
@@ -215,14 +215,14 @@ r0              = 2000
 type_problem    = "alt_noise"
 type_propellant = CONSTANT
 N_case          = 60  # Case number
-n_thruster      = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+n_thrusters      = [2, 4, 6, 8, 10]
 
 if len(sys.argv) > 1:
     print(list(sys.argv))
     r0 = float(sys.argv[1])  # altitude [m]
     type_propellant = sys.argv[2]  # Burn propellant geometry: 'constant' - 'tubular' - 'bates' - 'star'
     type_problem    = sys.argv[3]  # Problem: "isp_noise"-"isp_bias"-"normal"-"isp_bias-noise"-"alt_noise"-"all"
-    n_thruster      = [int(x) for x in sys.argv[4].split(',')]  # Engines: [list]
+    n_thrusters      = [int(x) for x in sys.argv[4].split(',')]  # Engines: [list]
     N_case = int(sys.argv[5])  # Case number
 
 # initial condition
@@ -268,9 +268,9 @@ optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(x0[0
                                                                             t_burn)
 
 
-def sp_cost_function(ga_x_states, thr, Ah, Bh):
-    error_pos = ga_x_states[-1][0] - xf[0]
-    error_vel = ga_x_states[-1][1] - xf[1]
+def sp_cost_function(ga_x_states, thr, ga_land_index, Ah, Bh):
+    error_pos = ga_x_states[ga_land_index][0] - xf[0]
+    error_vel = ga_x_states[ga_land_index][1] - xf[1]
     if max(np.array(ga_x_states)[:, 1]) > 0:
         error_vel *= 10
     if max(np.array(ga_x_states)[:, 0]) < 0:
@@ -283,10 +283,12 @@ file_name_1 = "Out_data"
 file_name_2 = "State_variable"
 file_name_3 = "Sigma_Distribution"
 file_name_4 = "Normal_Distribution"
+file_name_5 = "Performance_by_motor"
 
 json_list['N_case'] = N_case
 thruster_properties['delay'] = 0.3
-for n_thr in n_thruster:
+performance_list = []
+for n_thr in n_thrusters:
     print('N thrust: ', n_thr)
     json_list[str(n_thr)] = {}
     pulse_thruster = int(n_thr / par_force)
@@ -304,7 +306,7 @@ for n_thr in n_thruster:
                           mutation_probability=0.2)
 
     start_time = time.time()
-    best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control = ga.optimize(
+    best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control, land_index = ga.optimize(
         cost_function=sp_cost_function, n_case=N_case, restriction_function=[dynamics, x0, xf, time_options,
                                                                              propellant_properties,
                                                                              thruster_properties], alt_noise=alt_noise)
@@ -331,8 +333,9 @@ for n_thr in n_thruster:
 
     print(best_individuals[1])
     lim_std3sigma = [1, 3]  # [m, m/S]
-    plot_sigma_distribution(best_pos, best_vel, folder_name, file_name_3, lim_std3sigma, save=True)
-    performance = plot_gauss_distribution(best_pos, best_vel, folder_name, file_name_4, save=True)
+    plot_sigma_distribution(best_pos, best_vel, land_index, folder_name, file_name_3, lim_std3sigma, save=True)
+    performance = plot_gauss_distribution(best_pos, best_vel, land_index, folder_name, file_name_4, save=True)
+    performance_list.append(performance)
     plot_best(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
                  end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
     plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
@@ -341,9 +344,11 @@ for n_thr in n_thruster:
                                             'mean_vel': performance[1],
                                             'std_pos': performance[2],
                                             'std_vel': performance[3]}
-    # close_plot()
+    close_plot()
 
 file_name_1 = "Out_data_" + now
 folder_name = "Only_GA_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m_" + now + "/"
+
+plot_performance(performance_list, n_thrusters, save=True, folder_name=folder_name, file_name=file_name_5)
 save_data(json_list, folder_name, file_name_1)
 print("Finished")

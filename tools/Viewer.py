@@ -139,12 +139,12 @@ def plot_best(time_best, best_pos, best_vel, best_mass, best_thrust, ini_best_in
     return
 
 
-def plot_gauss_distribution(pos_, vel_, folder_name, file_name, save=False):
+def plot_gauss_distribution(pos_, vel_, land_index, folder_name, file_name, save=False):
     fig_gauss, axs_gauss = plt.subplots(1, 2)
     axs_gauss[0].set_xlabel('Altitude [m]')
     axs_gauss[1].set_xlabel('Velocity [m/s]')
-    final_pos = [pos_[k][-1] for k in range(len(pos_))]
-    final_vel = [vel_[k][-1] for k in range(len(pos_))]
+    final_pos = [pos_[k][land_index[k]] for k in range(len(pos_))]
+    final_vel = [vel_[k][land_index[k]] for k in range(len(pos_))]
     w = 4
     n = int(len(final_pos) / w)
     axs_gauss[0].hist(final_pos, bins=n, color='#0D3592', rwidth=0.85)
@@ -162,7 +162,7 @@ def plot_gauss_distribution(pos_, vel_, folder_name, file_name, save=False):
     return [np.mean(final_pos), np.mean(final_vel), np.std(final_pos), np.std(final_vel)]
 
 
-def plot_sigma_distribution(pos_, vel_, folder_name, file_name, lim_std3sigma, save=False):
+def plot_sigma_distribution(pos_, vel_, land_index, folder_name, file_name, lim_std3sigma, save=False):
     fig_dist, axs_dist = plt.subplots(1, 1)
     plt.xlabel('Velocity [m/s]')
     plt.ylabel('Altitude [m]')
@@ -180,7 +180,7 @@ def plot_sigma_distribution(pos_, vel_, folder_name, file_name, lim_std3sigma, s
     plt.text(- 2 * lim_std3sigma[1] / 3 + 0.1, 0, r'$2 \sigma$', fontsize=15)
     plt.text(- lim_std3sigma[1] / 3 + 0.1, 0, r'$1 \sigma$', fontsize=15)
     for k in range(len(pos_)):
-        plt.plot(vel_[k][-1], pos_[k][-1], 'bo')
+        plt.plot(vel_[k][land_index[k]], pos_[k][land_index[k]], 'bo')
     plt.grid()
     if save:
         if os.path.isdir("./logs/" + folder_name) is False:
@@ -218,6 +218,29 @@ def plot_state_vector(best_pos, best_vel, ini_best_individuals, end_best_individ
         fig_state.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_state.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
     plt.draw()
+
+
+def plot_performance(performance_list, n_thrusters, save=True, folder_name=None, file_name=None):
+    fig_perf, axs_perf = plt.subplots(1, 1)
+    plt.xlabel('Velocity [m/s]')
+    plt.ylabel('Position [m]')
+    i = 0
+    plt.grid()
+    for elem in performance_list:
+        e = patches.Ellipse((elem[0], elem[1]), 2 * elem[2], 2 * elem[3],
+                             angle=0, linewidth=1, fill=False, zorder=2, edgecolor='black')
+        axs_perf.add_patch(e)
+        plt.text(elem[0], elem[1], r'$N_e = $' + str(n_thrusters[i]), fontsize=8)
+        i += 1
+    axs_perf.autoscale_view()
+    if save:
+        if save:
+            if os.path.isdir("./logs/" + folder_name) is False:
+                os.mkdir("./logs/" + folder_name)
+        fig_perf.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
+        fig_perf.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
+    plt.show()
+    return
 
 
 def close_plot():

@@ -89,7 +89,8 @@ class GeneticAlgorithm(object):
 
         print('Running...')
         generation = 1
-        states, time_data, Tf, index_control, end_index_control = self.ga_evaluate(self.population, n_case, alt_noise)
+        states, time_data, Tf, index_control, end_index_control, land_index = self.ga_evaluate(self.population,
+                                                                                               n_case, alt_noise)
         temp = np.mean(self.current_cost, 1) + np.std(self.current_cost, 1)
         print('Generation: ', generation, ', Cost: ', min(temp))
         self.historical_cost.append(self.current_cost[int(np.argmin(temp))])
@@ -119,8 +120,9 @@ class GeneticAlgorithm(object):
                 next_population.append(new_generation2)
             del self.population
             self.population = deepcopy(next_population)
-            states, time_data, Tf, index_control, end_index_control = self.ga_evaluate(next_population, n_case,
-                                                                                       alt_noise)
+            states, time_data, Tf, index_control, end_index_control, land_index = self.ga_evaluate(next_population,
+                                                                                                   n_case,
+                                                                                                   alt_noise)
             generation += 1
             if generation > self.max_generation:
                 self.max_generation = generation
@@ -134,8 +136,10 @@ class GeneticAlgorithm(object):
         best_index_control = index_control[best_index]
         best_end_index_control = end_index_control[best_index]
         best_time_data = time_data[best_index]
+        best_landing_index = land_index[best_index]
         self.plot_cost(n_case)
-        return best_states, best_time_data, best_Tf, best_individuals, best_index_control, best_end_index_control
+        return best_states, best_time_data, best_Tf, best_individuals, best_index_control,\
+               best_end_index_control, best_landing_index
 
     def plot_cost(self, n_case):
         plt.figure()
@@ -152,6 +156,7 @@ class GeneticAlgorithm(object):
         IC       = []
         EC       = []
         TIME     = []
+        LAND_INDEX = []
         self.ga_dynamics.controller_function = self.get_beta
 
         # # Generation of case (Monte Carlo)
@@ -168,6 +173,7 @@ class GeneticAlgorithm(object):
             IC.append([])
             EC.append([])
             TIME.append([])
+            LAND_INDEX.append([])
             self.current_cost.append([])
             self.ga_dynamics.set_controller_parameters(next_population[indv][3], next_population[indv][4])
 
@@ -181,14 +187,15 @@ class GeneticAlgorithm(object):
                 else:
                     x0 = self.init_state[0]
 
-                x_states, time_series, thr, index_control, end_index_control = self.ga_dynamics.run_simulation(
+                x_states, time_series, thr, index_control, end_index_control, land_i = self.ga_dynamics.run_simulation(
                     x0,
                     self.init_state[1],
                     self.time_options)
 
-                j_cost = self.cost_function(x_states, thr, self.Ah, self.Bh)
+                j_cost = self.cost_function(x_states, thr, land_i, self.Ah, self.Bh)
                 self.current_cost[indv].append(j_cost)
                 X_states[indv].append(x_states)
+                LAND_INDEX[indv].append(land_i)
                 THR[indv].append(thr)
                 TIME[indv].append(time_series)
                 IC[indv].append(index_control)
@@ -196,7 +203,7 @@ class GeneticAlgorithm(object):
                 # Reset thruster
                 for thrust in self.ga_dynamics.thrusters:
                     thrust.reset_variables()
-        return X_states, TIME, THR, IC, EC
+        return X_states, TIME, THR, IC, EC, LAND_INDEX
 
     @staticmethod
     def get_beta(control_par, current_state):
