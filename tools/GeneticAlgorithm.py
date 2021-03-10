@@ -80,12 +80,12 @@ class GeneticAlgorithm(object):
             self.population.append(individual)
         return
 
-    def optimize(self, cost_function=None, n_case=1, restriction_function=None, alt_noise=False):
+    def optimize(self, cost_function=None, n_case=1, restriction_function=None, alt_noise=None):
         self.cost_function = cost_function
         self.ga_dynamics   = restriction_function[0]
         self.init_state    = restriction_function[1:3]
         self.time_options  = restriction_function[3]
-        self.ga_dynamics.set_engines_properties(restriction_function[5], restriction_function[4])
+        self.ga_dynamics.set_engines_properties(restriction_function[5], restriction_function[4], self.population[0][2])
 
         print('Running...')
         generation = 1
@@ -149,7 +149,7 @@ class GeneticAlgorithm(object):
             plt.plot(np.arange(1, self.max_generation + 1), np.array(self.historical_cost)[:, k], lw=0.8)
         plt.grid()
 
-    def ga_evaluate(self, next_population, n_case, alt_noise):
+    def ga_evaluate(self, next_population, n_case, alt_noise_):
         self.current_cost = []
         X_states = []
         THR      = []
@@ -160,12 +160,18 @@ class GeneticAlgorithm(object):
         self.ga_dynamics.controller_function = self.get_beta
 
         # # Generation of case (Monte Carlo)
-        sdr = 20
-        sdv = 0
-        sdm = 0
-        rN = MonteCarlo(self.init_state[0][0], sdr, n_case).random_value()
-        vN = MonteCarlo(self.init_state[0][1], sdv, n_case).random_value()
-        mN = MonteCarlo(self.init_state[0][2], sdm, n_case).random_value()
+        rN = []
+        vN = []
+        mN = []
+        alt_noise = False
+        if alt_noise_ is not None:
+            alt_noise = alt_noise_[0]
+            sdr = alt_noise_[1]
+            sdv = 0
+            sdm = 0
+            rN = MonteCarlo(self.init_state[0][0], sdr, n_case).random_value()
+            vN = MonteCarlo(self.init_state[0][1], sdv, n_case).random_value()
+            mN = MonteCarlo(self.init_state[0][2], sdm, n_case).random_value()
 
         for indv in range(self.n_individuals):
             X_states.append([])

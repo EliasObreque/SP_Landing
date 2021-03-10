@@ -21,6 +21,8 @@ CONSTANT  = 'constant'
 TUBULAR = 'tubular'
 BATES = 'bates'
 STAR = 'star'
+PROGRESSIVE = 'progressive'
+REGRESSIVE = 'regressive'
 
 ONE_D = '1D'
 POLAR = 'polar'
@@ -40,8 +42,10 @@ c_char = Isp * ge
 
 # Available space for engine (square)
 space_max = 200  # mm
-thickness_case_factor = 1.4
+thickness_case_factor = 1.2
 aux_dimension = 100  # mm
+d_int = 2  # mm
+
 
 # -----------------------------------------------------------------------------------------------------#
 # Center body data
@@ -215,7 +219,9 @@ r0              = 2000
 type_problem    = "alt_noise"
 type_propellant = CONSTANT
 N_case          = 60  # Case number
-n_thrusters      = [2, 4, 6, 8, 10]
+n_thrusters      = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+# n_thrusters      = [12, 14, 16, 18, 20]
+
 
 if len(sys.argv) > 1:
     print(list(sys.argv))
@@ -255,7 +261,8 @@ elif type_problem == 'isp_bias-noise':
 elif type_problem == 'alt_noise':
     propellant_properties['isp_std'] = None
     propellant_properties['isp_bias'] = None
-    alt_noise = True
+    sigma_alt = 50
+    alt_noise = [True, sigma_alt]
 else:
     propellant_properties['isp_std'] = None
     propellant_properties['isp_bias'] = None
@@ -296,7 +303,7 @@ for n_thr in n_thrusters:
     propellant_properties['n_thrusters'] = n_thr
     propellant_properties['pulse_thruster'] = pulse_thruster
 
-    ga = GeneticAlgorithm(max_generation=200, n_individuals=50,
+    ga = GeneticAlgorithm(max_generation=300, n_individuals=50,
                           ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
                                             optimal_alpha * 2 / pulse_thruster, pulse_thruster],
                                            ['float_iter', 0.0, t_burn_max, pulse_thruster], ['str', type_propellant],

@@ -222,8 +222,8 @@ def plot_state_vector(best_pos, best_vel, ini_best_individuals, end_best_individ
 
 def plot_performance(performance_list, n_thrusters, save=True, folder_name=None, file_name=None):
     fig_perf, axs_perf = plt.subplots(1, 1)
-    plt.xlabel('Velocity [m/s]')
-    plt.ylabel('Position [m]')
+    plt.ylabel('Velocity [m/s]')
+    plt.xlabel('Position [m]')
     i = 0
     plt.grid()
     for elem in performance_list:

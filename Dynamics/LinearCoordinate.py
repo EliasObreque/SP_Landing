@@ -16,34 +16,40 @@ class LinearCoordinate(object):
         self.Isp = Isp
         self.g_planet = g_planet
         self.c_char = Isp * ge
+        self.x_fixed = None
         return
 
     def dynamics_1d(self, state, T, psi=0):
-        x = state[0]
+        alt = state[0]
         vx = state[1]
         mass = state[2]
         rhs = np.zeros(3)
         rhs[0] = vx
-        if x > 0.0:
+        if self.x_fixed[0] > 0.0:
             rhs[1] = self.g_planet + T / mass
         else:
-            if np.abs(self.g_planet) > np.abs(T / mass):
-                rhs[0] = 0
-                rhs[1] = 0
-            else:
-                rhs[0] = 0
+            if alt > self.x_fixed[0]:
                 rhs[1] = self.g_planet + T / mass
+            else:
+                rhs[0] = 0 if vx < 0 else vx
+                rhs[1] = 0
+                if np.abs(self.g_planet) < np.abs(T / mass):
+                    rhs[1] = self.g_planet + T / mass
         rhs[2] = -T / self.c_char
         return rhs
 
     def rungeonestep(self, state, thrust, psi=0):
-        x = np.array(state)
-        k1 = self.dynamics_1d(x, thrust, psi)
-        xk2 = x + (self.dt / 2.0) * k1
+        # At each step of the Runge consider constant thrust
+        self.x_fixed = np.array(state)
+        if self.x_fixed[0] <= 0 and self.x_fixed[1] < 0:
+            self.x_fixed[1] = 0
+        x1 = self.x_fixed
+        k1 = self.dynamics_1d(x1, thrust, psi)
+        xk2 = x1 + (self.dt / 2.0) * k1
         k2 = self.dynamics_1d(xk2, thrust, psi)
-        xk3 = x + (self.dt / 2.0) * k2
+        xk3 = x1 + (self.dt / 2.0) * k2
         k3 = self.dynamics_1d(xk3, thrust, psi)
-        xk4 = x + self.dt * k3
+        xk4 = x1 + self.dt * k3
         k4 = self.dynamics_1d(xk4, thrust, psi)
-        next_x = x + (self.dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+        next_x = x1 + (self.dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
         return next_x

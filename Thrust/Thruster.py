@@ -4,7 +4,7 @@ Autor: Elias Obreque Sepulveda
 email: els.obrq@gmail.com
 
 """
-#%%
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -15,11 +15,14 @@ CONSTANT  = 'constant'
 TUBULAR = 'tubular'
 BATES   = 'bates'
 STAR    = 'star'
+PROGRESSIVE = 'progressive'
+REGRESSIVE = 'regressive'
 
 
 class Thruster(object):
-    def __init__(self, dt, thruster_properties, propellant_properties):
+    def __init__(self, dt, thruster_properties, propellant_properties, burn_type=None):
         self.thrust_profile = None
+        self.burn_type = burn_type
         self.propellant_geometry = propellant_properties['propellant_geometry']
         if thruster_properties['engine_diameter_ext'] is not None:
             throat_diameter = thruster_properties['throat_diameter']
@@ -67,10 +70,15 @@ class Thruster(object):
             self.calc_parametric_thrust()
         else:
             """Propagate an constant thrust"""
-            if self.lag_coef == 0.0:
-                self.get_constant_thrust()
+            if self.burn_type == PROGRESSIVE:
+                self.get_progressive_thrust_with_delay()
+            elif self.burn_type == REGRESSIVE:
+                self.get_regressive_thrust_with_delay()
             else:
-                self.get_constant_thrust_with_delay()
+                if self.lag_coef == 0.0:
+                    self.get_constant_thrust()
+                else:
+                    self.get_constant_thrust_with_delay()
         return
 
     def get_constant_thrust(self):
@@ -125,14 +133,92 @@ class Thruster(object):
                 self.current_burn_time += self.step_width
             elif self.current_burn_time <= self.t_burn/2:
                 self.selected_propellant.update_noise_isp()
-                current_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                self.current_mag_thrust_c = current_thrust * (1 - np.exp(- self.current_burn_time / self.lag_coef))
+                t_10 = np.arctanh(0.1 * 2 - 1.0)/10 + 0.5
+                t_90 = np.arctanh(0.9 * 2 - 1.0) / 10 + 0.5
+                current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                # self.current_mag_thrust_c = current_max_thrust * (1 -
+                # np.exp(- self.current_burn_time / self.lag_coef))
+                self.current_mag_thrust_c = current_max_thrust * (1 + np.tanh((-0.5 + self.current_burn_time) * 10)) * 0.5
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             elif self.t_burn >= self.current_burn_time > self.t_burn/2:
-                current_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                self.current_mag_thrust_c = current_thrust * (1 - np.exp((self.current_burn_time -
-                                                                                   self.t_burn) / self.lag_coef))
+                current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                # self.current_mag_thrust_c = current_max_thrust * (1 - np.exp((self.current_burn_time -
+                #                                                                    self.t_burn) / self.lag_coef))
+                self.current_mag_thrust_c = current_max_thrust * (
+                        1 + np.tanh((self.t_burn - 1) * 10 + 1 - (-0.5 + 0.1 + self.current_burn_time) * 10)) * 0.5
+                self.current_time += self.step_width
+                self.current_burn_time += self.step_width
+            else:
+                self.current_mag_thrust_c = 0
+                self.thr_is_burned = True
+                self.current_time += self.step_width
+        else:
+            self.current_mag_thrust_c = 0
+            self.current_time += self.step_width
+
+    def get_regressive_thrust_with_delay(self):
+        if self.thr_is_on:
+            if self.current_burn_time == 0:
+                self.selected_propellant.update_bias_isp()
+                self.current_mag_thrust_c = 0
+                self.current_burn_time += self.step_width
+            elif self.current_burn_time <= 1.0:
+                current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                self.current_mag_thrust_c = current_max_thrust * (1 + np.tanh((-0.5 +
+                                                                               self.current_burn_time) * 10)) * 0.5
+                self.current_burn_time += self.step_width
+                self.current_time += self.step_width
+            elif self.current_burn_time <= self.t_burn - 1.0:
+                self.selected_propellant.update_noise_isp()
+                current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                # self.current_mag_thrust_c = current_thrust * (1 - np.exp(- self.current_burn_time / self.lag_coef))
+                self.current_mag_thrust_c = current_max_thrust * (
+                        -((0.7 * self.current_burn_time) / (self.t_burn - 2.0)) + 0.7 / (self.t_burn - 2.0) + 1.0)
+                self.current_time += self.step_width
+                self.current_burn_time += self.step_width
+            elif self.t_burn >= self.current_burn_time > self.t_burn - 1:
+                current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                # self.current_mag_thrust_c = current_thrust * (1 - np.exp((self.current_burn_time -
+                #                                                                    self.t_burn) / self.lag_coef))
+                self.current_mag_thrust_c = 0.3 * current_max_thrust * (
+                        1 + np.tanh((self.t_burn - 1) * 10 + 1 - (-0.5 + 0.1 + self.current_burn_time) * 10)) * 0.5
+                self.current_time += self.step_width
+                self.current_burn_time += self.step_width
+            else:
+                self.current_mag_thrust_c = 0
+                self.thr_is_burned = True
+                self.current_time += self.step_width
+        else:
+            self.current_mag_thrust_c = 0
+            self.current_time += self.step_width
+
+    def get_progressive_thrust_with_delay(self):
+        if self.thr_is_on:
+            if self.current_burn_time == 0:
+                self.selected_propellant.update_bias_isp()
+                self.current_mag_thrust_c = 0
+                self.current_burn_time += self.step_width
+            elif self.current_burn_time <= 1.0:
+                current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                self.current_mag_thrust_c = 0.3 * current_max_thrust * (
+                        1 + np.tanh((self.t_burn - 1) * 10 + 1 - (-0.5 + 0.1 + self.current_burn_time) * 10)) * 0.5
+                self.current_burn_time += self.step_width
+                self.current_time += self.step_width
+            elif self.current_burn_time <= self.t_burn - 1.0:
+                self.selected_propellant.update_noise_isp()
+                current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                # self.current_mag_thrust_c = current_thrust * (1 - np.exp(- self.current_burn_time / self.lag_coef))
+                self.current_mag_thrust_c = current_max_thrust * (
+                        ((0.7 * self.current_burn_time) / (self.t_burn - 2.0)) + 0.7 / (self.t_burn - 2.0) + 1.0)
+                self.current_time += self.step_width
+                self.current_burn_time += self.step_width
+            elif self.t_burn >= self.current_burn_time > self.t_burn - 1:
+                current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
+                # self.current_mag_thrust_c = current_thrust * (1 - np.exp((self.current_burn_time -
+                #                                                                    self.t_burn) / self.lag_coef))
+                self.current_mag_thrust_c = current_max_thrust * (1 + np.tanh((-0.5 +
+                                                                               self.current_burn_time) * 10)) * 0.5
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             else:

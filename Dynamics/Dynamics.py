@@ -6,6 +6,7 @@ email: els.obrq@gmail.com
 """
 from .HamilCalcLimit import HamilCalcLimit
 import numpy as np
+import copy
 from .LinearCoordinate import LinearCoordinate
 from .PolarCoordinate import PolarCoordinate
 from Thrust.Thruster import Thruster
@@ -37,11 +38,11 @@ class Dynamics(object):
         self.controller_parameters = None
         self.controller_function = None
 
-    def set_engines_properties(self, thruster_properties, propellant_properties):
+    def set_engines_properties(self, thruster_properties, propellant_properties, burn_type=None):
         self.thrusters = []
         pulse_thruster = propellant_properties['pulse_thruster']
         for i in range(pulse_thruster):
-            self.thrusters.append(Thruster(self.step_width, thruster_properties, propellant_properties))
+            self.thrusters.append(Thruster(self.step_width, thruster_properties, propellant_properties, burn_type))
             if thruster_properties['delay'] is not None:
                 self.thrusters[i].lag_coef = thruster_properties['delay']
         return
@@ -99,7 +100,10 @@ class Dynamics(object):
             current_x = next_x
             all_thrust_burned = [self.thrusters[j].thr_is_burned for j in range(len(self.thrusters))]
             if next_x[0] <= xf[0] and touch_surface is False:
-                land_index = k
+                if np.abs(next_x[0]) <= np.abs(x_states[-1][0]):
+                    land_index = k
+                else:
+                    land_index = k - 1
                 touch_surface = True
 
             if next_x[2] < 0:
@@ -108,8 +112,12 @@ class Dynamics(object):
                 end_condition = True
                 for h in range(len(end_index_control), len(index_control)):
                     end_index_control.append(k - 1)
+                if land_index == len(x_states):
+                    x_states.append(next_x)
+                    time_series.append(time_options[0] + k * self.step_width)
+                    thr.append(0)
             else:
-                x_states.append(next_x)
+                x_states.append(copy.copy(next_x))
                 time_series.append(time_options[0] + k * self.step_width)
         if land_index == len(x_states):
             land_index -= 1
