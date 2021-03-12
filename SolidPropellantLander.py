@@ -110,8 +110,8 @@ simulation_time = moon_period
 # System Propulsion properties
 t_burn_min = 4  # s
 t_burn_max = 100  # s
-n_thruster = 20
-par_force = 2  # Engines working simultaneously
+n_thruster = 10
+par_force = 1  # Engines working simultaneously
 
 pulse_thruster = int(n_thruster / par_force)
 
@@ -218,8 +218,9 @@ dynamics.controller_type = 'ga_wo_hamilton'
 r0              = 2000
 type_problem    = "alt_noise"
 type_propellant = CONSTANT
-N_case          = 60  # Case number
-n_thrusters      = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+N_case          = 30  # Case number
+
+n_thrusters      = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 # n_thrusters      = [12, 14, 16, 18, 20]
 
 
@@ -237,6 +238,8 @@ time_options = [0.0, simulation_time, 0.1]
 
 print("Initial condition: ", str(x0))
 print("N_case: ", N_case)
+print("type_propellant: ", type_propellant)
+print("type_problem: ", type_problem)
 alt_noise = False
 
 # +-10% and multi-engines array
@@ -303,7 +306,7 @@ for n_thr in n_thrusters:
     propellant_properties['n_thrusters'] = n_thr
     propellant_properties['pulse_thruster'] = pulse_thruster
 
-    ga = GeneticAlgorithm(max_generation=300, n_individuals=50,
+    ga = GeneticAlgorithm(max_generation=300, n_individuals=30,
                           ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
                                             optimal_alpha * 2 / pulse_thruster, pulse_thruster],
                                            ['float_iter', 0.0, t_burn_max, pulse_thruster], ['str', type_propellant],

@@ -201,8 +201,8 @@ class Thruster(object):
                 self.current_burn_time += self.step_width
             elif self.current_burn_time <= 1.0:
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                self.current_mag_thrust_c = 0.3 * current_max_thrust * (
-                        1 + np.tanh((self.t_burn - 1) * 10 + 1 - (-0.5 + 0.1 + self.current_burn_time) * 10)) * 0.5
+                self.current_mag_thrust_c = 0.3 * current_max_thrust * (1 + np.tanh((-0.5 +
+                                                                        self.current_burn_time) * 10)) * 0.5
                 self.current_burn_time += self.step_width
                 self.current_time += self.step_width
             elif self.current_burn_time <= self.t_burn - 1.0:
@@ -210,15 +210,15 @@ class Thruster(object):
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
                 # self.current_mag_thrust_c = current_thrust * (1 - np.exp(- self.current_burn_time / self.lag_coef))
                 self.current_mag_thrust_c = current_max_thrust * (
-                        ((0.7 * self.current_burn_time) / (self.t_burn - 2.0)) + 0.7 / (self.t_burn - 2.0) + 1.0)
+                        ((0.7 * self.current_burn_time) / (self.t_burn - 2.0)) - 0.7 / (self.t_burn - 2.0) + 0.3)
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             elif self.t_burn >= self.current_burn_time > self.t_burn - 1:
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
                 # self.current_mag_thrust_c = current_thrust * (1 - np.exp((self.current_burn_time -
                 #                                                                    self.t_burn) / self.lag_coef))
-                self.current_mag_thrust_c = current_max_thrust * (1 + np.tanh((-0.5 +
-                                                                               self.current_burn_time) * 10)) * 0.5
+                self.current_mag_thrust_c = current_max_thrust * (
+                        1 + np.tanh((self.t_burn - 1) * 10 + 1 - (-0.5 + 0.1 + self.current_burn_time) * 10)) * 0.5
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             else:
