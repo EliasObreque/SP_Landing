@@ -9,6 +9,7 @@ import os
 from matplotlib import patches
 import numpy as np
 plt.rcParams["font.family"] = "Times New Roman"
+plt.rcParams['font.size'] = 14
 plt.ion()
 
 
@@ -147,6 +148,8 @@ def plot_gauss_distribution(pos_, vel_, land_index, folder_name, file_name, save
     final_vel = [vel_[k][land_index[k]] for k in range(len(pos_))]
     w = 4
     n = int(len(final_pos) / w)
+    if n == 0:
+        n = 1
     axs_gauss[0].hist(final_pos, bins=n, color='#0D3592', rwidth=0.85)
     axs_gauss[0].axvline(np.mean(final_pos), color='k', linestyle='dashed', linewidth=0.8)
     axs_gauss[0].grid()
@@ -155,7 +158,13 @@ def plot_gauss_distribution(pos_, vel_, land_index, folder_name, file_name, save
     axs_gauss[1].grid()
     if save:
         if os.path.isdir("./logs/" + folder_name) is False:
-            os.mkdir("./logs/" + folder_name)
+            temp_list = folder_name.split("/")
+            fname = ''
+            for i in range(len(temp_list) - 1):
+                fname += temp_list[:i + 1][i]
+                if os.path.isdir("./logs/" + fname) is False:
+                    os.mkdir("./logs/" + fname)
+                fname += "/"
         fig_gauss.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_gauss.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
     plt.draw()
@@ -214,29 +223,41 @@ def plot_state_vector(best_pos, best_vel, ini_best_individuals, end_best_individ
     if save:
         if save:
             if os.path.isdir("./logs/" + folder_name) is False:
-                os.mkdir("./logs/" + folder_name)
+                temp_list = folder_name.split("/")
+                fname = ''
+                for i in range(len(temp_list) - 1):
+                    fname += temp_list[:i + 1][i]
+                    if os.path.isdir("./logs/" + fname) is False:
+                        os.mkdir("./logs/" + fname)
+                    fname += "/"
         fig_state.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_state.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
     plt.draw()
 
 
 def plot_performance(performance_list, n_thrusters, save=True, folder_name=None, file_name=None):
-    fig_perf, axs_perf = plt.subplots(1, 1)
-    plt.ylabel('Velocity [m/s]')
-    plt.xlabel('Position [m]')
-    i = 0
-    plt.grid()
-    for elem in performance_list:
-        e = patches.Ellipse((elem[0], elem[1]), 2 * elem[2], 2 * elem[3],
-                             angle=0, linewidth=1, fill=False, zorder=2, edgecolor='black')
-        axs_perf.add_patch(e)
-        plt.text(elem[0], elem[1], r'$N_e = $' + str(n_thrusters[i]), fontsize=8)
-        i += 1
-    axs_perf.autoscale_view()
+    fig_perf, axs_perf = plt.subplots(2, 1)
+    axs_perf[0].set_ylabel('Landing position [m]')
+    axs_perf[0].set_xlabel('Number of thrusters')
+    axs_perf[0].grid()
+    axs_perf[0].errorbar(np.arange(1, 1 + n_thrusters), np.array(performance_list)[:, 0],
+                             yerr=np.array(performance_list)[:, 2], fmt='-o', capsize=5, color='g', ecolor='g')
+
+    axs_perf[1].set_ylabel('Landing velocity [m/s]')
+    axs_perf[1].set_xlabel('Number of thrusters')
+    axs_perf[1].grid()
+    axs_perf[1].errorbar(np.arange(1, 1 + n_thrusters), np.array(performance_list)[:, 1],
+                             yerr=np.array(performance_list)[:, 3], fmt='-o', capsize=5, ecolor='g', color='g')
     if save:
         if save:
             if os.path.isdir("./logs/" + folder_name) is False:
-                os.mkdir("./logs/" + folder_name)
+                temp_list = folder_name.split("/")
+                fname = ''
+                for i in range(len(temp_list) - 1):
+                    fname += temp_list[:i + 1][i]
+                    if os.path.isdir("./logs/" + fname) is False:
+                        os.mkdir("./logs/" + fname)
+                    fname += "/"
         fig_perf.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_perf.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
     plt.show()
