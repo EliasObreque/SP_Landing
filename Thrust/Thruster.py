@@ -142,6 +142,7 @@ class Thruster(object):
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             elif self.t_burn >= self.current_burn_time > self.t_burn/2:
+                self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
                 # self.current_mag_thrust_c = current_max_thrust * (1 - np.exp((self.current_burn_time -
                 #                                                                    self.t_burn) / self.lag_coef))
@@ -164,6 +165,7 @@ class Thruster(object):
                 self.current_mag_thrust_c = 0
                 self.current_burn_time += self.step_width
             elif self.current_burn_time <= 1.0:
+                self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
                 self.current_mag_thrust_c = current_max_thrust * (1 + np.tanh((-0.5 +
                                                                                self.current_burn_time) * 10)) * 0.5
@@ -178,6 +180,7 @@ class Thruster(object):
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             elif self.t_burn >= self.current_burn_time > self.t_burn - 1:
+                self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
                 # self.current_mag_thrust_c = current_thrust * (1 - np.exp((self.current_burn_time -
                 #                                                                    self.t_burn) / self.lag_coef))
@@ -200,6 +203,7 @@ class Thruster(object):
                 self.current_mag_thrust_c = 0
                 self.current_burn_time += self.step_width
             elif self.current_burn_time <= 1.0:
+                self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
                 self.current_mag_thrust_c = 0.3 * current_max_thrust * (1 + np.tanh((-0.5 +
                                                                         self.current_burn_time) * 10)) * 0.5
@@ -214,6 +218,7 @@ class Thruster(object):
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             elif self.t_burn >= self.current_burn_time > self.t_burn - 1:
+                self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
                 # self.current_mag_thrust_c = current_thrust * (1 - np.exp((self.current_burn_time -
                 #                                                                    self.t_burn) / self.lag_coef))

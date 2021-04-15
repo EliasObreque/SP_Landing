@@ -248,18 +248,18 @@ def plot_performance(performance_list, n_thrusters, save=True, folder_name=None,
     axs_perf[1].grid()
     axs_perf[1].errorbar(np.arange(1, 1 + n_thrusters), np.array(performance_list)[:, 1],
                              yerr=np.array(performance_list)[:, 3], fmt='-o', capsize=5, ecolor='g', color='g')
+
     if save:
-        if save:
-            if os.path.isdir("./logs/" + folder_name) is False:
-                temp_list = folder_name.split("/")
-                fname = ''
-                for i in range(len(temp_list) - 1):
-                    fname += temp_list[:i + 1][i]
-                    if os.path.isdir("./logs/" + fname) is False:
-                        os.mkdir("./logs/" + fname)
-                    fname += "/"
-        fig_perf.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
-        fig_perf.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
+        if os.path.isdir("./logs/" + folder_name) is False:
+            temp_list = folder_name.split("/")
+            fname = ''
+            for i in range(len(temp_list) - 1):
+                fname += temp_list[:i + 1][i]
+                if os.path.isdir("./logs/" + fname) is False:
+                    os.mkdir("./logs/" + fname)
+                fname += "/"
+    fig_perf.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
+    fig_perf.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
     plt.show()
     return
 

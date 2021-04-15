@@ -76,7 +76,7 @@ class PropellantGrain(GeometryGrain):
 
     def update_bias_isp(self):
         if self.bias is not None:
-            isp = np.random.normal(self.isp0, self.bias)
+            isp = np.random.uniform(self.isp0 - self.bias, self.isp0 + self.bias)
             self.c_char = isp * ge
 
     def get_c_char(self):

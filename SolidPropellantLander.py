@@ -17,6 +17,9 @@ from Dynamics.Dynamics import Dynamics
 from Thrust.PropellantGrain import propellant_data
 from tools.Viewer import *
 
+if os.path.isdir("./logs/") is False:
+    os.mkdir("./logs/")
+
 CONSTANT  = 'constant'
 TUBULAR = 'tubular'
 BATES = 'bates'
@@ -162,7 +165,7 @@ def save_data(master_data, folder_name, filename):
             fname += "/"
     with codecs.open("./logs/" + folder_name + filename + ".json", 'w') as file:
         json.dump(master_data, file)
-    print("Data saved to file:", file)
+    print("Data saved to file:", filename)
 
 
 # -----------------------------------------------------------------------------------------------------#
@@ -216,16 +219,25 @@ t_burn_min, t_burn_max   = 2, 60
 dynamics.controller_type = 'ga_wo_hamilton'
 
 r0              = 2000
-type_problem    = "isp_bias-noise"
-type_propellant = PROGRESSIVE
+type_problem    = "alt_noise"
+type_propellant = REGRESSIVE
 n_case          = 60  # Case number
 
-n_thrusters      = [1, 2, 3, 4, 6, 7, 8, 9, 10]
+n_thrusters      = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 # n_thrusters      = [12, 14, 16, 18, 20]
 
 
 if len(sys.argv) > 1:
     print(list(sys.argv))
+    if len(list(sys.argv)) == 2:
+        if sys.argv[1] == 'help':
+            print('<altitude> ', '<type_problem> ', '<type_propellant>')
+            print('altitude: [m]')
+            print('type_problem: "isp_noise"-"isp_bias"-"normal"-"isp_bias-noise"-"alt_noise"-"all" - "no_noise"')
+            print('type_propellant: "constant" - "progressive" - "regressive"')
+            print('---')
+            sys.exit()
+
     r0 = float(sys.argv[1])  # altitude [m]
     type_problem    = sys.argv[2]   # Problem: "isp_noise"-"isp_bias"-"normal"-"isp_bias-noise"-"alt_noise"-"all" - "no_noise"
     type_propellant = sys.argv[3]
@@ -258,7 +270,8 @@ elif type_problem == 'isp_bias-noise':
     propellant_properties['isp_std'] = (upper_isp - Isp) / 3
     percentage_variation = 10
     upper_isp = Isp * (1.0 + percentage_variation / 100.0)
-    propellant_properties['isp_bias'] = (upper_isp - Isp) / 3
+    # propellant_properties['isp_bias'] = (upper_isp - Isp) / 3
+    propellant_properties['isp_bias'] = upper_isp - Isp
 elif type_problem == 'alt_noise':
     propellant_properties['isp_std'] = None
     propellant_properties['isp_bias'] = None
@@ -340,6 +353,8 @@ for n_thr in n_thrusters:
     folder_name = "Only_GA_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m_" + now + "/"\
                   + "n_thr-" + str(n_thr) + "/"
 
+    json_list[str(n_thr)]['Best_individual'] = [best_individuals[0], best_individuals[1], best_individuals[3],
+                                                best_individuals[4]]
     print('Best individual for ', n_thr, 'engines')
     print('m_dot: ', np.round(best_individuals[0], 5), '[kg/s]')
     print('t_burn: ', np.round(best_individuals[1], 5), '[s]')
@@ -358,9 +373,9 @@ for n_thr in n_thrusters:
                                             'std_vel': performance[3]}
 
     plot_best(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
-                 end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
+              end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
     plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
-                         folder_name=folder_name, file_name=file_name_2)
+                      folder_name=folder_name, file_name=file_name_2)
 
     close_plot()
 
