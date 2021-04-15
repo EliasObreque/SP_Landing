@@ -16,35 +16,39 @@ def get_performance(folder_file_name):
 
     n_thrusters = len(data) - 1
     performance_data = []
-    for i in range(n_thrusters):
-        temp = data[str(i + 1)]['performance']
-        var = [temp['mean_pos'], temp['mean_vel'], temp['std_pos'], temp['std_vel']]
-        performance_data.append(var)
-
-    return performance_data, n_thrusters
+    name_thrusters = []
+    for elem in data:
+        if elem != 'N_case':
+            temp = data[elem]['performance']
+            var = [temp['mean_pos'], temp['mean_vel'], temp['std_pos'], temp['std_vel']]
+            performance_data.append(var)
+            name_thrusters.append(int(elem))
+    return performance_data, n_thrusters, name_thrusters
 
 
 # Alt-noise
-folder_name = "./logs/Only_GA_alt_noise/regressive/2000m_2021-03-12T02-56-28/"
-file_name = "Out_data_2021-03-12T02-56-28.json"
-performance_data_regressive_alt, n_thrusters_regressive_alt = get_performance(folder_name + file_name)
-folder_name = "./logs/Only_GA_alt_noise/progressive/2000m_2021-03-12T02-55-25/"
-file_name = "Out_data_2021-03-12T02-55-25.json"
-performance_data_progressive_alt, n_thrusters_progressive_alt = get_performance(folder_name + file_name)
-folder_name = "./logs/Only_GA_alt_noise/constant/2000m_2021-03-13T20-40-01/"
-file_name = "Out_data_2021-03-13T20-40-01.json"
-performance_data_constant_alt, n_thrusters_constant_alt = get_performance(folder_name + file_name)
+# folder_name = "./logs/Only_GA_alt_noise/regressive/2000m_2021-03-12T02-56-28/"
+# file_name = "Out_data_2021-03-12T02-56-28.json"
+# performance_data_regressive_alt, n_thrusters_regressive_alt = get_performance(folder_name + file_name)
+# folder_name = "./logs/Only_GA_alt_noise/progressive/2000m_2021-03-12T02-55-25/"
+# file_name = "Out_data_2021-03-12T02-55-25.json"
+# performance_data_progressive_alt, n_thrusters_progressive_alt = get_performance(folder_name + file_name)
+# folder_name = "./logs/Only_GA_alt_noise/constant/2000m_2021-03-13T20-40-01/"
+# file_name = "Out_data_2021-03-13T20-40-01.json"
+# performance_data_constant_alt, n_thrusters_constant_alt = get_performance(folder_name + file_name)
 
-# ISP-noise-bias
-folder_name = "./logs/Only_GA_isp_bias-noise/progressive/2000m_2021-03-21T23-49-35/"
+# ISP-noise-bias 5%
+# folder_name = "./logs/Only_GA_isp_bias-noise/progressive/2000m_2021-03-21T23-49-35/"
+folder_name = "./logs/Only_GA_isp_bias-noise/progressive/2000m_2021-04-10T01-38-04/"
+
 file_name = "Out_data.json"
-performance_data_progressive_isp, n_thrusters_progressive_isp = get_performance(folder_name + file_name)
-folder_name = "./logs/Only_GA_isp_bias-noise/regressive/2000m_2021-03-21T23-49-55/"
-file_name = "Out_data.json"
-performance_data_regressive_isp, n_thrusters_regressive_isp = get_performance(folder_name + file_name)
-folder_name = "./logs/Only_GA_isp_bias-noise/constant/2000m_2021-03-21T23-49-07/"
-file_name = "Out_data.json"
-performance_data_neutral_isp, n_thrusters_neutral_isp = get_performance(folder_name + file_name)
+performance_data_progressive_isp, n_thrusters_progressive_isp, name_thrusters_progressive_isp = get_performance(folder_name + file_name)
+# folder_name = "./logs/Only_GA_isp_bias-noise/regressive/2000m_2021-03-21T23-49-55/"
+# file_name = "Out_data.json"
+# performance_data_regressive_isp, n_thrusters_regressive_isp,_ = get_performance(folder_name + file_name)
+# folder_name = "./logs/Only_GA_isp_bias-noise/constant/2000m_2021-03-21T23-49-07/"
+# file_name = "Out_data.json"
+# performance_data_neutral_isp, n_thrusters_neutral_isp,_ = get_performance(folder_name + file_name)
 
 
 def plot_errorbar_performance(n_thrusters_constant_, performance_data_constant_,
@@ -115,24 +119,30 @@ def plot_std_performance(n_thrusters_constant_, performance_data_constant_,
     plt.tight_layout()
 
 
-plot_errorbar_performance(n_thrusters_constant_alt, performance_data_constant_alt,
-                          n_thrusters_progressive_alt, performance_data_progressive_alt,
-                          n_thrusters_regressive_alt, performance_data_regressive_alt)
+# plot_errorbar_performance(n_thrusters_constant_alt, performance_data_constant_alt,
+#                           n_thrusters_progressive_alt, performance_data_progressive_alt,
+#                           n_thrusters_regressive_alt, performance_data_regressive_alt)
 
-plot_errorbar_performance(n_thrusters_neutral_isp, performance_data_neutral_isp,
+# plot_errorbar_performance(n_thrusters_neutral_isp, performance_data_neutral_isp,
+#                           n_thrusters_progressive_isp, performance_data_progressive_isp,
+#                           n_thrusters_regressive_isp, performance_data_regressive_isp)
+
+plot_errorbar_performance(n_thrusters_progressive_isp, performance_data_progressive_isp,
                           n_thrusters_progressive_isp, performance_data_progressive_isp,
-                          n_thrusters_regressive_isp, performance_data_regressive_isp)
-
+                          n_thrusters_progressive_isp, performance_data_progressive_isp)
 
 # Alt-noise
-plot_std_performance(n_thrusters_constant_alt, performance_data_constant_alt,
-                          n_thrusters_progressive_alt, performance_data_progressive_alt,
-                          n_thrusters_regressive_alt, performance_data_regressive_alt)
+# plot_std_performance(n_thrusters_constant_alt, performance_data_constant_alt,
+#                           n_thrusters_progressive_alt, performance_data_progressive_alt,
+#                           n_thrusters_regressive_alt, performance_data_regressive_alt)
 
 # ISP-noise-bias
-plot_std_performance(n_thrusters_neutral_isp, performance_data_neutral_isp,
-                          n_thrusters_progressive_isp, performance_data_progressive_isp,
-                          n_thrusters_regressive_isp, performance_data_regressive_isp)
+# plot_std_performance(n_thrusters_neutral_isp, performance_data_neutral_isp,
+#                           n_thrusters_progressive_isp, performance_data_progressive_isp,
+#                           n_thrusters_regressive_isp, performance_data_regressive_isp)
 
+plot_std_performance(n_thrusters_progressive_isp, performance_data_progressive_isp,
+                          n_thrusters_progressive_isp, performance_data_progressive_isp,
+                          n_thrusters_progressive_isp, performance_data_progressive_isp)
 plt.show()
 

@@ -44,9 +44,9 @@ ge = 9.807
 c_char = Isp * ge
 
 # Available space for engine (square)
-space_max = 200  # mm
+space_max = 180  # mm
 thickness_case_factor = 1.2
-aux_dimension = 100  # mm
+aux_dimension = 150  # mm
 d_int = 2  # mm
 
 
@@ -219,8 +219,8 @@ t_burn_min, t_burn_max   = 2, 60
 dynamics.controller_type = 'ga_wo_hamilton'
 
 r0              = 2000
-type_problem    = "alt_noise"
-type_propellant = REGRESSIVE
+type_problem    = "isp_bias-noise"
+type_propellant = PROGRESSIVE
 n_case          = 60  # Case number
 
 n_thrusters      = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -317,10 +317,15 @@ for n_thr in n_thrusters:
     propellant_properties['n_thrusters'] = n_thr
     propellant_properties['pulse_thruster'] = pulse_thruster
 
-# 300 - 30
+    alpha_min = total_alpha_min/pulse_thruster
+    alpha_max = optimal_alpha * 2 / pulse_thruster
+    # 300 - 30
+
+    # if type_propellant != CONSTANT:
+    #     t_burn_max = (space_max / np.sqrt(n_thr) / thickness_case_factor) / 30 * 8.0
+
     ga = GeneticAlgorithm(max_generation=300, n_individuals=30,
-                          ranges_variable=[['float_iter', total_alpha_min/pulse_thruster,
-                                            optimal_alpha * 2 / pulse_thruster, pulse_thruster],
+                          ranges_variable=[['float_iter', alpha_min, alpha_max, pulse_thruster],
                                            ['float_iter', 0.0, t_burn_max, pulse_thruster], ['str', type_propellant],
                                            ['float_iter', 0.0, 1.0, pulse_thruster],
                                            ['float_iter', 0.0, x0[0] / np.sqrt(2 * np.abs(g_center_body) * x0[0]),
