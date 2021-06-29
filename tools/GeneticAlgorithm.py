@@ -181,11 +181,16 @@ class GeneticAlgorithm(object):
             TIME.append([])
             LAND_INDEX.append([])
             self.current_cost.append([])
-            self.ga_dynamics.set_controller_parameters(next_population[indv][3], next_population[indv][4])
+            self.ga_dynamics.set_controller_parameters(next_population[indv][3:])
 
-            for j in range(len(self.ga_dynamics.thrusters)):
-                self.ga_dynamics.modify_individual_engine(j, 'alpha', next_population[indv][0][j])
-                self.ga_dynamics.modify_individual_engine(j, 't_burn', next_population[indv][1][j])
+            if type(next_population[indv][0]) == float:
+                for j in range(len(self.ga_dynamics.thrusters)):
+                    self.ga_dynamics.modify_individual_engine(j, 'alpha', next_population[indv][0])
+                    self.ga_dynamics.modify_individual_engine(j, 't_burn', next_population[indv][1])
+            else:
+                for j in range(len(self.ga_dynamics.thrusters)):
+                    self.ga_dynamics.modify_individual_engine(j, 'alpha', next_population[indv][0][j])
+                    self.ga_dynamics.modify_individual_engine(j, 't_burn', next_population[indv][1][j])
 
             for k in range(n_case):
                 if alt_noise:
@@ -198,7 +203,7 @@ class GeneticAlgorithm(object):
                     self.init_state[1],
                     self.time_options)
 
-                j_cost = self.cost_function(x_states, thr, land_i, self.Ah, self.Bh)
+                j_cost = self.cost_function(x_states, thr, time_series, land_i, self.Ah, self.Bh)
                 self.current_cost[indv].append(j_cost)
                 X_states[indv].append(x_states)
                 LAND_INDEX[indv].append(land_i)
@@ -212,12 +217,19 @@ class GeneticAlgorithm(object):
         return X_states, TIME, THR, IC, EC, LAND_INDEX
 
     @staticmethod
-    def get_beta(control_par, current_state):
+    def get_beta(control_par, current_state, type_control='affine'):
         a = control_par[0]
         b = control_par[1]
         current_alt = current_state[0]
         current_vel = current_state[1]
-        f = a * current_alt + b * current_vel
+        f = 0
+        if type_control == 'affine':
+            f = a * current_alt + b * current_vel
+        elif type_control == 'pol2':
+            f = a * current_alt - b * current_vel ** 2
+        elif type_control == 'pol3':
+            c = control_par[2]
+            f = a * current_alt - b * current_vel ** 2 + c * current_vel ** 3
         if f <= 0:
             return 1
         else:

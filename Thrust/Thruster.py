@@ -8,10 +8,11 @@ email: els.obrq@gmail.com
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from .PropellantGrain import PropellantGrain
+from Thrust.PropellantGrain import PropellantGrain
+
 DEG2RAD = np.pi/180
 
-CONSTANT  = 'constant'
+NEUTRAL  = 'neutral'
 TUBULAR = 'tubular'
 BATES   = 'bates'
 STAR    = 'star'
@@ -47,8 +48,24 @@ class Thruster(object):
         self.thr_is_burned = False
         self.current_time = 0
         self.current_mag_thrust_c = 0
-        self.lag_coef = 0.0
+        self.lag_coef = 0.01
+        self.dead_time = 0.0
         self.current_beta = 0
+
+        dx = 1
+        if thruster_properties['dead_time'] is not None:
+            self.dead_time = thruster_properties['dead_time']
+        if thruster_properties['lag_coef'] is not None:
+            self.lag_coef = thruster_properties['lag_coef']
+            dx = (self.lag_coef + self.dead_time)/self.lag_coef - 1
+
+        # variable for model the tanh function
+        self.delay_time_percentage = 0.1
+        self.max_value_at_lag_coef = 0.999
+        dy = (np.arctanh(self.max_value_at_lag_coef * 2 - 1) - np.arctanh(self.delay_time_percentage * 2 - 1))
+        self.incline = dy/dx
+        self.g_mover_point = 1 - np.arctanh(self.delay_time_percentage * 2 - 1) / self.incline
+
 
     def set_lag_coef(self, val):
         self.lag_coef = val
@@ -61,6 +78,7 @@ class Thruster(object):
         self.current_time = 0
         self.current_mag_thrust_c = 0
         self.thr_is_burned = False
+        self.selected_propellant.update_dead_time()
 
     def propagate_thr(self):
         if self.selected_propellant.geometry_grain is not None:
@@ -69,16 +87,19 @@ class Thruster(object):
             """Propagate loaded profile by file"""
             self.calc_parametric_thrust()
         else:
-            """Propagate an constant thrust"""
+            """Propagate thrust by model"""
             if self.burn_type == PROGRESSIVE:
-                self.get_progressive_thrust_with_delay()
+                if self.lag_coef is not None:
+                    self.get_progressive_thrust_with_lag()
+                else:
+                    self.get_progressive_thrust_wo_lag()
             elif self.burn_type == REGRESSIVE:
-                self.get_regressive_thrust_with_delay()
+                self.get_regressive_thrust_with_lag()
             else:
                 if self.lag_coef == 0.0:
                     self.get_constant_thrust()
                 else:
-                    self.get_constant_thrust_with_delay()
+                    self.get_neutral_thrust_with_lag()
         return
 
     def get_constant_thrust(self):
@@ -125,7 +146,13 @@ class Thruster(object):
             self.current_mag_thrust_c = 0
             self.current_time += self.step_width
 
-    def get_constant_thrust_with_delay(self):
+    def calc_tanh_model(self, to):
+        if to == 'rising':
+            return (1 + np.tanh((self.current_burn_time/self.lag_coef - self.g_mover_point) * self.incline)) * 0.5
+        elif to == 'decaying':
+            return (1 + np.tanh((-self.g_mover_point - (self.current_burn_time - self.t_burn) / self.lag_coef) * self.incline)) * 0.5
+
+    def get_neutral_thrust_with_lag(self):
         if self.thr_is_on:
             if self.current_burn_time == 0:
                 self.selected_propellant.update_bias_isp()
@@ -133,21 +160,14 @@ class Thruster(object):
                 self.current_burn_time += self.step_width
             elif self.current_burn_time <= self.t_burn/2:
                 self.selected_propellant.update_noise_isp()
-                t_10 = np.arctanh(0.1 * 2 - 1.0)/10 + 0.5
-                t_90 = np.arctanh(0.9 * 2 - 1.0) / 10 + 0.5
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                # self.current_mag_thrust_c = current_max_thrust * (1 -
-                # np.exp(- self.current_burn_time / self.lag_coef))
-                self.current_mag_thrust_c = current_max_thrust * (1 + np.tanh((-0.5 + self.current_burn_time) * 10)) * 0.5
+                self.current_mag_thrust_c = current_max_thrust * self.calc_tanh_model('rising')
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             elif self.t_burn >= self.current_burn_time > self.t_burn/2:
                 self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                # self.current_mag_thrust_c = current_max_thrust * (1 - np.exp((self.current_burn_time -
-                #                                                                    self.t_burn) / self.lag_coef))
-                self.current_mag_thrust_c = current_max_thrust * (
-                        1 + np.tanh((self.t_burn - 1) * 10 + 1 - (-0.5 + 0.1 + self.current_burn_time) * 10)) * 0.5
+                self.current_mag_thrust_c = current_max_thrust * self.calc_tanh_model('decaying')
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             else:
@@ -158,7 +178,7 @@ class Thruster(object):
             self.current_mag_thrust_c = 0
             self.current_time += self.step_width
 
-    def get_regressive_thrust_with_delay(self):
+    def get_regressive_thrust_with_lag(self):
         if self.thr_is_on:
             if self.current_burn_time == 0:
                 self.selected_propellant.update_bias_isp()
@@ -167,14 +187,12 @@ class Thruster(object):
             elif self.current_burn_time <= 1.0:
                 self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                self.current_mag_thrust_c = current_max_thrust * (1 + np.tanh((-0.5 +
-                                                                               self.current_burn_time) * 10)) * 0.5
+                self.current_mag_thrust_c = current_max_thrust * self.calc_tanh_model('rising')
                 self.current_burn_time += self.step_width
                 self.current_time += self.step_width
             elif self.current_burn_time <= self.t_burn - 1.0:
                 self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                # self.current_mag_thrust_c = current_thrust * (1 - np.exp(- self.current_burn_time / self.lag_coef))
                 self.current_mag_thrust_c = current_max_thrust * (
                         -((0.7 * self.current_burn_time) / (self.t_burn - 2.0)) + 0.7 / (self.t_burn - 2.0) + 1.0)
                 self.current_time += self.step_width
@@ -182,10 +200,7 @@ class Thruster(object):
             elif self.t_burn >= self.current_burn_time > self.t_burn - 1:
                 self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                # self.current_mag_thrust_c = current_thrust * (1 - np.exp((self.current_burn_time -
-                #                                                                    self.t_burn) / self.lag_coef))
-                self.current_mag_thrust_c = 0.3 * current_max_thrust * (
-                        1 + np.tanh((self.t_burn - 1) * 10 + 1 - (-0.5 + 0.1 + self.current_burn_time) * 10)) * 0.5
+                self.current_mag_thrust_c = 0.3 * current_max_thrust * self.calc_tanh_model('decaying')
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             else:
@@ -196,7 +211,7 @@ class Thruster(object):
             self.current_mag_thrust_c = 0
             self.current_time += self.step_width
 
-    def get_progressive_thrust_with_delay(self):
+    def get_progressive_thrust_with_lag(self):
         if self.thr_is_on:
             if self.current_burn_time == 0:
                 self.selected_propellant.update_bias_isp()
@@ -205,14 +220,12 @@ class Thruster(object):
             elif self.current_burn_time <= 1.0:
                 self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                self.current_mag_thrust_c = 0.3 * current_max_thrust * (1 + np.tanh((-0.5 +
-                                                                        self.current_burn_time) * 10)) * 0.5
+                self.current_mag_thrust_c = 0.3 * current_max_thrust * self.calc_tanh_model('rising')
                 self.current_burn_time += self.step_width
                 self.current_time += self.step_width
             elif self.current_burn_time <= self.t_burn - 1.0:
                 self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                # self.current_mag_thrust_c = current_thrust * (1 - np.exp(- self.current_burn_time / self.lag_coef))
                 self.current_mag_thrust_c = current_max_thrust * (
                         ((0.7 * self.current_burn_time) / (self.t_burn - 2.0)) - 0.7 / (self.t_burn - 2.0) + 0.3)
                 self.current_time += self.step_width
@@ -220,10 +233,7 @@ class Thruster(object):
             elif self.t_burn >= self.current_burn_time > self.t_burn - 1:
                 self.selected_propellant.update_noise_isp()
                 current_max_thrust = self.current_alpha * self.selected_propellant.get_c_char()
-                # self.current_mag_thrust_c = current_thrust * (1 - np.exp((self.current_burn_time -
-                #                                                                    self.t_burn) / self.lag_coef))
-                self.current_mag_thrust_c = current_max_thrust * (
-                        1 + np.tanh((self.t_burn - 1) * 10 + 1 - (-0.5 + 0.1 + self.current_burn_time) * 10)) * 0.5
+                self.current_mag_thrust_c = current_max_thrust * self.calc_tanh_model('decaying')
                 self.current_time += self.step_width
                 self.current_burn_time += self.step_width
             else:
@@ -239,10 +249,13 @@ class Thruster(object):
             self.thr_is_on = False
         else:
             if beta == 1 and self.current_beta == 0:
-                self.current_beta = beta
-                self.t_ig = self.current_time
-                self.thr_is_on = True
-                # print('thrust ', n_engine, ' ON')
+                if self.selected_propellant.current_dead_time >= self.selected_propellant.dead_time:
+                    self.current_beta = beta
+                    self.t_ig = self.current_time
+                    self.thr_is_on = True
+                    # print('thrust ', n_engine, ' ON')
+                else:
+                    self.selected_propellant.step_dead_time()
             elif beta == 1 and self.current_beta == 1:
                 self.current_beta = beta
             elif self.thr_is_on:
@@ -261,84 +274,82 @@ class Thruster(object):
 
 
 if __name__ == '__main__':
-    import random
+    from Thrust.PropellantGrain import propellant_data
+    from tools.Viewer import plot_thrust
 
-    dt = 0.01
-    max_burn_time = 10
-    max_thrust = 1
-    n_thruster = 5
-    betas = []
-    time_betas = []
-    current_time = 0
-    max_time = 30
+    TUBULAR = 'tubular'
+    BATES = 'bates'
+    STAR = 'star'
+
+    NEUTRAL = 'neutral'
+    PROGRESSIVE = 'progressive'
+    REGRESSIVE = 'regressive'
+
+    m0 = 24
+    propellant_name = 'CDT(80)'
+    selected_propellant = propellant_data[propellant_name]
+    propellant_geometry = TUBULAR
+    Isp = selected_propellant['Isp']
+    den_p = selected_propellant['density']
+    ge = 9.807
+    c_char = Isp * ge
+    g_center_body = -1.62
+    r_moon = 1738e3
+    mu = 4.9048695e12
+    reference_frame = '1D'
+    dt = 0.1
+
+    engine_diameter_ext = None
+    throat_diameter = 1.0  # mm
+    height = 10.0  # mm
+    file_name = "Thrust/StarGrain7.csv"
+
+    propellant_properties_ = {'propellant_name': propellant_name,
+                              'n_thrusters': 1,
+                              'pulse_thruster': 1,
+                              'geometry': None,
+                              'propellant_geometry': propellant_geometry,
+                              'isp_noise_std': None,
+                              'isp_bias_std': None,
+                              'isp_dead_time_max': 0.0}
+
+    ctrl_a = [1.0]
+    ctrl_b = [6.91036]
+    optimal_alpha = 0.0502
+    t_burn = 13.53715
+    json_list = {'1': {'Best_individual': [optimal_alpha, t_burn, ctrl_a, ctrl_b]}}
+
+    dead_time = 1.0
+    lag_coef = 0.5
+    thruster_properties_ = {'throat_diameter': 2,
+                            'engine_diameter_ext': engine_diameter_ext,
+                            'height': height,
+                            'performance': {'alpha': optimal_alpha,
+                                            't_burn': t_burn},
+                            'load_thrust_profile': False,
+                            'file_name': file_name,
+                            'dead_time': dead_time,
+                            'lag_coef': lag_coef}
+
+    n_thruster = 1
     comp_thrust = []
-    chossing = []
-    len_vect = int((max_time/dt)) + 1
-    imp_thrust = np.ones(3)
-
     for i in range(n_thruster):
-        comp_thrust.append(Thruster(dt, max_burn_time, max_thrust, type_propellant=BATES))
-        comp_thrust[i].set_lag_coef(0.15)
-        betas.append(np.zeros(len_vect))
-        chossing.append(random.randint(0, int(((max_time - max_burn_time)/dt)) + 1))
-        betas[i][chossing[i]: chossing[i] + int(max_burn_time/dt)] = 1
+        comp_thrust.append(Thruster(dt, thruster_properties_, propellant_properties_, burn_type=PROGRESSIVE))
 
     time_array = []
     k = 1
-    while current_time <= max_time:
+    current_time = 0
+
+    while current_time <= 2 * t_burn:
         time_array.append(current_time)
+        thr = 0
         for i in range(n_thruster):
-            comp_thrust[i].set_beta(betas[i][k-1])
-            comp_thrust[i].calc_thrust_mag(100)
+            comp_thrust[i].set_beta(1)
+            comp_thrust[i].propagate_thr()
             comp_thrust[i].log_value()
-        current_time = round(current_time, 3) + dt
-        k += 1
-    #%%
+        current_time += dt
 
-    fig = plt.figure(figsize=(7, 4))
-    axes = fig.add_axes([0.1, 0.1, 0.7, 0.8])
-    total_thrust = np.zeros(len(time_array))
-    for i in range(n_thruster):
-        plt.step(time_array, comp_thrust[i].historical_mag_thrust, '--', label='Engine: '+str(i+1), lw=1.0)
-        total_thrust += np.array(comp_thrust[i].historical_mag_thrust)
-    plt.step(time_array, total_thrust, 'k', label='Total', lw=1.0)
-    plt.legend(loc="center right", borderaxespad=-9.5)
-    plt.ylabel('Thrust [-]')
-    plt.xlabel('Time [s]')
-    plt.grid()
-
-#%%
-    fig_beta = plt.figure(figsize=(7, 2))
-    axes = fig_beta.add_axes([0.1, 0.3, 0.7, 0.6])
-    plt.step(np.arange(0, len(betas[0]))*dt, betas[0], label=r'$\beta_k$: '+str(1), lw=1.0)
-    plt.legend(loc="center right", borderaxespad=-9.5)
-    plt.ylabel(r'$\beta_k [-]$')
-    plt.xlabel('Time [s]')
-    plt.grid()
-    axes.annotate('Ignition time '+r'$t_{ig}$', xy=(time_array[chossing[0]], 0.), xytext=(-1.5, 0.6),
-                  arrowprops=dict(arrowstyle="->", connectionstyle="angle3,angleA=90,angleB=0"))
-    axes.annotate('Burn time ' + r'$t_{b}$', xy=(time_array[chossing[0]], 0.5),
-                  xytext=(time_array[chossing[0]] + max_burn_time, 0.5),
-                  arrowprops=dict(arrowstyle="<->", connectionstyle="angle3,angleA=90,angleB=0"))
-
-    fig_0 = plt.figure(figsize=(7, 2))
-    axes = fig_0.add_axes([0.1, 0.3, 0.7, 0.6])
-    plt.step(time_array, comp_thrust[0].historical_mag_thrust, label='Engine: '+str(1), lw=1.0)
-    plt.plot(time_array[chossing[0]], 0., 'bo')
-    plt.legend(loc="center right", borderaxespad=-9.5)
-    plt.ylabel('Thrust [-]')
-    plt.xlabel('Time [s]')
-    plt.grid()
-    axes.annotate('Ignition time '+r'$t_{ig}$', xy=(time_array[chossing[0]], 0.), xytext=(-1.5, 0.6),
-                  arrowprops=dict(arrowstyle="->", connectionstyle="angle3,angleA=90,angleB=0"))
-
-    plt.show()
-
-
-
-
-
-
-
-
-
+    total_thrust = 0
+    for hist in comp_thrust:
+        total_thrust += np.array(hist.historical_mag_thrust)
+    plot_thrust(time_array, total_thrust)

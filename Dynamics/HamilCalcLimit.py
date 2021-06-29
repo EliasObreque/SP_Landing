@@ -172,7 +172,7 @@ class HamilCalcLimit(object):
         x1 = state[0]
         x2 = state[1]
         if x1 >= 0:
-            sf = (self.b / self.a) * x1 + 2 * self.a * np.sqrt(x1 / self.a) + x2 + 10
+            sf = (self.b / self.a) * x1 + 2 * self.a * np.sqrt(x1 / self.a) + x2
         else:
             sf = 0
         return sf
@@ -236,6 +236,7 @@ class HamilCalcLimit(object):
         plt.plot(x1_hat_max, x2_hat_max, '--r', label='free-fall')
         plt.plot(x1_max, x2_max, 'r', label=r'sf: $\alpha_{max}$ =' + str(round(alpha_max, 2)))
         plt.legend()
+        plt.show(block=False)
         return
 
     def show_time_limits(self, t_burn_min, t_burn_max):
@@ -282,6 +283,7 @@ class HamilCalcLimit(object):
         plt.plot(x1_hat_max_a, x2_hat_max_a, '--r', label='free-fall')
         plt.plot(x1_max_a, x2_max_a, 'r', label=r'sf: $tb_{max}$ =' + str(round(t_burn_max, 2)))
         plt.legend()
+        plt.show(block=False)
         return
 
     @staticmethod
@@ -295,9 +297,9 @@ class HamilCalcLimit(object):
         """
         plt.figure()
         plt.grid()
-        plt.xlabel('Altitude [m]')
-        plt.ylabel('Velocity [m/s]')
-        plt.plot(x_states[:, 0], x_states[:, 1])
+        plt.ylabel('Altitude [m]')
+        plt.xlabel('Velocity [m/s]')
+        plt.plot(x_states[:, 1], x_states[:, 0])
 
         plt.figure()
         plt.ylabel('Altitude [m]')

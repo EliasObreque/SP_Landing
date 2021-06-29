@@ -35,7 +35,7 @@ class Dynamics(object):
             print('Reference frame not selected')
         self.basic_hamilton_calc = HamilCalcLimit(self.mass, self.c_char, g_planet)
         self.thrusters = []
-        self.controller_parameters = None
+        self.controller_parameters = []
         self.controller_function = None
 
     def set_engines_properties(self, thruster_properties, propellant_properties, burn_type=None):
@@ -43,8 +43,6 @@ class Dynamics(object):
         pulse_thruster = propellant_properties['pulse_thruster']
         for i in range(pulse_thruster):
             self.thrusters.append(Thruster(self.step_width, thruster_properties, propellant_properties, burn_type))
-            if thruster_properties['delay'] is not None:
-                self.thrusters[i].lag_coef = thruster_properties['delay']
         return
 
     def modify_individual_engine(self, n_engine, side, value):
@@ -79,10 +77,10 @@ class Dynamics(object):
                 self.thrusters[0].set_beta(1 if np.sign(control_signal) < 0 else 0)
                 self.thrusters[0].propagate_thr()
                 total_thrust = self.thrusters[0].get_current_thrust()
-            elif self.controller_type == 'ga_wo_hamilton':
+            elif self.controller_type == 'affine_function':
                 # Get total thrust
                 for j in range(len(self.thrusters)):
-                    control_signal = self.controller_function(self.controller_parameters[j], current_x)
+                    control_signal = self.controller_function(self.controller_parameters[j], current_x, type_control='affine')
                     if control_signal == 1 and self.thrusters[j].current_beta == 0:
                         index_control.append(k)
                     if self.thrusters[j].thr_is_burned and self.thrusters[j].thr_is_on:
@@ -105,7 +103,7 @@ class Dynamics(object):
                 else:
                     land_index = k - 1
                 touch_surface = True
-
+            # else:
             if next_x[2] < 0:
                 end_condition = True
             elif (time_options[1] < k * self.step_width or (next_x[0] <= xf[0])) and np.all(all_thrust_burned):
@@ -121,6 +119,8 @@ class Dynamics(object):
                 time_series.append(time_options[0] + k * self.step_width)
         if land_index == len(x_states):
             land_index -= 1
+        if land_index == 0:
+            land_index = -1
         return np.array(x_states), np.array(time_series), np.array(thr), index_control, end_index_control, land_index
 
     def calc_limits_by_single_hamiltonian(self, t_burn_min, t_burn_max, alpha_min, alpha_max, plot_data=False):
@@ -131,6 +131,10 @@ class Dynamics(object):
             self.basic_hamilton_calc.show_alpha_limits(alpha_min, alpha_max)
         return
 
-    def set_controller_parameters(self, par_a, par_b):
-        self.controller_parameters = [[par_a[i], par_b[i]] for i in range(len(par_b))]
+    def set_controller_parameters(self, parameters):
+        self.controller_parameters = []
+        for i in range(len(parameters[0])):
+            self.controller_parameters.append([])
+            for k in range(len(parameters)):
+                self.controller_parameters[i].append(parameters[k][i])
         return

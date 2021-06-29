@@ -1,9 +1,9 @@
 """
-Created: 9/14/2020
-Author: Elias Obreque Sepulveda
-email: els.obrq@gmail.com
+Created by:
 
-array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)', 'TRX-H609', 'KNSU']
+@author: Elias Obreque
+@Date: 6/5/2021 11:50 PM 
+els.obrq@gmail.com
 
 """
 import time
@@ -17,22 +17,22 @@ from Dynamics.Dynamics import Dynamics
 from Thrust.PropellantGrain import propellant_data
 from tools.Viewer import *
 from Evaluation import Evaluation
+from tools.ext_requirements import save_data
 
 if os.path.isdir("./logs/") is False:
     os.mkdir("./logs/")
 
-CONSTANT  = 'constant'
 TUBULAR = 'tubular'
 BATES = 'bates'
 STAR = 'star'
+
+NEUTRAL  = 'neutral'
 PROGRESSIVE = 'progressive'
 REGRESSIVE = 'regressive'
 
-ONE_D = '1D'
-POLAR = 'polar'
 now = datetime.now()
 now = now.strftime("%Y-%m-%dT%H-%M-%S")
-reference_frame = ONE_D
+reference_frame = '1D'
 # -----------------------------------------------------------------------------------------------------#
 # Data Mars lander (12U (24 kg), 27U (54 kg))
 m0 = 24
@@ -68,31 +68,6 @@ rd = 0
 vd = 0
 
 # -----------------------------------------------------------------------------------------------------#
-# Initial position for Polar coordinate
-rrp = 2000e3
-rra = 68000e3
-ra = 0.5 * (rra + rrp)
-# Orbital velocity
-vp = np.sqrt(mu * (2 / rrp - 1 / ra))
-va = np.sqrt(mu * (2 / rra - 1 / ra))
-print('Perilune velocity [m/s]: ', vp)
-print('Apolune velocity [m/s]: ', va)
-moon_period = 2 * np.pi * np.sqrt(ra ** 3 / mu)
-
-p_r0 = rrp
-p_v0 = 0
-p_theta0 = 0
-p_omega0 = vp / rrp
-p_m0 = m0
-
-# Target localization
-p_rf = r_moon
-p_vf = 0
-p_thetaf = 0
-p_omegaf = 0
-p_mf = m0
-
-# -----------------------------------------------------------------------------------------------------#
 # Initial requirements for 1D
 print('--------------------------------------------------------------------------')
 print('1D requirements')
@@ -100,20 +75,14 @@ dv_req = np.sqrt(2 * r0 * np.abs(g_center_body))
 print('Accumulated velocity[m/s]: ', dv_req)
 mp, m1 = mass_req(dv_req, c_char, den_p, m0)
 
-# Initial requirements for polar
-print('\nPolar requirements')
-dv_req_p, dv_req_a = velocity_req(vp, va, r_moon, mu, rrp, rra)
-p_mp, p_m1 = mass_req(dv_req_p, c_char, den_p, m0)
-print('--------------------------------------------------------------------------')
-
 # -----------------------------------------------------------------------------------------------------#
 # Simulation time
 dt = 0.1
-simulation_time = moon_period
+simulation_time = 100
 # -----------------------------------------------------------------------------------------------------#
 # System Propulsion properties
-t_burn_min = 3  # s
-t_burn_max = 40  # s
+t_burn_min = 1  # s
+t_burn_max = 20  # s
 n_thruster = 10
 par_force = 1  # Engines working simultaneously
 
@@ -125,10 +94,6 @@ total_alpha_min = - g_center_body * m0 / c_char
 total_alpha_max = mp / t_burn_min
 print('Mass flow rate (1D): (min, max) [kg/s]', total_alpha_min, total_alpha_max)
 
-# for Polar
-total_alpha_max_p = p_mp / t_burn_min
-print('Mass flow rate (Polar): (min, max) [kg/s]', total_alpha_min, total_alpha_max_p)
-
 max_fuel_mass = 1.05 * mp  # Factor: 1.05
 
 print('Required engines: (min-min, min-max, max-min, max-max) [-]',
@@ -137,50 +102,15 @@ print('Required engines: (min-min, min-max, max-min, max-max) [-]',
       max_fuel_mass / total_alpha_max / t_burn_min,
       max_fuel_mass / total_alpha_max / t_burn_max)
 
-print('Required engines: (min-min, min-max, max-min, max-max) [-]',
-      max_fuel_mass / total_alpha_min / t_burn_min,
-      max_fuel_mass / total_alpha_min / t_burn_max,
-      max_fuel_mass / total_alpha_max_p / t_burn_min,
-      max_fuel_mass / total_alpha_max_p / t_burn_max)
-
 T_min = total_alpha_min * c_char
 T_max = total_alpha_max * c_char
 print('Max thrust: (min, max) [N]', T_min, T_max)
 print('--------------------------------------------------------------------------')
 
-
-def save_data(master_data, folder_name, filename):
-    """
-    :param master_data: Dictionary
-    :param folder_name: an Name with /, for example folder_name = "2000m/"
-    :param filename: string name
-    :return:
-    """
-    if os.path.isdir("./logs/" + folder_name) is False:
-        temp_list = folder_name.split("/")
-        fname = ''
-        for i in range(len(temp_list) - 1):
-            fname += temp_list[:i + 1][i]
-            if os.path.isdir("./logs/" + fname) is False:
-                os.mkdir("./logs/" + fname)
-            fname += "/"
-    with codecs.open("./logs/" + folder_name + filename + ".json", 'w') as file:
-        json.dump(master_data, file)
-    print("Data saved to file:", filename)
-
-
 # -----------------------------------------------------------------------------------------------------#
 # Create dynamics object for 1D and Polar
 dynamics = Dynamics(dt, Isp, g_center_body, mu, r_moon, m0, reference_frame, controller='basic_hamilton')
 # -----------------------------------------------------------------------------------------------------#
-# Simple example solution with constant one engine for 1D
-dynamics.calc_limits_by_single_hamiltonian(t_burn_min, t_burn_max, total_alpha_min, total_alpha_max, plot_data=True)
-
-# Calculate optimal alpha (m_dot) for a given t_burn
-t_burn = 0.5 * (t_burn_min + t_burn_max)
-total_alpha_max = 0.9 * m0 / t_burn
-optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(r0, total_alpha_min, total_alpha_max,
-                                                                            t_burn)
 # Define propellant properties to create a Thruster object with the optimal alpha
 propellant_properties = {'propellant_name': propellant_name,
                          'n_thrusters': 1,
@@ -195,36 +125,15 @@ engine_diameter_ext = None
 throat_diameter = 1.0  # mm
 height = 10.0  # mm
 file_name = "Thrust/StarGrain7.csv"
-thruster_properties = {'throat_diameter': 2,
-                       'engine_diameter_ext': engine_diameter_ext,
-                       'height': height,
-                       'performance': {'alpha': optimal_alpha,
-                                       't_burn': t_burn},
-                       'load_thrust_profile': False,
-                       'file_name': file_name,
-                       'delay': None}
 
-dynamics.set_engines_properties(thruster_properties, propellant_properties)
-
-# Initial and final condition
-x0 = [r0, v0, m0]
-xf = [0.0, 0.0, m1]
-time_options = [0, simulation_time, dt]
-
-x_states, time_series, thr, _, _, _ = dynamics.run_simulation(x0, xf, time_options)
-dynamics.basic_hamilton_calc.print_simulation_data(x_states, mp, m0, r0)
-dynamics.basic_hamilton_calc.plot_1d_simulation(x_states, time_series, thr)
-
-# -----------------------------------------------------------------------------------------------------#
 # Optimal solution with GA for constant thrust and multi-engines array
-t_burn_min, t_burn_max   = 1, 30
-dynamics.controller_type = 'ga_wo_hamilton'
+dynamics.controller_type = 'affine_function'
 
 r0              = 2000
-type_problem    = "isp_dead_time"
-type_propellant = CONSTANT
-n_case          = 30  # Case number
-n_thrusters      = [1, 2, 3]
+type_problem    = "no_noise"
+type_propellant = NEUTRAL
+n_case          = 1  # Case number
+n_thrusters      = [1, 2]
 
 if len(sys.argv) > 1:
     print(list(sys.argv))
@@ -244,6 +153,7 @@ if len(sys.argv) > 1:
 # initial condition
 x0 = [r0, v0, m0]
 time_options = [0.0, simulation_time, 0.1]
+xf = [0, 0, 0]
 
 print("Initial condition: ", str(x0))
 print("N_case: ", n_case)
@@ -285,16 +195,32 @@ optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(x0[0
                                                                             total_alpha_max,
                                                                             t_burn)
 
+thruster_properties = {'throat_diameter': 2,
+                       'engine_diameter_ext': engine_diameter_ext,
+                       'height': height,
+                       'performance': {'alpha': optimal_alpha,
+                                       't_burn': t_burn},
+                       'load_thrust_profile': False,
+                       'file_name': file_name,
+                       'dead_time': None,
+                       'lag_coef': None}
+
+dynamics.set_engines_properties(thruster_properties, propellant_properties)
+
+poly = [g_center_body/2, v0, r0]
+root = np.roots(poly)
+t_free = max(root)
+
 
 def sp_cost_function(ga_x_states, thr, time_ser, ga_land_index, Ah, Bh):
     error_pos = ga_x_states[ga_land_index][0] - xf[0]
     error_vel = ga_x_states[ga_land_index][1] - xf[1]
     if max(np.array(ga_x_states)[:, 1]) > 0:
         error_vel *= 10
-    if max(np.array(ga_x_states)[:, 0]) < 0:
+    if min(np.array(ga_x_states)[:, 0]) < 0:
         error_pos *= 100
-    # return (Ah * error_pos ** 2 + Bh * error_vel ** 2)/time_ser[-1] #+ (time_ser[-1] + error_pos ** 2 + error_vel ** 2)/time_ser[-1]
-    return Ah * error_pos ** 2 + Bh * error_vel ** 2 + 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2
+    rate_time = max(time_ser) / t_free
+    return Ah * error_pos ** 2 + Bh * error_vel ** 2 + 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2 + rate_time * 10
 
 
 json_list = {}
@@ -305,7 +231,7 @@ file_name_4 = "Normal_Distribution"
 file_name_5 = "Performance_by_motor"
 
 json_list['N_case'] = n_case
-thruster_properties['delay'] = 0.3
+thruster_properties['delay'] = 0
 performance_list = []
 for n_thr in n_thrusters:
     print('N thrust: ', n_thr)
@@ -322,13 +248,13 @@ for n_thr in n_thrusters:
     # if type_propellant != CONSTANT:
     #     t_burn_max = (space_max / np.sqrt(n_thr) / thickness_case_factor) / 30 * 8.0
 
-    ga = GeneticAlgorithm(max_generation=250, n_individuals=40,
+    ga = GeneticAlgorithm(max_generation=50, n_individuals=50,
                           ranges_variable=[['float', alpha_min, alpha_max, pulse_thruster],
                                            ['float', 0.0, t_burn_max, pulse_thruster], ['str', type_propellant],
                                            ['float_iter', 0.0, 1.0, pulse_thruster],
                                            ['float_iter', 0.0, x0[0] / np.sqrt(2 * np.abs(g_center_body) * x0[0]),
                                             pulse_thruster]],
-                          mutation_probability=0.2)
+                          mutation_probability=0.25)
 
     start_time = time.time()
     best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control, land_index = ga.optimize(
@@ -367,8 +293,9 @@ for n_thr in n_thrusters:
     print('--------------------------------------------------------')
 
     lim_std3sigma = [1, 3]  # [m, m/S]
-    plot_sigma_distribution(best_pos, best_vel, land_index, folder_name, file_name_3, lim_std3sigma, save=True)
-    performance = plot_gauss_distribution(best_pos, best_vel, land_index, folder_name, file_name_4, save=True)
+    save_plot = True
+    # plot_sigma_distribution(best_pos, best_vel, land_index, folder_name, file_name_3, lim_std3sigma, save=save_plot)
+    performance = plot_gauss_distribution(best_pos, best_vel, land_index, folder_name, file_name_4, save=False)
     performance_list.append(performance)
     json_list[str(n_thr)]['performance'] = {'mean_pos': performance[0],
                                             'mean_vel': performance[1],
@@ -376,11 +303,11 @@ for n_thr in n_thrusters:
                                             'std_vel': performance[3]}
 
     plot_main_parameters(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
-                         end_index_control, save=True, folder_name=folder_name, file_name=file_name_1)
-    plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=True,
+                         end_index_control, save=save_plot, folder_name=folder_name, file_name=file_name_1)
+    plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=save_plot,
                       folder_name=folder_name, file_name=file_name_2)
 
-    close_plot()
+    # close_plot()
 
 file_name_1 = "Out_data"
 folder_name = "Only_GA_" + str(type_problem) + "/" + type_propellant + "/" + str(int(x0[0])) + "m_" + now + "/"
@@ -389,14 +316,23 @@ save_data(json_list, folder_name, file_name_1)
 plot_performance(performance_list, max(n_thrusters), save=True, folder_name=folder_name, file_name=file_name_5)
 print('Performance plot saved')
 
+# %%
 #   Evaluation
 
-def control_function(control_par, current_state):
+
+def control_function(control_par, current_state, type_control='affine'):
     a = control_par[0]
     b = control_par[1]
     current_alt = current_state[0]
     current_vel = current_state[1]
-    f = a * current_alt + b * current_vel
+    f = 0
+    if type_control == 'affine':
+        f = a * current_alt + b * current_vel
+    elif type_control == 'pol2':
+        f = a * current_alt - b * current_vel ** 2
+    elif type_control == 'pol3':
+        c = control_par[2]
+        f = a * current_alt - b * current_vel ** 2 + c * current_vel ** 3
     if f <= 0:
         return 1
     else:

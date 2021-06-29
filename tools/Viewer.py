@@ -10,7 +10,6 @@ from matplotlib import patches
 import numpy as np
 plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams['font.size'] = 14
-plt.ion()
 
 
 def create_plot():
@@ -74,8 +73,8 @@ def show_plot():
     plt.show(block=True)
 
 
-def plot_best(time_best, best_pos, best_vel, best_mass, best_thrust, ini_best_individuals,
-              end_best_individuals, save=False, folder_name=None, file_name=None):
+def plot_main_parameters(time_best, best_pos, best_vel, best_mass, best_thrust, ini_best_individuals,
+                         end_best_individuals, save=False, folder_name=None, file_name=None):
     fig_best, axs_best = plt.subplots(2, 2, constrained_layout=True)
     sq = 15
     """
@@ -133,14 +132,20 @@ def plot_best(time_best, best_pos, best_vel, best_mass, best_thrust, ini_best_in
 
     if save:
         if os.path.isdir("./logs/" + folder_name) is False:
-            os.mkdir("./logs/" + folder_name)
+            temp_list = folder_name.split("/")
+            fname = ''
+            for i in range(len(temp_list) - 1):
+                fname += temp_list[:i + 1][i]
+                if os.path.isdir("./logs/" + fname) is False:
+                    os.mkdir("./logs/" + fname)
+                fname += "/"
         fig_best.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_best.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
     plt.draw()
     return
 
 
-def plot_gauss_distribution(pos_, vel_, land_index, folder_name, file_name, save=False):
+def plot_gauss_distribution(pos_, vel_, land_index, folder_name=None, file_name=None, save=False):
     fig_gauss, axs_gauss = plt.subplots(1, 2)
     axs_gauss[0].set_xlabel('Altitude [m]')
     axs_gauss[1].set_xlabel('Velocity [m/s]')
@@ -266,3 +271,53 @@ def plot_performance(performance_list, n_thrusters, save=True, folder_name=None,
 
 def close_plot():
     plt.close('all')
+
+
+def plot_thrust(time, thrust):
+    plt.figure()
+    plt.xlabel('Time [s]')
+    plt.ylabel('Thrust [N]')
+    plt.plot(time, thrust)
+    plt.grid()
+    plt.show()
+    return
+
+
+def plot_polynomial_function(degree):
+    y0 = 2000
+    v0 = 0
+    g_center_body = -1.62  # moon
+    a0 = g_center_body / 2
+    poly = [a0, v0, y0]
+    root = np.roots(poly)
+    tf = max(root)
+    dt = 0.1
+    t = np.linspace(0, tf, 100)
+    y_free_trajectory = y0 + v0 * t + a0 * t ** 2
+    v_free_velocity = v0 + g_center_body * t
+
+    v_aux = np.linspace(0, min(v_free_velocity), 100)
+    y_aux = []
+    y_sum = 0
+    for i in range(1, degree + 1):
+        y_ = -(-1) ** (i - 1) * v_aux ** i
+        y_sum += y_
+        y_aux.append(y_)
+
+    plt.figure()
+    plt.xlabel('Velocity [m/s]')
+    plt.ylabel('Position [m]')
+    plt.plot(v_free_velocity, y_free_trajectory, label='Free fall', lw=0.8)
+    plt.ylim([-100, 1.5 * y0])
+    for i in range(degree):
+        text = 'p = ' + str(i + 1)
+        plt.plot(v_aux, y_aux[i], label=text, lw=0.8)
+    if degree > 1:
+        plt.plot(v_aux, y_sum, label='Total', lw=0.8)
+    plt.grid()
+    plt.legend()
+    plt.show()
+
+
+if __name__ == '__main__':
+    plot_polynomial_function(3)

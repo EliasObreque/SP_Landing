@@ -38,6 +38,7 @@ ge  = 9.807
 class PropellantGrain(GeometryGrain):
     def __init__(self, dt, propellant_properties, *aux_dimension):
         # Geometry
+        self.dt = dt
         self.geometry_grain = propellant_properties['geometry']
         if self.geometry_grain is not None:
             diameter_int = propellant_properties['geometry']['diameter_int']
@@ -52,8 +53,14 @@ class PropellantGrain(GeometryGrain):
         selected_propellant      = propellant_properties['propellant_name']
         self.selected_propellant = propellant_data[selected_propellant]
         self.isp0                = self.selected_propellant['Isp']
-        self.std_sigma           = propellant_properties['isp_std']
-        self.bias                = propellant_properties['isp_bias']
+        self.std_noise           = propellant_properties['isp_noise_std']
+        self.std_bias            = propellant_properties['isp_bias_std']
+        self.max_dead_time       = propellant_properties['isp_dead_time_max']
+        if self.max_dead_time is not None:
+            self.dead_time           = np.random.uniform(0, self.max_dead_time)
+        else:
+            self.dead_time = 0
+        self.current_dead_time   = 0
         self.c_char              = self.isp0 * ge
         self.r_gases             = R_g / self.selected_propellant['molecular_weight']
         self.small_gamma         = self.selected_propellant['small_gamma']
@@ -70,14 +77,28 @@ class PropellantGrain(GeometryGrain):
         return
 
     def update_noise_isp(self):
-        if self.std_sigma is not None:
-            isp = np.random.normal(self.isp0, self.std_sigma)
+        if self.std_noise is not None:
+            isp = np.random.normal(self.isp0, self.std_noise)
             self.c_char = isp * ge
 
     def update_bias_isp(self):
-        if self.bias is not None:
-            isp = np.random.uniform(self.isp0 - self.bias, self.isp0 + self.bias)
+        if self.std_bias is not None:
+            isp = np.random.normal(self.isp0, self.std_bias)
             self.c_char = isp * ge
+
+    def get_dead_time(self):
+        return self.dead_time
+
+    def update_dead_time(self):
+        self.dead_time = np.random.uniform(0, self.max_dead_time)
+        # print(self.dead_time)
+        self.current_dead_time = 0.0
+        return
+
+    def step_dead_time(self):
+        self.current_dead_time += self.dt
+        # print(self.dead_time, self.current_dead_time)
+        return
 
     def get_c_char(self):
         return self.c_char
