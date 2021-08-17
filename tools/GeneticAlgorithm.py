@@ -137,7 +137,7 @@ class GeneticAlgorithm(object):
         best_end_index_control = end_index_control[best_index]
         best_time_data = time_data[best_index]
         best_landing_index = land_index[best_index]
-        self.plot_cost(n_case)
+        # self.plot_cost(n_case)
         return best_states, best_time_data, best_Tf, best_individuals, best_index_control,\
                best_end_index_control, best_landing_index
 
@@ -167,7 +167,7 @@ class GeneticAlgorithm(object):
         if alt_noise_ is not None:
             alt_noise = alt_noise_[0]
             sdr = alt_noise_[1]
-            sdv = 0
+            sdv = alt_noise_[2]
             sdm = 0
             rN = MonteCarlo(self.init_state[0][0], sdr, n_case).random_value()
             vN = MonteCarlo(self.init_state[0][1], sdv, n_case).random_value()

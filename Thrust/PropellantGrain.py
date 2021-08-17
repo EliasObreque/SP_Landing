@@ -76,10 +76,12 @@ class PropellantGrain(GeometryGrain):
             sys.exit()
         return
 
-    def update_noise_isp(self):
+    def get_update_noise_isp(self):
         if self.std_noise is not None:
-            isp = np.random.normal(self.isp0, self.std_noise)
-            self.c_char = isp * ge
+            noise_isp = np.random.normal(0, self.std_noise)
+            return self.c_char + noise_isp * ge
+        else:
+            return self.c_char
 
     def update_bias_isp(self):
         if self.std_bias is not None:

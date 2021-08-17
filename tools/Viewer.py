@@ -70,7 +70,7 @@ def set_plot(n_figure, x, y, opt1, opt2, max_H=0, max_V=0):
 
 
 def show_plot():
-    plt.show(block=True)
+    plt.show()
 
 
 def plot_main_parameters(time_best, best_pos, best_vel, best_mass, best_thrust, ini_best_individuals,
@@ -141,7 +141,6 @@ def plot_main_parameters(time_best, best_pos, best_vel, best_mass, best_thrust, 
                 fname += "/"
         fig_best.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_best.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
-    plt.draw()
     return
 
 
@@ -172,7 +171,6 @@ def plot_gauss_distribution(pos_, vel_, land_index, folder_name=None, file_name=
                 fname += "/"
         fig_gauss.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_gauss.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
-    plt.draw()
     return [np.mean(final_pos), np.mean(final_vel), np.std(final_pos), np.std(final_vel)]
 
 
@@ -207,7 +205,6 @@ def plot_sigma_distribution(pos_, vel_, land_index, folder_name, file_name, lim_
                 fname += "/"
         fig_dist.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_dist.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
-    plt.draw()
     return
 
 
@@ -237,7 +234,6 @@ def plot_state_vector(best_pos, best_vel, ini_best_individuals, end_best_individ
                     fname += "/"
         fig_state.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
         fig_state.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
-    plt.draw()
 
 
 def plot_performance(performance_list, n_thrusters, save=True, folder_name=None, file_name=None):
@@ -263,9 +259,8 @@ def plot_performance(performance_list, n_thrusters, save=True, folder_name=None,
                 if os.path.isdir("./logs/" + fname) is False:
                     os.mkdir("./logs/" + fname)
                 fname += "/"
-    fig_perf.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
-    fig_perf.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
-    plt.show()
+        fig_perf.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
+        fig_perf.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
     return
 
 
@@ -273,13 +268,16 @@ def close_plot():
     plt.close('all')
 
 
-def plot_thrust(time, thrust):
+def plot_thrust(time, thrust, thrust_free=None, names=None):
     plt.figure()
     plt.xlabel('Time [s]')
     plt.ylabel('Thrust [N]')
     plt.plot(time, thrust)
+    if thrust_free is not None:
+        plt.plot(time, thrust_free)
     plt.grid()
-    plt.show()
+    if names is not None:
+        plt.legend(names)
     return
 
 
@@ -316,8 +314,53 @@ def plot_polynomial_function(degree):
         plt.plot(v_aux, y_sum, label='Total', lw=0.8)
     plt.grid()
     plt.legend()
+
+
+def compare_performance():
+    import json
+    file_noise = ["data_compare/all_noise/neu_Out_data.json",
+                  "data_compare/all_noise/pro_Out_data.json",
+                  "data_compare/all_noise/reg_Out_data.json"]
+    performance = []
+    k = 0
+    n_thrusters = 1
+    for name_file in file_noise:
+        f = open(name_file)
+        data = json.load(f)
+        performance.append([])
+        for i in range(len(data) - 1):
+            performance[k].append([data[str(i + 1)]['performance']['mean_pos'],
+                                   data[str(i + 1)]['performance']['mean_vel'],
+                                   data[str(i + 1)]['performance']['std_pos'],
+                                   data[str(i + 1)]['performance']['std_vel']])
+        print(performance[k])
+        k += 1
+        n_thrusters = len(data)
+
+    fig_perf, axs_perf = plt.subplots(2, 1)
+    axs_perf[0].set_ylabel('Landing position [m]')
+    axs_perf[0].set_xlabel('Number of thrusters')
+    axs_perf[0].grid()
+    for performance_list in performance[:3]:
+        axs_perf[0].errorbar(np.arange(1, 1 + n_thrusters - 1), np.array(performance_list)[:, 0],
+                                 yerr=np.array(performance_list)[:, 2], fmt='-o', capsize=5)#, color='g', ecolor='g')
+    for performance_list in performance[3:]:
+        axs_perf[0].errorbar(np.arange(1, 1 + n_thrusters - 1), np.array(performance_list)[:, 0],
+                                 yerr=np.array(performance_list)[:, 2], fmt='--o', capsize=5)#, color='g', ecolor='g')
+
+    axs_perf[1].set_ylabel('Landing velocity [m/s]')
+    axs_perf[1].set_xlabel('Number of thrusters')
+    axs_perf[1].grid()
+    for performance_list in performance[:3]:
+        axs_perf[1].errorbar(np.arange(1, 1 + n_thrusters - 1), np.array(performance_list)[:, 1],
+                                 yerr=np.array(performance_list)[:, 3], fmt='-o', capsize=5)#, ecolor='g', color='g')
+    for performance_list in performance[3:]:
+        axs_perf[1].errorbar(np.arange(1, 1 + n_thrusters - 1), np.array(performance_list)[:, 1],
+                                 yerr=np.array(performance_list)[:, 3], fmt='--o', capsize=5)#, ecolor='g', color='g')
     plt.show()
+    return
 
 
 if __name__ == '__main__':
-    plot_polynomial_function(3)
+    # plot_polynomial_function(3)
+    compare_performance()

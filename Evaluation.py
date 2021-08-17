@@ -6,19 +6,31 @@ Created by:
 els.obrq@gmail.com
 
 """
+import matplotlib.pyplot as plt
+
 from tools.MonteCarlo import MonteCarlo
 from tools.Viewer import *
 
 
 class Evaluation(object):
-    def __init__(self, dynamics, x0, xf, time_options, json_list, control_function, thruster_properties, propellant_properties, type_propellant):
+    def __init__(self, dynamics, x0, xf, time_options, json_list, control_function, thruster_properties, propellant_properties, type_propellant, folder_name=None):
         self.dynamics = dynamics
         self.x0 = x0
         self.xf = xf
         self.time_options = time_options
         self.json_list = json_list
         self.dynamics.controller_function = control_function
-        self.dynamics.set_engines_properties(thruster_properties, propellant_properties, type_propellant)
+        self.thruster_properties = thruster_properties
+        self.propellant_properties = propellant_properties
+        self.type_propellant = type_propellant
+        self.file_name_1 = "eva_" + type_propellant[:3] + "_Out_data"
+        self.file_name_2 = "eva_" + type_propellant[:3] + "_state"
+        self.file_name_3 = "eva_" + type_propellant[:3] + "_sigma_Distribution"
+        self.file_name_4 = "eva_" + type_propellant[:3] + "_distribution"
+        self.file_name_5 = "eva_" + type_propellant[:3] + "_performance"
+        self.folder_name = folder_name
+        if self.folder_name is None:
+            self.folder_name = ""
 
     def propagate(self, n_case, n_thrusters, state_noise=None):
         # # Generation of case (Monte Carlo)
@@ -43,7 +55,18 @@ class Evaluation(object):
         TIME = []
         LAND_INDEX = []
 
+        par_force = 1
+        i_n = 0
+        performance_list = []
         for n_thr in n_thrusters:
+            pulse_thruster = int(n_thr / par_force)
+
+            self.propellant_properties['n_thrusters'] = n_thr
+            self.propellant_properties['pulse_thruster'] = pulse_thruster
+
+            self.dynamics.set_engines_properties(self.thruster_properties, self.propellant_properties,
+                                                 self.type_propellant)
+
             if type(self.json_list[str(n_thr)]['Best_individual'][0]) == float:
                 for j in range(n_thr):
                     self.dynamics.modify_individual_engine(j, 'alpha',
@@ -73,37 +96,46 @@ class Evaluation(object):
                 x_, time_, thrust_, index_control_, end_index_control_, land_i_ = \
                     self.dynamics.run_simulation(x0_, self.xf, self.time_options)
 
-                X_states[int(n_thr - 1)].append(x_)
-                LAND_INDEX[int(n_thr - 1)].append(land_i_)
-                THR[int(n_thr - 1)].append(thrust_)
-                TIME[int(n_thr - 1)].append(time_)
-                IC[int(n_thr - 1)].append(index_control_)
-                EC[int(n_thr - 1)].append(end_index_control_)
+                X_states[i_n].append(x_)
+                LAND_INDEX[i_n].append(land_i_)
+                THR[i_n].append(thrust_)
+                TIME[i_n].append(time_)
+                IC[i_n].append(index_control_)
+                EC[i_n].append(end_index_control_)
 
                 # Reset thruster
                 for thrust in self.dynamics.thrusters:
                     thrust.reset_variables()
 
-            pos_sim = [np.array(X_states[int(n_thr - 1)][i])[:, 0] for i in range(n_case)]
-            vel_sim = [np.array(X_states[int(n_thr - 1)][i])[:, 1] for i in range(n_case)]
-            mass_sim = [np.array(X_states[int(n_thr - 1)][i])[:, 2] for i in range(n_case)]
-            thrust_sim = THR[int(n_thr - 1)]
+            pos_sim = [np.array(X_states[i_n][i])[:, 0] for i in range(n_case)]
+            vel_sim = [np.array(X_states[i_n][i])[:, 1] for i in range(n_case)]
+            mass_sim = [np.array(X_states[i_n][i])[:, 2] for i in range(n_case)]
+            thrust_sim = THR[i_n]
 
-            plot_main_parameters(TIME[int(n_thr - 1)], pos_sim, vel_sim, mass_sim, thrust_sim, IC[int(n_thr - 1)],
-                                 EC[int(n_thr - 1)], save=False)
-            plot_gauss_distribution(pos_sim, vel_sim, LAND_INDEX[int(n_thr - 1)], save=False)
-            plot_state_vector(pos_sim, vel_sim, IC[int(n_thr - 1)], EC[int(n_thr - 1)], save=False)
-            plt.show()
+            plot_main_parameters(TIME[i_n], pos_sim, vel_sim, mass_sim, thrust_sim, IC[i_n],
+                                 EC[i_n], save=False)
+            plot_state_vector(pos_sim, vel_sim, IC[i_n], EC[i_n], folder_name=self.folder_name,
+                              file_name=self.file_name_2 + "_" + str(n_thr), save=True)
+            performance = plot_gauss_distribution(pos_sim, vel_sim, LAND_INDEX[i_n], folder_name=self.folder_name,
+                                                  file_name=self.file_name_4 + "_" + str(n_thr), save=True)
+            performance_list.append(performance)
+            close_plot()
+            i_n += 1
+        plot_performance(performance_list, max(n_thrusters), folder_name=self.folder_name, file_name=self.file_name_5,
+                         save=True)
+        plt.show()
+        return performance_list
 
 
 if __name__ == '__main__':
     from Dynamics.Dynamics import Dynamics
     from Thrust.PropellantGrain import propellant_data
+    import json
 
-    CONSTANT = 'constant'
     TUBULAR = 'tubular'
     BATES = 'bates'
     STAR = 'star'
+    NEUTRAL = 'neutral'
     PROGRESSIVE = 'progressive'
     REGRESSIVE = 'regressive'
 
@@ -132,7 +164,7 @@ if __name__ == '__main__':
     # Initial and final condition
     x0 = [r0, v0, m0]
     xf = [rd, vd, 0]
-    time_options = [0, 100, dt]
+    time_options = [0, 1000, dt]
 
     dynamics = Dynamics(dt, Isp, g_center_body, mu, r_moon, m0, reference_frame, controller='affine_function')
 
@@ -150,40 +182,62 @@ if __name__ == '__main__':
     height = 10.0  # mm
     file_name = "Thrust/StarGrain7.csv"
 
-    def control_function(control_par, current_state):
+    def control_function(control_par, current_state, type_control='affine'):
         a = control_par[0]
         b = control_par[1]
         current_alt = current_state[0]
         current_vel = current_state[1]
-        f = a * current_alt + b * current_vel
+        f = 0
+        if type_control == 'affine':
+            f = a * current_alt + b * current_vel
+        elif type_control == 'pol2':
+            f = a * current_alt - b * current_vel ** 2
+        elif type_control == 'pol3':
+            c = control_par[2]
+            f = a * current_alt - b * current_vel ** 2 + c * current_vel ** 3
         if f <= 0:
             return 1
         else:
             return 0
 
-    ctrl_a = [1.0]
-    ctrl_b = [6.91036]
-    optimal_alpha = 0.0502
-    t_burn = 13.53715
-    json_list = {'1': {'Best_individual': [optimal_alpha, t_burn, ctrl_a, ctrl_b]}}
+    folder_name = "tools/data_compare/no_noise/"
+    name_file = "pro_Out_data.json"
+    type_propellant = PROGRESSIVE
+    f = open(folder_name + name_file)
+    data = json.load(f)
+    json_list = data
 
     thruster_properties = {'throat_diameter': 2,
                            'engine_diameter_ext': engine_diameter_ext,
                            'height': height,
-                           'performance': {'alpha': optimal_alpha,
-                                           't_burn': t_burn},
+                           'performance': {'alpha': 0.0,
+                                           't_burn': 0.0},
                            'load_thrust_profile': False,
                            'file_name': file_name,
-                           'dead_time': None,
-                           'lag_coef': None}
+                           'dead_time': 0.2,
+                           'lag_coef': 0.5}
 
-    n_case = 60
-    type_propellant = CONSTANT
-    n_thrusters = [1]
+    # percentage_variation = 3
+    # upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    # propellant_properties['isp_noise_std'] = (upper_isp - Isp) / 3
+    #
+    # percentage_variation = 10
+    # upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    # propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
+
+    n_case = 1
+    n_thrusters = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     evaluation = Evaluation(dynamics, x0, xf, time_options, json_list, control_function, thruster_properties,
                             propellant_properties,
-                            type_propellant)
-    evaluation.propagate(n_case, n_thrusters, state_noise=[True, 50.0, 5.0, 0.0])
+                            type_propellant, folder_name="evaluation/"+type_propellant+"/")
+    eva_performance = evaluation.propagate(n_case, n_thrusters, state_noise=[False, 50.0, 5.0, 0.0])
+    json_perf = {'mean_pos': eva_performance[0],
+                 'mean_vel': eva_performance[1],
+                 'std_pos': eva_performance[2],
+                 'std_vel': eva_performance[3]}
 
+    import codecs
+    with codecs.open(folder_name + "eva_"+name_file[0:3]+"_performance_data" + ".json", 'w') as file:
+        json.dump(json_perf, file)
     print('end')
