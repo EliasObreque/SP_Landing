@@ -105,6 +105,7 @@ class Dynamics(object):
                 touch_surface = True
             # else:
             if next_x[2] < 0:
+                # True when the propellant uses all mass of the module. Error.
                 end_condition = True
             elif (time_options[1] < k * self.step_width or (next_x[0] <= xf[0])) and np.all(all_thrust_burned):
                 end_condition = True

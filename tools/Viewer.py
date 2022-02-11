@@ -140,26 +140,26 @@ def plot_main_parameters(time_best, best_pos, best_vel, best_mass, best_thrust, 
                     os.mkdir("./logs/" + fname)
                 fname += "/"
         fig_best.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
-        fig_best.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
+        fig_best.savefig("./logs/" + folder_name + file_name + '.eps', format='eps', bbox_inches='tight')
     return
 
 
-def plot_gauss_distribution(pos_, vel_, land_index, folder_name=None, file_name=None, save=False):
-    fig_gauss, axs_gauss = plt.subplots(1, 2)
-    axs_gauss[0].set_xlabel('Altitude [m]')
-    axs_gauss[1].set_xlabel('Velocity [m/s]')
+def plot_distribution(pos_, vel_, land_index, folder_name=None, file_name=None, save=False):
+    fig_dist, axs_dist = plt.subplots(1, 2)
+    axs_dist[0].set_xlabel('Altitude [m]')
+    axs_dist[1].set_xlabel('Velocity [m/s]')
     final_pos = [pos_[k][land_index[k]] for k in range(len(pos_))]
     final_vel = [vel_[k][land_index[k]] for k in range(len(pos_))]
     w = 4
     n = int(len(final_pos) / w)
     if n == 0:
         n = 1
-    axs_gauss[0].hist(final_pos, bins=n, color='#0D3592', rwidth=0.85)
-    axs_gauss[0].axvline(np.mean(final_pos), color='k', linestyle='dashed', linewidth=0.8)
-    axs_gauss[0].grid()
-    axs_gauss[1].hist(final_vel, bins=n, color='#0D3592', rwidth=0.85)
-    axs_gauss[1].axvline(np.mean(final_vel), color='k', linestyle='dashed', linewidth=0.8)
-    axs_gauss[1].grid()
+    axs_dist[0].hist(final_pos, bins=n, color='#0D3592', rwidth=0.85)
+    axs_dist[0].axvline(np.mean(final_pos), color='k', linestyle='dashed', linewidth=0.8)
+    axs_dist[0].grid()
+    axs_dist[1].hist(final_vel, bins=n, color='#0D3592', rwidth=0.85)
+    axs_dist[1].axvline(np.mean(final_vel), color='k', linestyle='dashed', linewidth=0.8)
+    axs_dist[1].grid()
     if save:
         if os.path.isdir("./logs/" + folder_name) is False:
             temp_list = folder_name.split("/")
@@ -169,8 +169,8 @@ def plot_gauss_distribution(pos_, vel_, land_index, folder_name=None, file_name=
                 if os.path.isdir("./logs/" + fname) is False:
                     os.mkdir("./logs/" + fname)
                 fname += "/"
-        fig_gauss.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
-        fig_gauss.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
+        fig_dist.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
+        fig_dist.savefig("./logs/" + folder_name + file_name + '.eps', format='eps', bbox_inches='tight')
     return [np.mean(final_pos), np.mean(final_vel), np.std(final_pos), np.std(final_vel)]
 
 
@@ -204,7 +204,7 @@ def plot_sigma_distribution(pos_, vel_, land_index, folder_name, file_name, lim_
                     os.mkdir("./logs/" + fname)
                 fname += "/"
         fig_dist.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
-        fig_dist.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
+        fig_dist.savefig("./logs/" + folder_name + file_name + '.eps', format='eps', bbox_inches='tight')
     return
 
 
@@ -233,7 +233,7 @@ def plot_state_vector(best_pos, best_vel, ini_best_individuals, end_best_individ
                         os.mkdir("./logs/" + fname)
                     fname += "/"
         fig_state.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
-        fig_state.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
+        fig_state.savefig("./logs/" + folder_name + file_name + '.eps', format='eps', bbox_inches='tight')
 
 
 def plot_performance(performance_list, n_thrusters, save=True, folder_name=None, file_name=None):
@@ -260,7 +260,7 @@ def plot_performance(performance_list, n_thrusters, save=True, folder_name=None,
                     os.mkdir("./logs/" + fname)
                 fname += "/"
         fig_perf.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
-        fig_perf.savefig("./logs/" + folder_name + file_name + '.eps', format='eps')
+        fig_perf.savefig("./logs/" + folder_name + file_name + '.eps', format='eps', bbox_inches='tight')
     return
 
 

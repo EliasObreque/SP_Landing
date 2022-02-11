@@ -16,6 +16,7 @@ import os
 if os.path.isdir("./logs/") is False:
     os.mkdir("./logs/")
 
+
 def velocity_req(vp, va, r_planet, mu, periaxis, apoaxis):
     # Falling speed required
     vfp = np.sqrt(2 * mu / periaxis * (1 - r_planet / periaxis))

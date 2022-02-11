@@ -23,11 +23,11 @@ from tools.ext_requirements import save_data
 if os.path.isdir("./logs/") is False:
     os.mkdir("./logs/")
 
-TUBULAR = 'tubular'
-BATES = 'bates'
-STAR = 'star'
+# TUBULAR = 'tubular'
+# BATES = 'bates'
+# STAR = 'star'
 
-NEUTRAL  = 'neutral'
+NEUTRAL = 'neutral'
 PROGRESSIVE = 'progressive'
 REGRESSIVE = 'regressive'
 
@@ -36,13 +36,12 @@ now = now.strftime("%Y-%m-%dT%H-%M-%S")
 reference_frame = '1D'
 
 
-def s1d_affine():
+def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, n_case, n_thrusters_, save_plot=True):
     # -----------------------------------------------------------------------------------------------------#
     # Data Mars lander (12U (24 kg), 27U (54 kg))
     m0 = 24
-    propellant_name = 'CDT(80)'
+    propellant_name = 'TRX-H609'
     selected_propellant = propellant_data[propellant_name]
-    propellant_geometry = TUBULAR
     Isp = selected_propellant['Isp']
     den_p = selected_propellant['density']
     ge = 9.807
@@ -63,8 +62,8 @@ def s1d_affine():
 
     # -----------------------------------------------------------------------------------------------------#
     # Initial position for 1D
-    r0 = 2000
-    v0 = 0
+    r0 = r0_
+    v0 = v0_
 
     # Target localization
     rd = 0
@@ -99,11 +98,12 @@ def s1d_affine():
 
     max_fuel_mass = 1.05 * mp  # Factor: 1.05
 
-    print('Required engines: (min-min, min-max, max-min, max-max) [-]',
-          max_fuel_mass / total_alpha_min / t_burn_min,
-          max_fuel_mass / total_alpha_min / t_burn_max,
-          max_fuel_mass / total_alpha_max / t_burn_min,
-          max_fuel_mass / total_alpha_max / t_burn_max)
+    print('Required engine number for four conditions of mass flow and time burn:'
+          ' (min-min, min-max, max-min, max-max) [-]',
+          np.ceil(max_fuel_mass / total_alpha_min / t_burn_min),
+          np.ceil(max_fuel_mass / total_alpha_min / t_burn_max),
+          np.ceil(max_fuel_mass / total_alpha_max / t_burn_min),
+          np.ceil(max_fuel_mass / total_alpha_max / t_burn_max))
 
     T_min = total_alpha_min * c_char
     T_max = total_alpha_max * c_char
@@ -111,7 +111,7 @@ def s1d_affine():
     print('--------------------------------------------------------------------------')
 
     # -----------------------------------------------------------------------------------------------------#
-    # Create dynamics object for 1D and Polar
+    # Create dynamics object for 1D to calculate optimal mass_flow with ideal constant thrust
     dynamics = Dynamics(dt, Isp, g_center_body, mu, r_moon, m0, reference_frame, controller='basic_hamilton')
     # -----------------------------------------------------------------------------------------------------#
     # Define propellant properties to create a Thruster object with the optimal alpha
@@ -132,37 +132,19 @@ def s1d_affine():
     # Optimal solution with GA for constant thrust and multi-engines array
     dynamics.controller_type = 'affine_function'
 
-    r0              = 2000
-    type_problem    = "no_noise"
-    type_propellant = NEUTRAL
-    n_case          = 1  # Case number
-    n_thrusters      = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-
-    if len(sys.argv) > 1:
-        print(list(sys.argv))
-        if len(list(sys.argv)) == 2:
-            if sys.argv[1] == 'help':
-                print('<altitude> ', '<type_problem> ', '<type_propellant>')
-                print('altitude: [m]')
-                print('type_problem: "isp_noise"-"isp_bias"-"isp_dead_time"-"isp_bias-noise"-"alt_noise"-"all" - "no_noise"')
-                print('type_propellant: "constant" - "progressive" - "regressive"')
-                print('---')
-                sys.exit()
-
-        r0 = float(sys.argv[1])  # altitude [m]
-        type_problem    = sys.argv[2]   # Problem: "isp_noise"-"isp_bias"-"normal"-"isp_bias-noise"-"alt_noise"-"all" - "no_noise"
-        type_propellant = sys.argv[3]
+    type_propellant = propellant_geometry
+    n_thrusters     = list(range(1, n_thrusters_ + 1))
 
     # initial condition
     x0 = [r0, v0, m0]
     time_options = [0.0, simulation_time, 0.1]
-    xf = [0, 0, 0]
+    xf = [rd, vd, 0]
 
     print("Initial condition: ", str(x0))
-    print("N_case: ", n_case)
-    print("type_propellant: ", type_propellant)
-    print("type_problem: ", type_problem)
-    alt_noise = None
+    print("N° case in training: ", n_case)
+    print("Type of propellant: ", type_propellant)
+    print("Type of problem: ", type_problem)
+    state_noise = None
 
     # +-10% and multi-engines array
     # gauss_factor = 1 for 68.3%, = 2 for 95.45%, = 3 for 99.74%
@@ -185,9 +167,9 @@ def s1d_affine():
         upper_isp = Isp * (1.0 + percentage_variation / 100.0)
         propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
         propellant_properties['isp_dead_time_max'] = 2
-    elif type_problem == 'alt_noise':
-        std_alt = 50
-        alt_noise = [True, std_alt, 5]
+    elif type_problem == 'state_noise':
+        std_alt = std_alt_
+        state_noise = [True, std_alt_, std_vel_]
     elif type_problem == 'all':
         percentage_variation = 3
         upper_isp = Isp * (1.0 + percentage_variation / 100.0)
@@ -196,8 +178,9 @@ def s1d_affine():
         upper_isp = Isp * (1.0 + percentage_variation / 100.0)
         propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
         propellant_properties['isp_dead_time_max'] = 2
-        std_alt = 50
-        alt_noise = [True, std_alt, 5]
+        std_alt = std_alt_
+        std_vel = std_vel_
+        state_noise = [True, std_alt, std_vel]
 
     # Calculate optimal alpha (m_dot) for a given t_burn and constant ideal thrust
     t_burn = 0.5 * (t_burn_min + t_burn_max)
@@ -230,7 +213,7 @@ def s1d_affine():
         if min(np.array(ga_x_states)[:, 0]) < 0:
             error_pos *= 100
         rate_time = max(time_ser) / t_free
-        return Ah * error_pos ** 2 + Bh * error_vel ** 2 + rate_time * 10 # 10 * (ga_x_states[0][2] / ga_x_states[-1][2]) ** 2
+        return Ah * error_pos ** 2 + Bh * error_vel ** 2 + rate_time * 10
 
     json_list = {}
     file_name_1 = type_propellant[:3] + "_Out_data"
@@ -238,7 +221,6 @@ def s1d_affine():
     file_name_3 = type_propellant[:3] + "_sigma_Distribution"
     file_name_4 = type_propellant[:3] + "_distribution"
     file_name_5 = type_propellant[:3] + "_performance"
-    save_plot = True
     json_list['N_case'] = n_case
     performance_list = []
     folder_name = "Only_GA_" + str(type_problem) + "/" + type_propellant + "/" + now + "/"
@@ -255,10 +237,10 @@ def s1d_affine():
         alpha_max = optimal_alpha * 2 / pulse_thruster
         # 300 - 30
 
-        # if type_propellant != CONSTANT:
+        # if type_propellant != NEUTRAL:
         #     t_burn_max = (space_max / np.sqrt(n_thr) / thickness_case_factor) / 30 * 8.0
 
-        ga = GeneticAlgorithm(max_generation=400, n_individuals=40,
+        ga = GeneticAlgorithm(max_generation=300, n_individuals=40,
                               ranges_variable=[['float', alpha_min, alpha_max, pulse_thruster],
                                                ['float', 0.0, t_burn_max, pulse_thruster], ['str', type_propellant],
                                                ['float_iter', 0.0, 1.0, pulse_thruster],
@@ -270,7 +252,9 @@ def s1d_affine():
         best_states, best_time_data, best_Tf, best_individuals, index_control, end_index_control, land_index = ga.optimize(
             cost_function=sp_cost_function, n_case=n_case, restriction_function=[dynamics, x0, xf, time_options,
                                                                                  propellant_properties,
-                                                                                 thruster_properties], alt_noise=alt_noise)
+                                                                                 thruster_properties],
+            alt_noise=state_noise)
+
         finish_time = time.time()
         print('Time to optimize: ', finish_time - start_time, '[s]')
 
@@ -301,8 +285,8 @@ def s1d_affine():
 
         lim_std3sigma = [1, 3]  # [m, m/S]
         # plot_sigma_distribution(best_pos, best_vel, land_index, folder_name, file_name_3, lim_std3sigma, save=save_plot)
-        performance = plot_gauss_distribution(best_pos, best_vel, land_index, folder_name, file_name_4 + "_" + str(n_thr),
-                                              save=save_plot)
+        performance = plot_distribution(best_pos, best_vel, land_index, folder_name, file_name_4 + "_" + str(n_thr),
+                                        save=save_plot)
         performance_list.append(performance)
         json_list[str(n_thr)]['performance'] = {'mean_pos': performance[0],
                                                 'mean_vel': performance[1],
@@ -323,6 +307,8 @@ def s1d_affine():
 
     # %%
     #   Evaluation
+    print("--------------------------------------------------------------------------------------------------------")
+    print("Start Evaluation process...")
 
     def control_function(control_par, current_state, type_control='affine'):
         a = control_par[0]
@@ -349,18 +335,27 @@ def s1d_affine():
     percentage_variation = 10
     upper_isp = Isp * (1.0 + percentage_variation / 100.0)
     propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
-    n_case = 60
+    n_case_eval = 60
     evaluation = Evaluation(dynamics, x0, xf, time_options, json_list, control_function, thruster_properties,
                             propellant_properties,
                             type_propellant, folder_name)
-    eva_performance = evaluation.propagate(n_case, n_thrusters, state_noise=[True, 50.0, 5.0, 0.0])
+    eva_performance = evaluation.propagate(n_case_eval, n_thrusters, state_noise=[True, std_alt_, std_vel_, 0.0])
 
     json_perf = {'mean_pos': eva_performance[0],
                  'mean_vel': eva_performance[1],
                  'std_pos': eva_performance[2],
                  'std_vel': eva_performance[3]}
-    save_data(json_list, folder_name, "eva_" +  type_propellant[:3] + "_performance_data")
+    save_data(json_perf, folder_name, "eva_" + type_propellant[:3] + "_performance_data")
     print("Finished")
 
 
-s1d_affine()
+if __name__ == '__main__':
+    r0_, v0_, std_alt_, std_vel_, n_case_train, n_thrusters_ = 2000.0, 0.0, 100.0, 5.0, 30, 10
+
+    # Problem: "isp_noise"-"isp_bias"-"normal"-"isp_bias-noise"-"alt_noise"-"all" - "no_noise"
+
+    type_problem = "all"
+    propellant_geometry = NEUTRAL
+    s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, n_case_train, n_thrusters_)
+
+

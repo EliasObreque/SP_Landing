@@ -13,7 +13,8 @@ from tools.Viewer import *
 
 
 class Evaluation(object):
-    def __init__(self, dynamics, x0, xf, time_options, json_list, control_function, thruster_properties, propellant_properties, type_propellant, folder_name=None):
+    def __init__(self, dynamics, x0, xf, time_options, json_list, control_function, thruster_properties,
+                 propellant_properties, type_propellant, folder_name=None):
         self.dynamics = dynamics
         self.x0 = x0
         self.xf = xf
@@ -116,8 +117,8 @@ class Evaluation(object):
                                  EC[i_n], save=False)
             plot_state_vector(pos_sim, vel_sim, IC[i_n], EC[i_n], folder_name=self.folder_name,
                               file_name=self.file_name_2 + "_" + str(n_thr), save=True)
-            performance = plot_gauss_distribution(pos_sim, vel_sim, LAND_INDEX[i_n], folder_name=self.folder_name,
-                                                  file_name=self.file_name_4 + "_" + str(n_thr), save=True)
+            performance = plot_distribution(pos_sim, vel_sim, LAND_INDEX[i_n], folder_name=self.folder_name,
+                                            file_name=self.file_name_4 + "_" + str(n_thr), save=True)
             performance_list.append(performance)
             close_plot()
             i_n += 1
@@ -140,7 +141,7 @@ if __name__ == '__main__':
     REGRESSIVE = 'regressive'
 
     m0 = 24
-    propellant_name = 'CDT(80)'
+    propellant_name = 'TRX-H609'
     selected_propellant = propellant_data[propellant_name]
     propellant_geometry = TUBULAR
     Isp = selected_propellant['Isp']
@@ -217,13 +218,13 @@ if __name__ == '__main__':
                            'dead_time': 0.2,
                            'lag_coef': 0.5}
 
-    # percentage_variation = 3
-    # upper_isp = Isp * (1.0 + percentage_variation / 100.0)
-    # propellant_properties['isp_noise_std'] = (upper_isp - Isp) / 3
-    #
-    # percentage_variation = 10
-    # upper_isp = Isp * (1.0 + percentage_variation / 100.0)
-    # propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
+    percentage_variation = 3
+    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    propellant_properties['isp_noise_std'] = (upper_isp - Isp) / 3
+
+    percentage_variation = 10
+    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
 
     n_case = 1
     n_thrusters = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -231,7 +232,7 @@ if __name__ == '__main__':
     evaluation = Evaluation(dynamics, x0, xf, time_options, json_list, control_function, thruster_properties,
                             propellant_properties,
                             type_propellant, folder_name="evaluation/"+type_propellant+"/")
-    eva_performance = evaluation.propagate(n_case, n_thrusters, state_noise=[False, 50.0, 5.0, 0.0])
+    eva_performance = evaluation.propagate(n_case, n_thrusters, state_noise=[True, 100.0, 5.0, 0.0])
     json_perf = {'mean_pos': eva_performance[0],
                  'mean_vel': eva_performance[1],
                  'std_pos': eva_performance[2],

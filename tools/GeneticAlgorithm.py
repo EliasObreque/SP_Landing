@@ -9,6 +9,7 @@ from scipy.stats import rankdata
 from matplotlib import pyplot as plt
 from tools.MonteCarlo import MonteCarlo
 from copy import deepcopy
+
 plt.rcParams["font.family"] = "Times New Roman"
 plt.ion()
 
@@ -61,21 +62,22 @@ class GeneticAlgorithm(object):
                     individual.append(temp)
                 elif self.range_variables[i][0] == 'float_iter':
                     temp = []
+                    if self.range_variables[i][1] < self.range_variables[i][2]:
+                        left = self.range_variables[i][1]
+                        right = self.range_variables[i][2]
+                        width = self.range_variables[i][2] - self.range_variables[i][1]
+                    else:
+                        left = self.range_variables[i][2]
+                        right = self.range_variables[i][1]
+                        width = self.range_variables[i][1] - self.range_variables[i][2]
+
                     for m in range(int(self.range_variables[i][3])):
-                        # temp.append(np.random.uniform(self.range_variables[i][1], self.range_variables[i][2]))
-                        # loc = 0.5 * (self.range_variables[i][1] + self.range_variables[i][2])
-                        mean = 0.5 * (self.range_variables[i][2] - self.range_variables[i][1])
-                        if self.range_variables[i][1] < self.range_variables[i][2]:
-                            left = self.range_variables[i][1]
-                            right = self.range_variables[i][2]
-                            mean = 0.5 * (self.range_variables[i][2] - self.range_variables[i][1])
-                        else:
-                            left = self.range_variables[i][2]
-                            right = self.range_variables[i][1]
-                            mean = 0.5 * (self.range_variables[i][1] - self.range_variables[i][2])
-                        temp.append(np.random.triangular(left,
-                                                         left + mean * 0.7,
-                                                         right))
+                        temp.append(np.random.uniform(left, right))
+                        # temp.append(np.random.triangular(left,
+                        #                                  left + width * 0.7,
+                        #                                  right))
+                        # temp.append(np.random.normal(left + width * 0.5, width * 0.5 / 3))
+
                     individual.append(temp)
             self.population.append(individual)
         return
