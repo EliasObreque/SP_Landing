@@ -14,7 +14,7 @@ NEUTRAL = 'neutral'
 PROGRESSIVE = 'progressive'
 REGRESSIVE = 'regressive'
 
-r0_, v0_, std_alt_, std_vel_, n_case_train, n_thrusters_ = 2000.0, 0.0, 100.0, 5.0, 30, 10
+r0_, v0_, std_alt_, std_vel_, n_case_train, n_thrusters_ = 2000.0, 0.0, 50.0, 5.0, 30, 10
 
 # Problem: "isp_noise"-"isp_bias"-"isp_bias-noise"-"state_noise"-"all" - "no_noise"
 type_problem = "all"

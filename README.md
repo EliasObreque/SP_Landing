@@ -52,7 +52,7 @@ Then, an evaluation is made for 60 scenarios with the updated uncertainties in e
 (See line 309 on _Scenarios/S1D_AFFINE/S1D_AFFINE.py_)
 
 ## Performance comparison
-
+To compare evaluation performance, you need to change lines 30, 35 and 40 of "ext_visualize.py". This is the name of the folder where the Json file containing the simulation evaluation metrics is located.
 
 
 

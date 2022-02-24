@@ -131,7 +131,7 @@ def plot_main_parameters(time_best, best_pos, best_vel, best_mass, best_thrust, 
     axs_best[1, 1].grid(True)
 
     if save:
-        if os.path.isdir("./logs/" + folder_name) is False:
+        if os.path.isdir("logs/" + folder_name) is False:
             temp_list = folder_name.split("/")
             fname = ''
             for i in range(len(temp_list) - 1):
@@ -318,46 +318,49 @@ def plot_polynomial_function(degree):
 
 def compare_performance():
     import json
-    file_noise = ["data_compare/all_noise/neu_Out_data.json",
-                  "data_compare/all_noise/pro_Out_data.json",
-                  "data_compare/all_noise/reg_Out_data.json"]
+    folder_name = "../logs/Only_GA_all/regressive/"
+    folder_name += "2022-02-08T02-30-34/"
+    file_name = "eva_reg_performance_data.json"
+    f1 = folder_name + file_name
+
+    folder_name = "../logs/Only_GA_all/progressive/"
+    folder_name += "2022-02-08T02-31-21/"
+    file_name = "eva_pro_performance_data.json"
+    f2 = folder_name + file_name
+
+    folder_name = "../logs/Only_GA_all/neutral/"
+    folder_name += "2022-02-08T02-30-59/"
+    file_name = "eva_neu_performance_data.json"
+    f3 = folder_name + file_name
+    file_noise = [f1, f2, f3]
     performance = []
-    k = 0
-    n_thrusters = 1
     for name_file in file_noise:
         f = open(name_file)
         data = json.load(f)
-        performance.append([])
-        for i in range(len(data) - 1):
-            performance[k].append([data[str(i + 1)]['performance']['mean_pos'],
-                                   data[str(i + 1)]['performance']['mean_vel'],
-                                   data[str(i + 1)]['performance']['std_pos'],
-                                   data[str(i + 1)]['performance']['std_vel']])
-        print(performance[k])
-        k += 1
-        n_thrusters = len(data)
-
+        performance.append([data['mean_pos'], data['mean_vel'], data['std_pos'], data['std_vel']])
+    n_thrusters = len(performance[0][0])
+    print("N engines: ", n_thrusters)
     fig_perf, axs_perf = plt.subplots(2, 1)
     axs_perf[0].set_ylabel('Landing position [m]')
     axs_perf[0].set_xlabel('Number of thrusters')
     axs_perf[0].grid()
     for performance_list in performance[:3]:
-        axs_perf[0].errorbar(np.arange(1, 1 + n_thrusters - 1), np.array(performance_list)[:, 0],
-                                 yerr=np.array(performance_list)[:, 2], fmt='-o', capsize=5)#, color='g', ecolor='g')
+        axs_perf[0].errorbar(np.arange(1, 1 + n_thrusters), np.array(performance_list)[0],
+                             yerr=np.array(performance_list)[2], fmt='-o', capsize=5) #, color='g', ecolor='g')
     for performance_list in performance[3:]:
-        axs_perf[0].errorbar(np.arange(1, 1 + n_thrusters - 1), np.array(performance_list)[:, 0],
-                                 yerr=np.array(performance_list)[:, 2], fmt='--o', capsize=5)#, color='g', ecolor='g')
+        axs_perf[0].errorbar(np.arange(1, 1 + n_thrusters - 1), np.array(performance_list)[0],
+                             yerr=np.array(performance_list)[2], fmt='--o', capsize=5) #, color='g', ecolor='g')
 
     axs_perf[1].set_ylabel('Landing velocity [m/s]')
     axs_perf[1].set_xlabel('Number of thrusters')
     axs_perf[1].grid()
     for performance_list in performance[:3]:
-        axs_perf[1].errorbar(np.arange(1, 1 + n_thrusters - 1), np.array(performance_list)[:, 1],
-                                 yerr=np.array(performance_list)[:, 3], fmt='-o', capsize=5)#, ecolor='g', color='g')
+        axs_perf[1].errorbar(np.arange(1, 1 + n_thrusters), np.array(performance_list)[1],
+                             yerr=np.array(performance_list)[3], fmt='-o', capsize=5)#, ecolor='g', color='g')
     for performance_list in performance[3:]:
-        axs_perf[1].errorbar(np.arange(1, 1 + n_thrusters - 1), np.array(performance_list)[:, 1],
-                                 yerr=np.array(performance_list)[:, 3], fmt='--o', capsize=5)#, ecolor='g', color='g')
-    plt.show()
+        axs_perf[1].errorbar(np.arange(1, 1 + n_thrusters), np.array(performance_list)[1],
+                             yerr=np.array(performance_list)[3], fmt='--o', capsize=5)#, ecolor='g', color='g')
+    plt.legend()
     return
 
 

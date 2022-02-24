@@ -60,6 +60,7 @@ class Evaluation(object):
         i_n = 0
         performance_list = []
         for n_thr in n_thrusters:
+            print("Evaluating with ", n_thr, " number of engine...")
             pulse_thruster = int(n_thr / par_force)
 
             self.propellant_properties['n_thrusters'] = n_thr
@@ -201,9 +202,22 @@ if __name__ == '__main__':
         else:
             return 0
 
-    folder_name = "tools/data_compare/no_noise/"
-    name_file = "pro_Out_data.json"
     type_propellant = PROGRESSIVE
+    name_file = None
+    folder_name = "logs/Only_GA_all/"
+    if type_propellant == REGRESSIVE:
+        folder_name += "regressive/"
+        name_file = "reg_Out_data.json"
+    elif type_propellant == PROGRESSIVE:
+        folder_name += "progressive/"
+        name_file = "pro_Out_data.json"
+    elif type_propellant == NEUTRAL:
+        folder_name += "neutral/"
+        name_file = "neu_Out_data.json"
+    else:
+        print("Select a correct type of propellant grain cross section")
+
+    folder_name += "2022-02-19T00-28-25/"
     f = open(folder_name + name_file)
     data = json.load(f)
     json_list = data
@@ -226,17 +240,17 @@ if __name__ == '__main__':
     upper_isp = Isp * (1.0 + percentage_variation / 100.0)
     propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
 
-    n_case = 1
+    n_case = 60
     n_thrusters = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     evaluation = Evaluation(dynamics, x0, xf, time_options, json_list, control_function, thruster_properties,
                             propellant_properties,
-                            type_propellant, folder_name="evaluation/"+type_propellant+"/")
-    eva_performance = evaluation.propagate(n_case, n_thrusters, state_noise=[True, 100.0, 5.0, 0.0])
-    json_perf = {'mean_pos': eva_performance[0],
-                 'mean_vel': eva_performance[1],
-                 'std_pos': eva_performance[2],
-                 'std_vel': eva_performance[3]}
+                            type_propellant, folder_name=folder_name[5:])
+    eva_performance = evaluation.propagate(n_case, n_thrusters, state_noise=[True, 50.0, 5.0, 0.0])
+    json_perf = {'mean_pos': np.array(eva_performance)[:, 0].tolist(),
+                 'mean_vel': np.array(eva_performance)[:, 1].tolist(),
+                 'std_pos': np.array(eva_performance)[:, 2].tolist(),
+                 'std_vel': np.array(eva_performance)[:, 3].tolist()}
 
     import codecs
     with codecs.open(folder_name + "eva_"+name_file[0:3]+"_performance_data" + ".json", 'w') as file:

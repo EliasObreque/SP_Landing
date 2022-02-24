@@ -341,16 +341,16 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
                             type_propellant, folder_name)
     eva_performance = evaluation.propagate(n_case_eval, n_thrusters, state_noise=[True, std_alt_, std_vel_, 0.0])
 
-    json_perf = {'mean_pos': eva_performance[0],
-                 'mean_vel': eva_performance[1],
-                 'std_pos': eva_performance[2],
-                 'std_vel': eva_performance[3]}
+    json_perf = {'mean_pos': np.array(eva_performance)[:, 0].tolist(),
+                 'mean_vel': np.array(eva_performance)[:, 1].tolist(),
+                 'std_pos': np.array(eva_performance)[:, 2].tolist(),
+                 'std_vel': np.array(eva_performance)[:, 3].tolist()}
     save_data(json_perf, folder_name, "eva_" + type_propellant[:3] + "_performance_data")
     print("Finished")
 
 
 if __name__ == '__main__':
-    r0_, v0_, std_alt_, std_vel_, n_case_train, n_thrusters_ = 2000.0, 0.0, 100.0, 5.0, 30, 10
+    r0_, v0_, std_alt_, std_vel_, n_case_train, n_thrusters_ = 2000.0, 0.0, 50.0, 5.0, 30, 10
 
     # Problem: "isp_noise"-"isp_bias"-"normal"-"isp_bias-noise"-"alt_noise"-"all" - "no_noise"
 

@@ -72,10 +72,10 @@ class GeneticAlgorithm(object):
                         width = self.range_variables[i][1] - self.range_variables[i][2]
 
                     for m in range(int(self.range_variables[i][3])):
-                        temp.append(np.random.uniform(left, right))
-                        # temp.append(np.random.triangular(left,
-                        #                                  left + width * 0.7,
-                        #                                  right))
+                        # temp.append(np.random.uniform(left, right))
+                        temp.append(np.random.triangular(left,
+                                                         left + width * 0.7,
+                                                         right))
                         # temp.append(np.random.normal(left + width * 0.5, width * 0.5 / 3))
 
                     individual.append(temp)
