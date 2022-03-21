@@ -336,6 +336,8 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
     upper_isp = Isp * (1.0 + percentage_variation / 100.0)
     propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
     n_case_eval = 60
+    propellant_properties['isp_dead_time_max'] = 2
+
     evaluation = Evaluation(dynamics, x0, xf, time_options, json_list, control_function, thruster_properties,
                             propellant_properties,
                             type_propellant, folder_name)

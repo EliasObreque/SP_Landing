@@ -215,7 +215,7 @@ def plot_state_vector(best_pos, best_vel, ini_best_individuals, end_best_individ
     plt.xlabel('Velocity [m/s]')
     plt.ylabel('Position [m]')
     for k in range(len(best_pos)):
-        plt.plot(np.array(best_vel[k]), best_pos[k], lw=0.8)
+        plt.plot(np.array(best_vel[k]), best_pos[k], lw=0.6)
         plt.scatter(np.array(best_vel[k])[ini_best_individuals[k]], np.array(best_pos[k])[ini_best_individuals[k]],
                     s=15, facecolors='none', edgecolors='g', label='StartBurnTime')
         plt.scatter(np.array(best_vel[k])[end_best_individuals[k]],

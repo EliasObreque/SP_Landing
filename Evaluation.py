@@ -33,7 +33,7 @@ class Evaluation(object):
         if self.folder_name is None:
             self.folder_name = ""
 
-    def propagate(self, n_case, n_thrusters, state_noise=None):
+    def propagate(self, n_case_, n_thrusters_, state_noise=None):
         # # Generation of case (Monte Carlo)
         rN = []
         vN = []
@@ -45,9 +45,9 @@ class Evaluation(object):
             sdr = state_noise[1]
             sdv = state_noise[2]
             sdm = state_noise[3]
-            rN = MonteCarlo(self.x0[0], sdr, n_case).random_value()
-            vN = MonteCarlo(self.x0[1], sdv, n_case).random_value()
-            mN = MonteCarlo(self.x0[2], sdm, n_case).random_value()
+            rN = MonteCarlo(self.x0[0], sdr, n_case_).random_value()
+            vN = MonteCarlo(self.x0[1], sdv, n_case_).random_value()
+            mN = MonteCarlo(self.x0[2], sdm, n_case_).random_value()
 
         X_states = []
         THR = []
@@ -59,7 +59,7 @@ class Evaluation(object):
         par_force = 1
         i_n = 0
         performance_list = []
-        for n_thr in n_thrusters:
+        for n_thr in n_thrusters_:
             print("Evaluating with ", n_thr, " number of engine...")
             pulse_thruster = int(n_thr / par_force)
 
@@ -89,7 +89,7 @@ class Evaluation(object):
             EC.append([])
             TIME.append([])
             LAND_INDEX.append([])
-            for k in range(n_case):
+            for k in range(n_case_):
                 if state_noise_flag:
                     x0_ = [rN[k], vN[k], mN[k]]
                 else:
@@ -109,9 +109,9 @@ class Evaluation(object):
                 for thrust in self.dynamics.thrusters:
                     thrust.reset_variables()
 
-            pos_sim = [np.array(X_states[i_n][i])[:, 0] for i in range(n_case)]
-            vel_sim = [np.array(X_states[i_n][i])[:, 1] for i in range(n_case)]
-            mass_sim = [np.array(X_states[i_n][i])[:, 2] for i in range(n_case)]
+            pos_sim = [np.array(X_states[i_n][i])[:, 0] for i in range(n_case_)]
+            vel_sim = [np.array(X_states[i_n][i])[:, 1] for i in range(n_case_)]
+            mass_sim = [np.array(X_states[i_n][i])[:, 2] for i in range(n_case_)]
             thrust_sim = THR[i_n]
 
             plot_main_parameters(TIME[i_n], pos_sim, vel_sim, mass_sim, thrust_sim, IC[i_n],
@@ -123,7 +123,7 @@ class Evaluation(object):
             performance_list.append(performance)
             close_plot()
             i_n += 1
-        plot_performance(performance_list, max(n_thrusters), folder_name=self.folder_name, file_name=self.file_name_5,
+        plot_performance(performance_list, max(n_thrusters_), folder_name=self.folder_name, file_name=self.file_name_5,
                          save=True)
         plt.show()
         return performance_list
@@ -177,7 +177,7 @@ if __name__ == '__main__':
                              'propellant_geometry': propellant_geometry,
                              'isp_noise_std': None,
                              'isp_bias_std': None,
-                             'isp_dead_time_max': 0.0}
+                             'isp_dead_time_max': 2}
 
     engine_diameter_ext = None
     throat_diameter = 1.0  # mm
@@ -202,7 +202,7 @@ if __name__ == '__main__':
         else:
             return 0
 
-    type_propellant = PROGRESSIVE
+    type_propellant = REGRESSIVE
     name_file = None
     folder_name = "logs/Only_GA_all/"
     if type_propellant == REGRESSIVE:
@@ -217,7 +217,7 @@ if __name__ == '__main__':
     else:
         print("Select a correct type of propellant grain cross section")
 
-    folder_name += "2022-02-19T00-28-25/"
+    folder_name += "2022-02-20T14-41-53/"
     f = open(folder_name + name_file)
     data = json.load(f)
     json_list = data
