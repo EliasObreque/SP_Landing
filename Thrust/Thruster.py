@@ -4,10 +4,9 @@ Autor: Elias Obreque Sepulveda
 email: els.obrq@gmail.com
 
 """
-
 import numpy as np
 import pandas as pd
-from Thrust.PropellantGrain import PropellantGrain
+from Thrust.Propellant.PropellantGrain import PropellantGrain
 
 DEG2RAD = np.pi/180
 
@@ -292,8 +291,8 @@ class Thruster(object):
 
 
 if __name__ == '__main__':
-    from Thrust.PropellantGrain import propellant_data
-    from tools.Viewer import plot_thrust
+    from Thrust.Propellant.PropellantGrain import propellant_data
+    from tools.Viewer import plot_thrust, show_plot
 
     TUBULAR = 'tubular'
     BATES = 'bates'
@@ -354,12 +353,13 @@ if __name__ == '__main__':
                                             't_burn': t_burn},
                             'load_thrust_profile': False,
                             'file_name': file_name,
-                            'dead_time': dead_time,
+                            'dead_time': 0.2,
                             'lag_coef': lag_coef}
 
     n_thruster = 1
     comp_thrust = []
     for i in range(n_thruster):
+        propellant_properties_['isp_dead_time_max'] = 0.5
         comp_thrust.append(Thruster(dt, thruster_properties_, propellant_properties_, burn_type=REGRESSIVE))
 
     propellant_properties_['isp_noise_std'] = None
@@ -370,23 +370,29 @@ if __name__ == '__main__':
     time_array = []
     k = 1
     current_time = 0
-
-    while current_time <= 2 * t_burn + dead_time:
+    beta = 0
+    while current_time <= 2 * t_burn + 2:
         time_array.append(current_time)
         thr = 0
+        if current_time > 1:
+            beta = 1
         for i in range(n_thruster):
-            comp_thrust[i].set_beta(1)
+            comp_thrust[i].set_beta(beta)
             comp_thrust[i].propagate_thr()
             comp_thrust[i].log_value()
 
-        comp_thrust_free.set_beta(1)
+        comp_thrust_free.set_beta(beta)
         comp_thrust_free.propagate_thr()
         comp_thrust_free.log_value()
 
         current_time += dt
 
     total_thrust = 0
+    torque = 0
     for hist in comp_thrust:
         total_thrust += np.array(hist.historical_mag_thrust)
 
-    plot_thrust(time_array, total_thrust, comp_thrust_free.historical_mag_thrust, ['Thrust: biased and noisy', 'Thrust: idealized'])
+    plot_thrust(time_array, total_thrust, comp_thrust_free.historical_mag_thrust,
+                ['Model thrust [N]', 'Ideal thrust [N]'], dead=0.0)
+
+    show_plot()

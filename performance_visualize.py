@@ -41,7 +41,9 @@ folder_name += "neutral/2022-03-11T13-31-09/"
 file_name = "eva_neu_performance_data.json"
 performance_data_constant_alt, n_thrusters_constant_alt, _ = get_performance(folder_name + file_name)
 
-print(performance_data_regressive_alt)
+
+print(np.max(performance_data_regressive_alt[1]), 1 + np.argmax(performance_data_regressive_alt[1]))
+
 
 
 def plot_errorbar_performance(n_thrusters_constant_, performance_data_constant_,

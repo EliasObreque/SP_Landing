@@ -8,12 +8,10 @@ els.obrq@gmail.com
 """
 
 from datetime import datetime
-from tools.ext_requirements import velocity_req, mass_req
+from tools.ext_requirements import mass_req
 from Dynamics.Dynamics import Dynamics
-from Thrust.PropellantGrain import propellant_data
+from Thrust.Propellant.PropellantGrain import propellant_data
 from tools.Viewer import *
-from Evaluation import Evaluation
-
 
 if os.path.isdir("../logs/") is False:
     os.mkdir("../logs/")
@@ -154,7 +152,7 @@ x0 = [r0, v0, m0]
 xf = [0.0, 0.0, m1]
 time_options = [0, simulation_time, 0.01]
 
-x_states, time_series, thr, _, _, _ = dynamics.run_simulation(x0, xf, time_options)
+x_states, time_series, thr, _, _, _, _ = dynamics.run_simulation(x0, xf, time_options)
 dynamics.basic_hamilton_calc.print_simulation_data(x_states, mp, m0, r0)
 dynamics.basic_hamilton_calc.plot_1d_simulation(x_states, time_series, thr)
 

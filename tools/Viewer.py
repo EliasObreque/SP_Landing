@@ -264,20 +264,100 @@ def plot_performance(performance_list, n_thrusters, save=True, folder_name=None,
     return
 
 
+def plot_dv_req():
+    import matplotlib.pyplot as plt
+
+    plt.rcParams["font.family"] = "Times New Roman"
+    plt.rcParams['font.size'] = 14
+
+    mu = 4.9048695e12  # m3s-2
+    rm = 1.738e6
+    ra = 68e6 + rm
+    rp = 2e6 + rm
+    a = 0.5 * (ra + rp)
+
+    v0 = np.sqrt(2 * mu / ra - mu / a)
+    a1 = 0.5 * (rm + ra)
+    v1 = np.sqrt(2 * mu / ra - mu / a1)
+    dv1 = v0 - v1
+    v2 = np.sqrt(mu / rm)
+    dv2 = v2 - v1
+    dv3 = v2
+    dvt = dv1 + dv2 + dv3
+    print(dvt)
+    r = np.linspace(rp, ra, 200)
+    ve = np.sqrt(mu * (2 / r - 1 / a))
+    vf = np.sqrt(2 * mu * (1 / rm - 1 / r))
+    v = ve + vf
+    print(np.sqrt(mu * (2 / rm - 1 / a)))
+    plt.figure()
+    plt.ylabel(r"$\Delta v$")
+    plt.plot(r * 1e-3, ve, label=r'$\Delta v_e$', lw=0.8)
+    plt.plot(r * 1e-3, vf, label=r'$\Delta v_f$', lw=0.8)
+    plt.plot(r * 1e-3, v, label=r'$\Delta v$', lw=0.8)
+    plt.xlabel(r'Distance $R$ from moon mass center [km]')
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+
+    mf = 17.9
+    Isp = np.arange(260, 320, 20)
+    ge = 9.81
+    mass = [24.0 * (1 - np.exp(-ve / (Isp_i * ge))) for Isp_i in Isp]
+    plt.figure()
+    # plt.hlines(mf, rp * 1e-3, ra * 1e-3, color='r', linestyles='-', lw=0.8)
+    # plt.hlines(mf * 0.7, rp * 1e-3, ra * 1e-3, color='b', linestyles='--', lw=1, label='Amateur (x0.7)')
+    # plt.hlines(mf * 0.8, rp * 1e-3, ra * 1e-3, color='g', linestyles='--', lw=1, label='Space Shuttle SRB (x0.8)')
+    # plt.hlines(mf * 0.9, rp * 1e-3, ra * 1e-3, color='m', linestyles='--', lw=1, label='SS - 520 JAXA (x0.9)')
+    [plt.plot(ve, mass[i], color='k', lw=0.8) for i in range(len(Isp))]
+    [plt.text(ve[0], mass[i][0], r'$I_{sp}$=' + str(Isp[i]) + " s", rotation=-0, ha="left", va="center",
+              bbox=dict(boxstyle="round",
+                        ec=(0., 0.0, 0.0),
+                        fc=(1., 1, 1),
+                        )
+              ) for i in range(len(Isp))]
+    plt.grid()
+    plt.legend()
+    # int(len(r) * 0.5)
+    plt.ylabel('Mass required: $m_p$ [kg]')
+    plt.xlabel(r'Distance $R$ from moon mass center [km]')
+    plt.tight_layout()
+    plt.show()
+    return
+
+
 def close_plot():
     plt.close('all')
 
 
-def plot_thrust(time, thrust, thrust_free=None, names=None):
+def plot_thrust(time, thrust, thrust_free=None, names=None, dead=0):
     plt.figure()
     plt.xlabel('Time [s]')
     plt.ylabel('Thrust [N]')
-    plt.plot(time, thrust)
+    #plt.ylim(0, 1.5)
+    plt.plot(np.array(time) + dead, thrust)
     if thrust_free is not None:
         plt.plot(time, thrust_free)
     plt.grid()
     if names is not None:
         plt.legend(names)
+    return
+
+
+def plot_thrust_beta(time, thrust, beta, folder_name=None, file_name=None):
+    fig_ = plt.figure()
+    plt.grid()
+    plt.xlabel('Time [s]')
+    plt.ylabel('Thrust [N]')
+    plt.plot(time[0], thrust[0], 'k', label='Thrust')
+    plt.legend()
+    plt.twinx()
+    plt.plot(time[0], beta[0], label=r'$\beta(t)$')
+    plt.ylabel(r'$\beta(t)$')
+    plt.axhline(0, color='r')
+    plt.legend()
+    fig_.savefig("./logs/" + folder_name + file_name + '.png', dpi=300, bbox_inches='tight')
+    fig_.savefig("./logs/" + folder_name + file_name + '.eps', format='eps', bbox_inches='tight')
     return
 
 
@@ -364,6 +444,32 @@ def compare_performance():
     return
 
 
+def isp_vacuum():
+    gamma = 1.3
+    ratio_p = 1 / np.linspace(10, 100)
+    a = (2 / (gamma + 1)) ** ((gamma + 1)/(gamma - 1))
+    gamma_upper = np.sqrt(a * gamma)
+    b = 2 * gamma ** 2 / (gamma - 1)
+    print(a, b)
+    c = (1 - ratio_p ** ((gamma - 1) / gamma))
+    cf_e = np.sqrt(b * a * c)
+
+    ae_at = 1 / np.sqrt(b/gamma * ratio_p ** (2 / gamma) * c)
+    #ratio = ae_at * ratio_p / 9.8
+    ratio = 1 + 1/((ratio_p ** ((1 - gamma)/gamma)) - 1) * (gamma - 1)/(2 * gamma)
+
+    plt.figure()
+    plt.plot(1/ratio_p, ratio, 'k', lw=1)
+    #plt.plot(ratio_p, ratio_2)
+    plt.xlabel(r"$(P_c/P_e)$")
+    plt.ylabel(r"$(I_{sp}^v/I_{sp}^e)$")
+    plt.tight_layout()
+    plt.grid()
+    plt.show()
+    return
+
+
 if __name__ == '__main__':
     # plot_polynomial_function(3)
-    compare_performance()
+    # compare_performance()
+    isp_vacuum()

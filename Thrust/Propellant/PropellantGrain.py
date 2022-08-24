@@ -6,7 +6,7 @@ Created by:
 els.obrq@gmail.com
 
 """
-from .Geometry.GeometryGrain import GeometryGrain
+from Thrust.Propellant.Geometry.GeometryGrain import GeometryGrain
 import numpy as np
 import sys
 
@@ -25,6 +25,8 @@ propellant_data = {'JPL_540A': {'density': 1.66, 'Isp': 280, 'burn_rate_constant
 TUBULAR = 'tubular'
 BATES = 'bates'
 STAR = 'star'
+CUSTOM = 'custom'
+
 square_mm2m = 1e-6
 cube_mm2m = 1e-9
 mm2m = 1e-3

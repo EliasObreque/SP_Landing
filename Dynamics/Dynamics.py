@@ -7,11 +7,11 @@ email: els.obrq@gmail.com
 from .HamilCalcLimit import HamilCalcLimit
 import numpy as np
 import copy
-from .LinearCoordinate import LinearCoordinate
-from .PolarCoordinate import PolarCoordinate
+from .OneDCoordinate import LinearCoordinate
+from .PlaneCoordinate import PlaneCoordinate
 from Thrust.Thruster import Thruster
 ONE_D = '1D'
-POLAR = 'polar'
+PLANE_D = '2D'
 
 
 class Dynamics(object):
@@ -29,8 +29,8 @@ class Dynamics(object):
         self.reference_frame = reference_frame
         if reference_frame == ONE_D:
             self.dynamic_model = LinearCoordinate(dt, Isp, g_planet, mass)
-        elif reference_frame == POLAR:
-            self.dynamic_model = PolarCoordinate(dt, Isp, g_planet, mu_planet, r_planet, mass)
+        elif reference_frame == PLANE_D:
+            self.dynamic_model = PlaneCoordinate(dt, Isp, g_planet, mu_planet, r_planet, mass)
         else:
             print('Reference frame not selected')
         self.basic_hamilton_calc = HamilCalcLimit(self.mass, self.c_char, g_planet)
@@ -65,6 +65,7 @@ class Dynamics(object):
         thr = []
         index_control = []
         end_index_control = []
+        hist_beta = []
         end_condition = False
         k = 0
         current_x = x0
@@ -80,7 +81,8 @@ class Dynamics(object):
             elif self.controller_type == 'affine_function':
                 # Get total thrust
                 for j in range(len(self.thrusters)):
-                    control_signal = self.controller_function(self.controller_parameters[j], current_x, type_control='affine')
+                    control_signal, beta = self.controller_function(self.controller_parameters[j], current_x, type_control='affine')
+                    hist_beta.append(beta)
                     if control_signal == 1 and self.thrusters[j].current_beta == 0:
                         index_control.append(k)
                     if self.thrusters[j].thr_is_burned and self.thrusters[j].thr_is_on:
@@ -122,7 +124,7 @@ class Dynamics(object):
             land_index -= 1
         if land_index == 0:
             land_index = -1
-        return np.array(x_states), np.array(time_series), np.array(thr), index_control, end_index_control, land_index
+        return np.array(x_states), np.array(time_series), np.array(thr), index_control, end_index_control, land_index, hist_beta
 
     def calc_limits_by_single_hamiltonian(self, t_burn_min, t_burn_max, alpha_min, alpha_max, plot_data=False):
         self.basic_hamilton_calc.calc_limits_with_const_time(t_burn_min, alpha_min, alpha_max)

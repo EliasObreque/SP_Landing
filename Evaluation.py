@@ -6,7 +6,6 @@ Created by:
 els.obrq@gmail.com
 
 """
-import matplotlib.pyplot as plt
 
 from tools.MonteCarlo import MonteCarlo
 from tools.Viewer import *
@@ -55,7 +54,7 @@ class Evaluation(object):
         EC = []
         TIME = []
         LAND_INDEX = []
-
+        BETA = []
         par_force = 1
         i_n = 0
         performance_list = []
@@ -89,13 +88,14 @@ class Evaluation(object):
             EC.append([])
             TIME.append([])
             LAND_INDEX.append([])
+            BETA.append([])
             for k in range(n_case_):
                 if state_noise_flag:
                     x0_ = [rN[k], vN[k], mN[k]]
                 else:
                     x0_ = self.x0
 
-                x_, time_, thrust_, index_control_, end_index_control_, land_i_ = \
+                x_, time_, thrust_, index_control_, end_index_control_, land_i_, beta_ = \
                     self.dynamics.run_simulation(x0_, self.xf, self.time_options)
 
                 X_states[i_n].append(x_)
@@ -104,7 +104,7 @@ class Evaluation(object):
                 TIME[i_n].append(time_)
                 IC[i_n].append(index_control_)
                 EC[i_n].append(end_index_control_)
-
+                BETA[i_n].append(beta_)
                 # Reset thruster
                 for thrust in self.dynamics.thrusters:
                     thrust.reset_variables()
@@ -116,6 +116,7 @@ class Evaluation(object):
 
             plot_main_parameters(TIME[i_n], pos_sim, vel_sim, mass_sim, thrust_sim, IC[i_n],
                                  EC[i_n], save=False)
+            plot_thrust_beta(TIME[i_n], thrust_sim, BETA[i_n], folder_name=self.folder_name, file_name="beta")
             plot_state_vector(pos_sim, vel_sim, IC[i_n], EC[i_n], folder_name=self.folder_name,
                               file_name=self.file_name_2 + "_" + str(n_thr), save=True)
             performance = plot_distribution(pos_sim, vel_sim, LAND_INDEX[i_n], folder_name=self.folder_name,
@@ -123,15 +124,17 @@ class Evaluation(object):
             performance_list.append(performance)
             close_plot()
             i_n += 1
-        plot_performance(performance_list, max(n_thrusters_), folder_name=self.folder_name, file_name=self.file_name_5,
-                         save=True)
+
+        if len(n_thrusters_) != 1:
+            plot_performance(performance_list, max(n_thrusters_), folder_name=self.folder_name, file_name=self.file_name_5,
+                             save=True)
         plt.show()
         return performance_list
 
 
 if __name__ == '__main__':
     from Dynamics.Dynamics import Dynamics
-    from Thrust.PropellantGrain import propellant_data
+    from Thrust.Propellant.PropellantGrain import propellant_data
     import json
 
     TUBULAR = 'tubular'
@@ -182,7 +185,7 @@ if __name__ == '__main__':
     engine_diameter_ext = None
     throat_diameter = 1.0  # mm
     height = 10.0  # mm
-    file_name = "Thrust/StarGrain7.csv"
+    file_name = "Thrust/dataThrust/StarGrain7.csv"
 
     def control_function(control_par, current_state, type_control='affine'):
         a = control_par[0]

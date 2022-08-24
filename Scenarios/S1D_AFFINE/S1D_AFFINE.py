@@ -7,15 +7,12 @@ els.obrq@gmail.com
 
 """
 import time
-import sys
-import codecs
-import json
 
 from datetime import datetime
 from tools.GeneticAlgorithm import GeneticAlgorithm
-from tools.ext_requirements import velocity_req, mass_req
+from tools.ext_requirements import mass_req
 from Dynamics.Dynamics import Dynamics
-from Thrust.PropellantGrain import propellant_data
+from Thrust.Propellant.PropellantGrain import propellant_data
 from tools.Viewer import *
 from Evaluation import Evaluation
 from tools.ext_requirements import save_data
@@ -36,7 +33,8 @@ now = now.strftime("%Y-%m-%dT%H-%M-%S")
 reference_frame = '1D'
 
 
-def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, n_case, n_thrusters_, save_plot=True):
+def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, n_case, n_thrusters_,
+               full_engine=True, save_plot=True):
     # -----------------------------------------------------------------------------------------------------#
     # Data Mars lander (12U (24 kg), 27U (54 kg))
     m0 = 24
@@ -133,7 +131,10 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
     dynamics.controller_type = 'affine_function'
 
     type_propellant = propellant_geometry
-    n_thrusters     = list(range(1, n_thrusters_ + 1))
+    if full_engine:
+        n_thrusters = list(range(1, n_thrusters_ + 1))
+    else:
+        n_thrusters = [n_thrusters_]
 
     # initial condition
     x0 = [r0, v0, m0]
@@ -181,6 +182,8 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
         std_alt = std_alt_
         std_vel = std_vel_
         state_noise = [True, std_alt, std_vel]
+    else:
+        n_case = 1
 
     # Calculate optimal alpha (m_dot) for a given t_burn and constant ideal thrust
     t_burn = 0.5 * (t_burn_min + t_burn_max)
@@ -213,7 +216,7 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
         if min(np.array(ga_x_states)[:, 0]) < 0:
             error_pos *= 100
         rate_time = max(time_ser) / t_free
-        return Ah * error_pos ** 2 + Bh * error_vel ** 2 + rate_time * 10
+        return Ah * error_pos ** 2 + Bh * error_vel ** 2# + rate_time * 10
 
     json_list = {}
     file_name_1 = type_propellant[:3] + "_Out_data"
@@ -240,7 +243,7 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
         # if type_propellant != NEUTRAL:
         #     t_burn_max = (space_max / np.sqrt(n_thr) / thickness_case_factor) / 30 * 8.0
 
-        ga = GeneticAlgorithm(max_generation=300, n_individuals=40,
+        ga = GeneticAlgorithm(max_generation=300, n_individuals=50,
                               ranges_variable=[['float', alpha_min, alpha_max, pulse_thruster],
                                                ['float', 0.0, t_burn_max, pulse_thruster], ['str', type_propellant],
                                                ['float_iter', 0.0, 1.0, pulse_thruster],
@@ -293,17 +296,18 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
                                                 'std_pos': performance[2],
                                                 'std_vel': performance[3]}
 
-        # plot_main_parameters(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
-        #                      end_index_control, save=save_plot, folder_name=folder_name, file_name=file_name_1)
+        plot_main_parameters(best_time_data, best_pos, best_vel, best_mass, best_thrust, index_control,
+                             end_index_control, save=save_plot, folder_name=folder_name, file_name=file_name_1)
         plot_state_vector(best_pos, best_vel, index_control, end_index_control, save=save_plot,
                           folder_name=folder_name, file_name=file_name_2 + "_" + str(n_thr))
 
         close_plot()
 
     save_data(json_list, folder_name, file_name_1)
-    plot_performance(performance_list, max(n_thrusters), save=save_plot, folder_name=folder_name,
-                     file_name=file_name_5)
-    print('Performance plot saved')
+    if len(n_thrusters) != 1:
+        plot_performance(performance_list, max(n_thrusters), save=save_plot, folder_name=folder_name,
+                         file_name=file_name_5)
+        print('Performance plot saved')
 
     # %%
     #   Evaluation
@@ -324,24 +328,24 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
             c = control_par[2]
             f = a * current_alt - b * current_vel ** 2 + c * current_vel ** 3
         if f <= 0:
-            return 1
+            return 1, f
         else:
-            return 0
+            return 0, f
 
-    percentage_variation = 3
-    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
-    propellant_properties['isp_noise_std'] = (upper_isp - Isp) / 3
-
-    percentage_variation = 10
-    upper_isp = Isp * (1.0 + percentage_variation / 100.0)
-    propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
-    n_case_eval = 60
-    propellant_properties['isp_dead_time_max'] = 2
+    # percentage_variation = 3
+    # upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    # propellant_properties['isp_noise_std'] = (upper_isp - Isp) / 3
+    #
+    # percentage_variation = 10
+    # upper_isp = Isp * (1.0 + percentage_variation / 100.0)
+    # propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
+    n_case_eval = 1
+    # propellant_properties['isp_dead_time_max'] = 2
 
     evaluation = Evaluation(dynamics, x0, xf, time_options, json_list, control_function, thruster_properties,
                             propellant_properties,
                             type_propellant, folder_name)
-    eva_performance = evaluation.propagate(n_case_eval, n_thrusters, state_noise=[True, std_alt_, std_vel_, 0.0])
+    eva_performance = evaluation.propagate(n_case_eval, n_thrusters, state_noise=[False, std_alt_, std_vel_, 0.0])
 
     json_perf = {'mean_pos': np.array(eva_performance)[:, 0].tolist(),
                  'mean_vel': np.array(eva_performance)[:, 1].tolist(),

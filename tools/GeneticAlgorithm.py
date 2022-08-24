@@ -200,7 +200,7 @@ class GeneticAlgorithm(object):
                 else:
                     x0 = self.init_state[0]
 
-                x_states, time_series, thr, index_control, end_index_control, land_i = self.ga_dynamics.run_simulation(
+                x_states, time_series, thr, index_control, end_index_control, land_i, _ = self.ga_dynamics.run_simulation(
                     x0,
                     self.init_state[1],
                     self.time_options)
@@ -233,9 +233,9 @@ class GeneticAlgorithm(object):
             c = control_par[2]
             f = a * current_alt - b * current_vel ** 2 + c * current_vel ** 3
         if f <= 0:
-            return 1
+            return 1, f
         else:
-            return 0
+            return 0, f
 
     def ga_selection(self, n, direct_method=False):
         if direct_method is False:
