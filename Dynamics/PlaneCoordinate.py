@@ -8,34 +8,33 @@ els.obrq@gmail.com
 """
 
 import numpy as np
+ge = 9.807
 
 
 class PlaneCoordinate(object):
-    def __init__(self, dt, Isp, g_planet, mu_planet, r_planet, mass):
+    def __init__(self, dt, mu_planet, r_planet, mass, inertia):
         self.mass_0 = mass
         self.current_mass = mass
         self.dt = dt
-        self.Isp = Isp
-        self.ge = 9.807
         self.mu = mu_planet
         self.r_moon = r_planet
-        self.g_planet = g_planet
-        self.v_eq = Isp * self.ge
         self.delta_alpha_k = np.random.normal(0, np.deg2rad(2))
         self.delta_d_k = np.random.normal(0, np.deg2rad(2))
-        self.inertia_0 = 1 / 12 * self.mass_0 * (0.2 ** 2 + 0.3 ** 2)
+        self.inertia_0 = inertia # 1 / 12 * self.mass_0 * (0.2 ** 2 + 0.3 ** 2)
         self.current_inertia = self.inertia_0
         self.current_pos_i = np.zeros(2)
         self.current_vel_i = np.zeros(2)
         self.current_theta = 0
         self.current_omega = 0
+        self.current_time = 0.0
+        self.m_dot_p = 0.0
         self.historical_pos_i = []
         self.historical_vel_i = []
         self.historical_mass = []
         self.historical_theta = []
         self.historical_omega = []
         self.historical_inertia = []
-        self.historical_time = [0.0]
+        self.historical_time = []
         return
 
     def dynamic(self, state, F, tau_b, psi=0):
@@ -50,22 +49,28 @@ class PlaneCoordinate(object):
         rhs = np.zeros(8)
         rhs[0:2] = v
         rhs[2:4] = F / m * u_f_i - self.mu * r / (r ** 3)
-        rhs[4] = - F / self.v_eq
+        rhs[4] = - self.m_dot_p
         rhs[2] = omega
         rhs[3] = tau_b / inertia
         rhs[4] = self.inertia_0 * rhs[4] / self.mass_0
         return rhs
 
-    def rungeonestep(self, state, T, torque_b, psi=0):
-        x = np.array(state)
-        k1 = self.dynamic(x, T, torque_b, psi)
+    def update(self, thrust_i, m_dot_p, torque_b):
+        self.rungeonestep(thrust_i, m_dot_p, torque_b)
+
+    def rungeonestep(self, T, m_dot_p, torque_b):
+        x = np.concatenate([self.current_pos_i, self.current_vel_i])
+
+        self.m_dot_p = m_dot_p
+        k1 = self.dynamic(x, T, torque_b)
         xk2 = x + (self.dt / 2.0) * k1
-        k2 = self.dynamic(xk2, T, torque_b, psi)
+        k2 = self.dynamic(xk2, T, torque_b)
         xk3 = x + (self.dt / 2.0) * k2
-        k3 = self.dynamic(xk3, T, torque_b, psi)
+        k3 = self.dynamic(xk3, T, torque_b)
         xk4 = x + self.dt * k3
-        k4 = self.dynamic(xk4, T, torque_b, psi)
+        k4 = self.dynamic(xk4, T, torque_b)
         next_x = x + (self.dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+        self.current_time += self.dt
         return next_x
 
     def save_data(self):
@@ -75,6 +80,7 @@ class PlaneCoordinate(object):
         self.historical_theta.append(self.current_theta)
         self.historical_omega.append(self.current_omega)
         self.historical_inertia.append(self.current_inertia)
+        self.historical_time.append(self.current_time)
 
 
 if __name__ == '__main__':

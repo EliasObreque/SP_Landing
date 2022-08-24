@@ -16,9 +16,8 @@ STAR = 'star'
 
 
 class HamilCalcLimit(object):
-    def __init__(self, mass, c_char, g_planet):
+    def __init__(self, mass, g_planet):
         self.mass = mass
-        self.c_char = c_char
         self.g_planet = g_planet
         self.t1 = 0
         self.alpha = 0
@@ -44,7 +43,11 @@ class HamilCalcLimit(object):
         self.x1_hat_min_a = 0
         self.x1_hat_max_a = 0
         self.x1_hat_med_a = 0
+        self.v_eq = 0.0
         return
+
+    def set_v_eq(self, value):
+        self.v_eq = value
 
     def calc_limits_with_const_time(self, t1, alpha_min, alpha_max):
         g       = self.g_planet
@@ -111,12 +114,12 @@ class HamilCalcLimit(object):
     def calc_x2_char(self, alpha, t1):
         g = self.g_planet
         arg_ = 1 - alpha * t1 / self.mass
-        return self.c_char * np.log(arg_) - g * t1
+        return self.v_eq * np.log(arg_) - g * t1
 
     def calc_x1_char(self, alpha, t1, x2_c=None):
         g = self.g_planet
         arg_ = 1 - alpha * t1 / self.mass
-        return 0.5 * g * t1 ** 2 - self.c_char * t1 - self.c_char * self.mass * np.log(arg_) / alpha
+        return 0.5 * g * t1 ** 2 - self.v_eq * t1 - self.v_eq * self.mass * np.log(arg_) / alpha
 
     def calc_simple_optimal_parameters(self, r0, alpha_min, alpha_max, t_burn):
         a_cur = alpha_min
@@ -142,8 +145,8 @@ class HamilCalcLimit(object):
             f_c, _ = self.bisection_method(c_cur, 0, r0, t_burn)
             c_last = c_cur
         self.alpha = c_last
-        self.b = self.c_char * self.alpha ** 2 / (2 * self.mass ** 2)
-        self.a = 0.5 * (self.c_char * self.alpha + self.g_planet * self.mass) / self.mass
+        self.b = self.v_eq * self.alpha ** 2 / (2 * self.mass ** 2)
+        self.a = 0.5 * (self.v_eq * self.alpha + self.g_planet * self.mass) / self.mass
         print('--------------------------------------------------------------------------')
         print("Optimal alpha (m_dot) for t_burn = ", t_burn, " [s]: ", self.alpha)
         print('Parameters [a] and [b]: ', self.a, ' - ', self.b)
@@ -151,8 +154,8 @@ class HamilCalcLimit(object):
         return self.alpha
 
     def calc_parameters(self):
-        self.b = self.c_char * self.alpha ** 2 / (2 * self.mass ** 2)
-        self.a = 0.5 * (self.c_char * self.alpha + self.g_planet * self.mass) / self.mass
+        self.b = self.v_eq * self.alpha ** 2 / (2 * self.mass ** 2)
+        self.a = 0.5 * (self.v_eq * self.alpha + self.g_planet * self.mass) / self.mass
         return
 
     def bisection_method(self, var_left, var_right, r0, t_burn):
@@ -190,7 +193,7 @@ class HamilCalcLimit(object):
 
     def calc_online_t1(self, x1, x2, x3, alpha):
         A = -0.5*self.g_planet * alpha
-        B = (self.c_char * alpha + self.g_planet * x3)
+        B = (self.v_eq * alpha + self.g_planet * x3)
         C = x1 * alpha + x2 * x3
         t1 = (-B + np.sqrt(B**2 - 4*A*C))/(2 * A)
         return t1

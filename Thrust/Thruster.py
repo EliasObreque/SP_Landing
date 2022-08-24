@@ -7,6 +7,7 @@ email: els.obrq@gmail.com
 import numpy as np
 import pandas as pd
 from Thrust.Propellant.PropellantGrain import PropellantGrain
+from Engine.Engine import Engine
 
 DEG2RAD = np.pi/180
 
@@ -20,25 +21,24 @@ REGRESSIVE = 'regressive'
 
 class Thruster(object):
     def __init__(self, dt, thruster_properties, propellant_properties, burn_type=None):
+        self.step_width = dt
         self.thrust_profile = None
         self.burn_type = burn_type
-        self.propellant_geometry = propellant_properties['propellant_geometry']
-        if thruster_properties['engine_diameter_ext'] is not None:
-            throat_diameter = thruster_properties['throat_diameter']
-            engine_diameter_ext = thruster_properties['engine_diameter_ext']
-            height = thruster_properties['height']
-            volume_convergent_zone = (np.pi * height * (engine_diameter_ext * 0.5) ** 2) / 3
-            self.volume_case = volume_convergent_zone
-        self.step_width = dt
+
+        self.engine = Engine(dt, thruster_properties)
         self.selected_propellant = PropellantGrain(dt, propellant_properties)
+
         if self.selected_propellant.geometry_grain is not None:
-            self.volume_case += self.selected_propellant.selected_geometry.free_volume
+            self.volume_free = self.engine.volume - self.selected_propellant.selected_geometry.volume
         else:
+            # tanh model
             self.t_burn = thruster_properties['performance']['t_burn']
             self.current_alpha = thruster_properties['performance']['alpha']
+
         if thruster_properties['load_thrust_profile']:
             self.thrust_profile, self.time_profile = self.load_thrust_profile(thruster_properties['file_name'])
             self.dt_profile = self.time_profile[1] - self.time_profile[0]
+
         self.current_burn_time = 0
         self.historical_mag_thrust = []
         self.t_ig = 0
@@ -99,6 +99,7 @@ class Thruster(object):
     def propagate_thr(self):
         if self.selected_propellant.geometry_grain is not None:
             """Propagate propellant by model"""
+            pass
         elif self.thrust_profile is not None:
             """Propagate loaded profile by file"""
             self.calc_parametric_thrust()
@@ -134,7 +135,7 @@ class Thruster(object):
                 self.current_mag_thrust_c = self.current_alpha * self.selected_propellant.get_c_char()
                 self.current_burn_time += self.step_width
             elif self.current_burn_time <= self.t_burn:
-                self.selected_propellant.update_noise_isp()
+                self.selected_propellant.get_update_noise_isp()
                 self.current_mag_thrust_c = self.current_alpha * self.selected_propellant.get_c_char()
                 self.current_burn_time += self.step_width
             else:
@@ -148,6 +149,9 @@ class Thruster(object):
 
     def get_current_thrust(self):
         return self.current_mag_thrust_c
+
+    def get_current_m_flow(self):
+        return self.get_current_thrust() / self.selected_propellant.get_update_noise_isp()
 
     def set_alpha(self, value):
         self.current_alpha = value

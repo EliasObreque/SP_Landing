@@ -7,21 +7,14 @@ els.obrq@gmail.com
 
 """
 from Thrust.Propellant.Geometry.GeometryGrain import GeometryGrain
+from PropellantProperties import propellant_data
+
 import numpy as np
 import sys
 
 array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)',
                           'TRX-H609', 'KNSU']
-propellant_data = {'JPL_540A': {'density': 1.66, 'Isp': 280, 'burn_rate_constant': 5.13, 'pressure_exponent': 0.679,
-                                'small_gamma': 1.2, 'molecular_weight': 25},
-                   'ANP-2639AF': {'density': 1.66, 'Isp': 295, 'burn_rate_constant': 4.5, 'pressure_exponent': 0.313,
-                                  'small_gamma': 1.18, 'molecular_weight': 24.7},
-                   'CDT(80)': {'density': 1.74, 'Isp': 325, 'burn_rate_constant': 6.99, 'pressure_exponent': 0.48,
-                               'small_gamma': 1.168, 'molecular_weight': 30.18},
-                   'TRX-H609': {'density': 1.76, 'Isp': 300, 'burn_rate_constant': 4.92, 'pressure_exponent': 0.297,
-                                'small_gamma': 1.21, 'molecular_weight': 25.97},
-                   'KNSU': {'density': 1.88, 'Isp': 164, 'burn_rate_constant': 8.26, 'pressure_exponent': 0.32,
-                            'small_gamma': 1.133, 'molecular_weight': 41.98}}
+
 TUBULAR = 'tubular'
 BATES = 'bates'
 STAR = 'star'
@@ -39,21 +32,22 @@ ge  = 9.807
 
 class PropellantGrain(GeometryGrain):
     def __init__(self, dt, propellant_properties, *aux_dimension):
+        # Propellant
+        selected_propellant = propellant_properties['propellant_name']
+        self.selected_propellant = propellant_data[selected_propellant]
+        self.r_gases = R_g / self.selected_propellant['molecular_weight']
+        self.small_gamma = self.selected_propellant['small_gamma']
+        self.big_gamma = self.calc_big_gamma()
+        self.density = self.selected_propellant['density'] * 1e3
+
         # Geometry
         self.dt = dt
         self.geometry_grain = propellant_properties['geometry']
         if self.geometry_grain is not None:
-            diameter_int = propellant_properties['geometry']['diameter_int']
-            diameter_ext = propellant_properties['geometry']['diameter_ext']
-            large        = propellant_properties['geometry']['large']
-            GeometryGrain.__init__(self.geometry_grain, diameter_int, diameter_ext, large, *aux_dimension)
-            volume_convergent       = (np.pi * 10 * (diameter_ext * 0.5) ** 2) / 3
-            self.volume_case        = volume_convergent + self.selected_geometry.free_volume
-            self.init_volume_case   = self.volume_case
-            self.init_mass = self.density * self.selected_geometry.volume_propellant  # kg
-        # Propellant
-        selected_propellant      = propellant_properties['propellant_name']
-        self.selected_propellant = propellant_data[selected_propellant]
+            GeometryGrain.__init__(self.geometry_grain, propellant_properties, *aux_dimension)
+            self.mass = self.selected_geometry.volume * self.density
+
+        # Noise
         self.isp0                = self.selected_propellant['Isp']
         self.std_noise           = propellant_properties['isp_noise_std']
         self.std_bias            = propellant_properties['isp_bias_std']
@@ -62,13 +56,9 @@ class PropellantGrain(GeometryGrain):
             self.dead_time           = np.random.uniform(0, self.max_dead_time)
         else:
             self.dead_time = 0
-        self.current_dead_time   = 0
-        self.c_char              = self.isp0 * ge
-        self.r_gases             = R_g / self.selected_propellant['molecular_weight']
-        self.small_gamma         = self.selected_propellant['small_gamma']
-        self.big_gamma           = self.calc_big_gamma()
-        self.density             = self.selected_propellant['density'] * 1e3
-        self.area_throat = np.pi * 1 ** 2
+        self.current_dead_time = 0
+        self.v_eq = self.isp0 * ge
+        self.update_bias_isp()
 
     def set_throat_diameter(self, dia):
         self.area_throat = np.pi * (dia * 0.5) ** 2
@@ -81,14 +71,14 @@ class PropellantGrain(GeometryGrain):
     def get_update_noise_isp(self):
         if self.std_noise is not None:
             noise_isp = np.random.normal(0, self.std_noise)
-            return self.c_char + noise_isp * ge
+            return self.v_eq + noise_isp * ge
         else:
-            return self.c_char
+            return self.v_eq
 
     def update_bias_isp(self):
         if self.std_bias is not None:
             isp = np.random.normal(self.isp0, self.std_bias)
-            self.c_char = isp * ge
+            self.v_eq = isp * ge
 
     def get_dead_time(self):
         return self.dead_time
@@ -105,7 +95,7 @@ class PropellantGrain(GeometryGrain):
         return
 
     def get_c_char(self):
-        return self.c_char
+        return self.v_eq
 
     def calc_mass_flow_propellant_(self, area_p, r_rate):
         den_p = self.selected_propellant['density']

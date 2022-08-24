@@ -22,9 +22,7 @@ class STAR(object):
         seg = diameter_int * 0.5 * (np.sin(np.pi / self.n_point) / np.sin(self.theta_star / 2))
         self.init_area = 2 * self.n_point * large * seg
         area_triangle = self.calc_triangle_area(self.diameter_int)
-        self.volume_propellant = large * np.pi * (diameter_ext * 0.5) ** 2 \
-                                 - large * area_triangle * self.n_point * 2
-        self.free_volume = large * np.pi * (diameter_ext * 0.5) ** 2 - self.volume_propellant
+        self.volume = large * np.pi * (diameter_ext * 0.5) ** 2 - large * area_triangle * self.n_point * 2
         return
 
     def calc_triangle_area(self, current_diameter_int):

@@ -39,3 +39,15 @@ propellant_properties = {'propellant_name': 'TRX-H609',
                          'isp_noise_std': None,
                          'isp_bias_std': None,
                          'isp_dead_time_max': None}
+
+
+propellant_data = {'JPL_540A': {'density': 1.66, 'Isp': 280, 'burn_rate_constant': 5.13, 'pressure_exponent': 0.679,
+                                'small_gamma': 1.2, 'molecular_weight': 25},
+                   'ANP-2639AF': {'density': 1.66, 'Isp': 295, 'burn_rate_constant': 4.5, 'pressure_exponent': 0.313,
+                                  'small_gamma': 1.18, 'molecular_weight': 24.7},
+                   'CDT(80)': {'density': 1.74, 'Isp': 325, 'burn_rate_constant': 6.99, 'pressure_exponent': 0.48,
+                               'small_gamma': 1.168, 'molecular_weight': 30.18},
+                   'TRX-H609': {'density': 1.76, 'Isp': 300, 'burn_rate_constant': 4.92, 'pressure_exponent': 0.297,
+                                'small_gamma': 1.21, 'molecular_weight': 25.97},
+                   'KNSU': {'density': 1.88, 'Isp': 164, 'burn_rate_constant': 8.26, 'pressure_exponent': 0.32,
+                            'small_gamma': 1.133, 'molecular_weight': 41.98}}

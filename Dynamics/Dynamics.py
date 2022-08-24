@@ -15,25 +15,24 @@ PLANE_D = '2D'
 
 
 class Dynamics(object):
-    def __init__(self, dt, Isp, g_planet, mu_planet, r_planet, mass, reference_frame, controller='basic_hamilton'):
+    mu = 4.9048695e12  # m3s-2
+    r_moon = 1.738e6
+    g_planet = 1.607
+    ge = 9.807
+
+    def __init__(self, dt, mass, inertia, state, reference_frame, controller='basic_hamilton'):
         self.mass = mass
         self.controller_type = controller
         self.step_width = dt
         self.current_time = 0
-        self.Isp = Isp
-        self.ge = 9.807
-        self.mu = mu_planet
-        self.r_moon = r_planet
-        self.g_planet = g_planet
-        self.c_char = Isp * self.ge
         self.reference_frame = reference_frame
         if reference_frame == ONE_D:
-            self.dynamic_model = LinearCoordinate(dt, Isp, g_planet, mass)
+            self.dynamic_model = LinearCoordinate(dt, self.g_planet, mass)
         elif reference_frame == PLANE_D:
-            self.dynamic_model = PlaneCoordinate(dt, Isp, g_planet, mu_planet, r_planet, mass)
+            self.dynamic_model = PlaneCoordinate(dt, self.mu, self.r_moon, mass, inertia)
         else:
             print('Reference frame not selected')
-        self.basic_hamilton_calc = HamilCalcLimit(self.mass, self.c_char, g_planet)
+        self.basic_hamilton_calc = HamilCalcLimit(mass, self.g_planet)
         self.thrusters = []
         self.controller_parameters = []
         self.controller_function = None
