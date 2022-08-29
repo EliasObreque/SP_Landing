@@ -6,14 +6,14 @@ Date: 24-08-2022
 import numpy as np
 
 from Module.Module import Module
-import Thrust.ThrustProperties as thr_prop
-import Thrust.Propellant.PropellantProperties as prop_prop
+import thrust.ThrustProperties as thr_prop
+import thrust.propellant.PropellantProperties as prop_prop
 
 n_thrusters = 10
 thruster_pos = []
 thruster_ang = []
-thruster_properties = [thr_prop.default] * n_thrusters
-propellant_properties = [prop_prop.propellant_properties] * n_thrusters
+thruster_properties = [thr_prop.default_thruster] * n_thrusters
+propellant_properties = [prop_prop.default_propellant] * n_thrusters
 
 reference_frame = '2D'
 n_modules = 10

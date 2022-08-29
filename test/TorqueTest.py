@@ -3,8 +3,8 @@ Created by Elias Obreque
 els.obrq@gmail.com
 Date: 04-08-2022
 """
-from Thrust.Propellant.PropellantGrain import propellant_data
-from Thrust.Thruster import Thruster
+from thrust.propellant.propellantGrain import propellant_data
+from thrust.thruster import Thruster
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -34,7 +34,7 @@ dt = 0.01
 engine_diameter_ext = None
 throat_diameter = 1.0  # mm
 height = 10.0  # mm
-file_name = "Thrust/StarGrain7.csv"
+file_name = "thrust/StarGrain7.csv"
 
 propellant_properties_ = {'propellant_name': propellant_name,
                           'n_thrusters': 1,
@@ -190,7 +190,7 @@ for hist in comp_thrust:
 
 plt.figure()
 plt.xlabel('Time [s]')
-plt.ylabel('Thrust [N]')
+plt.ylabel('thrust [N]')
 plt.plot(time_array, total_thrust)
 [plt.plot(time_array, thrust.historical_mag_thrust) for thrust in comp_thrust]
 plt.grid()

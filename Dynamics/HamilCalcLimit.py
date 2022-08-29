@@ -5,7 +5,7 @@ Created by:
 @Date: 1/6/2021 5:33 PM 
 els.obrq@gmail.com
 
-ref: Meditch. J. On the Problem of Optimal Thrust Programming For a Lunar Soft Landing
+ref: Meditch. J. On the Problem of Optimal thrust Programming For a Lunar Soft Landing
 """
 import numpy as np
 from matplotlib import pyplot as plt
@@ -317,7 +317,7 @@ class HamilCalcLimit(object):
         plt.plot(time_series, x_states[:, 1])
 
         plt.figure()
-        plt.ylabel('Thrust [N]')
+        plt.ylabel('thrust [N]')
         plt.xlabel('Time [s]')
         plt.grid()
         plt.plot(time_series, thr)

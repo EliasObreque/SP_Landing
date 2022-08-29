@@ -12,7 +12,7 @@ from datetime import datetime
 from tools.GeneticAlgorithm import GeneticAlgorithm
 from tools.ext_requirements import mass_req
 from Dynamics.Dynamics import Dynamics
-from Thrust.Propellant.PropellantGrain import propellant_data
+from thrust.propellant.propellantGrain import propellant_data
 from tools.Viewer import *
 from Evaluation import Evaluation
 from tools.ext_requirements import save_data
@@ -125,7 +125,7 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
     engine_diameter_ext = None
     throat_diameter = 1.0  # mm
     height = 10.0  # mm
-    file_name = "Thrust/StarGrain7.csv"
+    file_name = "thrust/StarGrain7.csv"
 
     # Optimal solution with GA for constant thrust and multi-engines array
     dynamics.controller_type = 'affine_function'

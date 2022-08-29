@@ -33,12 +33,11 @@ custom_geom = {'ext_diameter': 0.1,
                'Inhibit': 2}
 
 
-propellant_properties = {'propellant_name': 'TRX-H609',
-                         'geometry': bates_geom,
-                         'propellant_geometry': BATES,
-                         'isp_noise_std': None,
-                         'isp_bias_std': None,
-                         'isp_dead_time_max': None}
+default_propellant = {'mixture_name': 'TRX-H609',
+                      'geometry': {'type': BATES,
+                                   'setting': bates_geom},
+                      'isp_noise_std': None,
+                      'isp_bias_std': None}
 
 
 propellant_data = {'JPL_540A': {'density': 1.66, 'Isp': 280, 'burn_rate_constant': 5.13, 'pressure_exponent': 0.679,

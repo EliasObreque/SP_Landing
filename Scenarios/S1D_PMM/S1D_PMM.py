@@ -10,7 +10,7 @@ els.obrq@gmail.com
 from datetime import datetime
 from tools.ext_requirements import mass_req
 from Dynamics.Dynamics import Dynamics
-from Thrust.Propellant.PropellantGrain import propellant_data
+from thrust.propellant.propellantGrain import propellant_data
 from tools.Viewer import *
 
 if os.path.isdir("../logs/") is False:
@@ -135,7 +135,7 @@ propellant_properties = {'propellant_name': propellant_name,
 engine_diameter_ext = None
 throat_diameter = 1.0  # mm
 height = 10.0  # mm
-file_name = "Thrust/StarGrain7.csv"
+file_name = "thrust/StarGrain7.csv"
 thruster_properties = {'throat_diameter': 2,
                        'engine_diameter_ext': engine_diameter_ext,
                        'height': height,

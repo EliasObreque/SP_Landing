@@ -6,7 +6,7 @@ Date: 24-08-2022
 import numpy as np
 
 from Dynamics.Dynamics import Dynamics
-from Thrust.Thruster import Thruster
+from thrust.thruster import Thruster
 
 
 class Module(object):

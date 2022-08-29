@@ -39,7 +39,7 @@ def create_plot():
     plt.grid()
 
     plt.figure(6)
-    plt.ylabel('Thrust (N)')
+    plt.ylabel('thrust (N)')
     plt.xlabel('Time (s)')
     plt.grid()
 
@@ -119,7 +119,7 @@ def plot_main_parameters(time_best, best_pos, best_vel, best_mass, best_thrust, 
     axs_best[1, 0].grid(True)
 
     axs_best[1, 1].set_xlabel('Time [s]')
-    axs_best[1, 1].set_ylabel('Thrust [N]')
+    axs_best[1, 1].set_ylabel('thrust [N]')
     for k in range(len(best_pos)):
         axs_best[1, 1].plot(time_best[k], np.array(best_thrust[k]), lw=0.8)
         axs_best[1, 1].scatter(time_best[k][ini_best_individuals[k]],
@@ -333,7 +333,7 @@ def close_plot():
 def plot_thrust(time, thrust, thrust_free=None, names=None, dead=0):
     plt.figure()
     plt.xlabel('Time [s]')
-    plt.ylabel('Thrust [N]')
+    plt.ylabel('thrust [N]')
     #plt.ylim(0, 1.5)
     plt.plot(np.array(time) + dead, thrust)
     if thrust_free is not None:
@@ -348,8 +348,8 @@ def plot_thrust_beta(time, thrust, beta, folder_name=None, file_name=None):
     fig_ = plt.figure()
     plt.grid()
     plt.xlabel('Time [s]')
-    plt.ylabel('Thrust [N]')
-    plt.plot(time[0], thrust[0], 'k', label='Thrust')
+    plt.ylabel('thrust [N]')
+    plt.plot(time[0], thrust[0], 'k', label='thrust')
     plt.legend()
     plt.twinx()
     plt.plot(time[0], beta[0], label=r'$\beta(t)$')

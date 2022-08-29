@@ -134,7 +134,7 @@ class Evaluation(object):
 
 if __name__ == '__main__':
     from Dynamics.Dynamics import Dynamics
-    from Thrust.Propellant.PropellantGrain import propellant_data
+    from thrust.propellant.propellantGrain import propellant_data
     import json
 
     TUBULAR = 'tubular'
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     engine_diameter_ext = None
     throat_diameter = 1.0  # mm
     height = 10.0  # mm
-    file_name = "Thrust/dataThrust/StarGrain7.csv"
+    file_name = "thrust/dataThrust/StarGrain7.csv"
 
     def control_function(control_par, current_state, type_control='affine'):
         a = control_par[0]
