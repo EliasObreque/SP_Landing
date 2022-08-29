@@ -134,3 +134,4 @@ dmypy.json
 #/Logs/
 /Scenarios/logs/
 /Scenarios/S1D_AFFINE/logs/
+/logs/
