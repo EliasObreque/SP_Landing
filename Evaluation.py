@@ -133,8 +133,8 @@ class Evaluation(object):
 
 
 if __name__ == '__main__':
-    from Dynamics.Dynamics import Dynamics
-    from thrust.propellant.propellantGrain import propellant_data
+    from dynamics.Dynamics import Dynamics
+    from thrust.propellant.propellant import propellant_data
     import json
 
     TUBULAR = 'tubular'

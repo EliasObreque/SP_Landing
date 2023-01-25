@@ -9,8 +9,8 @@ els.obrq@gmail.com
 
 from datetime import datetime
 from tools.ext_requirements import mass_req
-from Dynamics.Dynamics import Dynamics
-from thrust.propellant.propellantGrain import propellant_data
+from dynamics.Dynamics import Dynamics
+from thrust.propellant.propellant import propellant_data
 from tools.Viewer import *
 
 if os.path.isdir("../logs/") is False:

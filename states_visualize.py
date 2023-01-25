@@ -38,7 +38,7 @@ folder_name = "logs/Only_GA_no_noise/"
 
 # folder_name += "regressive/2022-02-20T14-41-53/"
 folder_name += "regressive/2022-03-11T13-30-34/"
-file_name = "reg_Out_data.json"
+file_name = "eva_reg_performance_data.json"
 ne = 10
 pos, vel, mass = get_state(folder_name + file_name, engine=ne)
 

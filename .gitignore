@@ -132,6 +132,7 @@ dmypy.json
 .idea
 .idea/*
 #/Logs/
-/Scenarios/logs/
-/Scenarios/S1D_AFFINE/logs/
+/scenarios/logs/
+/scenarios/S1D_AFFINE/logs/
+/logs/
 /logs/

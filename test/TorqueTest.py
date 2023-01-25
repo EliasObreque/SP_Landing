@@ -3,7 +3,7 @@ Created by Elias Obreque
 els.obrq@gmail.com
 Date: 04-08-2022
 """
-from thrust.propellant.propellantGrain import propellant_data
+from thrust.propellant.propellant import propellant_data
 from thrust.thruster import Thruster
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,10 +19,10 @@ REGRESSIVE = 'regressive'
 
 m0 = 24
 propellant_name = 'CDT(80)'
-selected_propellant = propellant_data[propellant_name]
+selected_propellant = [pro_data for pro_data in propellant_data if pro_data['name'] == propellant_name][0]
 propellant_geometry = TUBULAR
-Isp = selected_propellant['Isp']
-den_p = selected_propellant['density']
+Isp = selected_propellant['data']['Isp']
+den_p = selected_propellant['data']['density']
 ge = 9.807
 c_char = Isp * ge
 g_center_body = -1.62
@@ -75,7 +75,7 @@ n_thruster = 10
 comp_thrust = []
 for i in range(n_thruster):
     propellant_properties_['isp_dead_time_max'] = 0.5
-    comp_thrust.append(Thruster(dt, thruster_properties_, propellant_properties_, burn_type=REGRESSIVE))
+    comp_thrust.append(Thruster(dt, thruster_properties_, propellant_properties_))
 
 
 # Torque
@@ -166,8 +166,8 @@ while current_time <= t_burn * n_thruster * 0.5 * 1.1:
             break
     torque_i = 0
     for i in range(n_thruster):
-        comp_thrust[i].set_beta(beta[i])
-        comp_thrust[i].propagate_thr()
+        comp_thrust[i].set_ignition(beta[i])
+        comp_thrust[i].propagate_thrust()
         comp_thrust[i].log_value()
         torque_i += comp_thrust[i].get_current_thrust() * d_k[i] * np.sin(np.pi/2 + a_k[i])
 

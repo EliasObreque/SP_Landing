@@ -12,7 +12,7 @@ ge = 9.807
 
 
 class PlaneCoordinate(object):
-    def __init__(self, dt, mu_planet, r_planet, mass, inertia):
+    def __init__(self, dt, mu_planet, r_planet, mass, inertia, state):
         self.mass_0 = mass
         self.current_mass = mass
         self.dt = dt
@@ -58,7 +58,7 @@ class PlaneCoordinate(object):
     def update(self, thrust_i, m_dot_p, torque_b):
         self.rungeonestep(thrust_i, m_dot_p, torque_b)
 
-    def rungeonestep(self, T, m_dot_p, torque_b):
+    def rungeonestep(self, T, m_dot_p, torque_b=np.array([0, 0, 0])):
         x = np.concatenate([self.current_pos_i, self.current_vel_i])
 
         self.m_dot_p = m_dot_p

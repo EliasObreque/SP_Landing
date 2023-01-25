@@ -9,10 +9,12 @@ els.obrq@gmail.com
 import time
 
 from datetime import datetime
+from thrust.propellant.propellantProperties import *
+from thrust.thrustProperties import default_thruster, MODEL, GRAIN, FILE
 from tools.GeneticAlgorithm import GeneticAlgorithm
 from tools.ext_requirements import mass_req
-from Dynamics.Dynamics import Dynamics
-from thrust.propellant.propellantGrain import propellant_data
+from dynamics.Dynamics import Dynamics
+from thrust.propellant.propellant import propellant_data
 from tools.Viewer import *
 from Evaluation import Evaluation
 from tools.ext_requirements import save_data
@@ -38,12 +40,12 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
     # -----------------------------------------------------------------------------------------------------#
     # Data Mars lander (12U (24 kg), 27U (54 kg))
     m0 = 24
-    propellant_name = 'TRX-H609'
-    selected_propellant = propellant_data[propellant_name]
+    mixture_name = 'TRX-H609'
+    selected_propellant = [pro_data for pro_data in propellant_data if pro_data['name'] == mixture_name][0]['data']
     Isp = selected_propellant['Isp']
     den_p = selected_propellant['density']
     ge = 9.807
-    c_char = Isp * ge
+    v_eq = Isp * ge
 
     # Available space for engine (square)
     space_max = 180  # mm
@@ -73,7 +75,7 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
     print('1D requirements')
     dv_req = np.sqrt(2 * r0 * np.abs(g_center_body))
     print('Accumulated velocity[m/s]: ', dv_req)
-    mp, m1 = mass_req(dv_req, c_char, den_p, m0)
+    mp, m1 = mass_req(dv_req, v_eq, den_p, m0)
 
     # -----------------------------------------------------------------------------------------------------#
     # Simulation time
@@ -82,13 +84,11 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
     # -----------------------------------------------------------------------------------------------------#
     # System Propulsion properties
     t_burn_min = 1  # s
-    t_burn_max = 20  # s
-    n_thruster = 10
+    t_burn_max = 10  # s
+
     par_force = 1  # Engines working simultaneously
 
-    pulse_thruster = int(n_thruster / par_force)
-
-    total_alpha_min = - g_center_body * m0 / c_char
+    total_alpha_min = - g_center_body * m0 / v_eq
 
     # for 1D
     total_alpha_max = mp / t_burn_min
@@ -103,29 +103,34 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
           np.ceil(max_fuel_mass / total_alpha_max / t_burn_min),
           np.ceil(max_fuel_mass / total_alpha_max / t_burn_max))
 
-    T_min = total_alpha_min * c_char
-    T_max = total_alpha_max * c_char
+    T_min = total_alpha_min * v_eq
+    T_max = total_alpha_max * v_eq
     print('Max thrust: (min, max) [N]', T_min, T_max)
     print('--------------------------------------------------------------------------')
 
     # -----------------------------------------------------------------------------------------------------#
     # Create dynamics object for 1D to calculate optimal mass_flow with ideal constant thrust
-    dynamics = Dynamics(dt, Isp, g_center_body, mu, r_moon, m0, reference_frame, controller='basic_hamilton')
+    dynamics = Dynamics(dt, m0, 0.0, [r0_, v0_], reference_frame, controller='basic_hamilton')
+    # Calculate optimal alpha (m_dot) for a given t_burn and constant ideal thrust
+    t_burn = 0.5 * (t_burn_min + t_burn_max)
+    total_alpha_max = 0.9 * m0 / t_burn
+    dynamics.basic_hamilton_calc.set_v_eq(v_eq)
+    optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(r0_, total_alpha_min,
+                                                                                total_alpha_max,
+                                                                                t_burn)
     # -----------------------------------------------------------------------------------------------------#
     # Define propellant properties to create a Thruster object with the optimal alpha
-    propellant_properties = {'propellant_name': propellant_name,
-                             'n_thrusters': 1,
-                             'pulse_thruster': 1,
-                             'geometry': None,
-                             'propellant_geometry': propellant_geometry,
-                             'isp_noise_std': None,
-                             'isp_bias_std': None,
-                             'isp_dead_time_max': None}
+    propellant_properties = default_propellant
+    propellant_properties['mixture_name'] = mixture_name
 
-    engine_diameter_ext = None
-    throat_diameter = 1.0  # mm
-    height = 10.0  # mm
-    file_name = "thrust/StarGrain7.csv"
+    propellant_properties['mixture_name'] = mixture_name
+    propellant_properties['geometry']['type'] = TUBULAR
+    if propellant_properties['geometry']['type'] is not None:
+        propellant_properties['geometry']['setting'] = tubular_geom
+
+    thruster_properties = default_thruster
+    thruster_properties['thrust_profile']['type'] = MODEL
+    thruster_properties['max_ignition_dead_time'] = 0.0
 
     # Optimal solution with GA for constant thrust and multi-engines array
     dynamics.controller_type = 'affine_function'
@@ -149,9 +154,6 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
 
     # +-10% and multi-engines array
     # gauss_factor = 1 for 68.3%, = 2 for 95.45%, = 3 for 99.74%
-    propellant_properties['isp_noise_std'] = None
-    propellant_properties['isp_bias_std'] = None
-    propellant_properties['isp_dead_time_max'] = 0
     if type_problem == 'isp_noise':
         percentage_variation = 1
         upper_isp = Isp * (1.0 + percentage_variation / 100.0)
@@ -167,7 +169,7 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
         percentage_variation = 10
         upper_isp = Isp * (1.0 + percentage_variation / 100.0)
         propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
-        propellant_properties['isp_dead_time_max'] = 2
+        thruster_properties['max_ignition_dead_time'] = 1.0
     elif type_problem == 'state_noise':
         std_alt = std_alt_
         state_noise = [True, std_alt_, std_vel_]
@@ -178,31 +180,14 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
         percentage_variation = 10
         upper_isp = Isp * (1.0 + percentage_variation / 100.0)
         propellant_properties['isp_bias_std'] = (upper_isp - Isp) / 3
-        propellant_properties['isp_dead_time_max'] = 2
+        thruster_properties['max_ignition_dead_time'] = 1.0
         std_alt = std_alt_
         std_vel = std_vel_
         state_noise = [True, std_alt, std_vel]
     else:
         n_case = 1
 
-    # Calculate optimal alpha (m_dot) for a given t_burn and constant ideal thrust
-    t_burn = 0.5 * (t_burn_min + t_burn_max)
-    total_alpha_max = 0.9 * m0 / t_burn
-    optimal_alpha = dynamics.basic_hamilton_calc.calc_simple_optimal_parameters(x0[0], total_alpha_min,
-                                                                                total_alpha_max,
-                                                                                t_burn)
-
-    thruster_properties = {'throat_diameter': 2,
-                           'engine_diameter_ext': engine_diameter_ext,
-                           'height': height,
-                           'performance': {'alpha': optimal_alpha,
-                                           't_burn': t_burn},
-                           'load_thrust_profile': False,
-                           'file_name': file_name,
-                           'dead_time': 0.2,
-                           'lag_coef': 0.5}
-
-    dynamics.set_engines_properties(thruster_properties, propellant_properties)
+    dynamics.set_engines_properties(thruster_properties, propellant_properties, n_thrusters)
 
     poly = [g_center_body/2, v0, r0]
     root = np.roots(poly)
@@ -216,7 +201,7 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
         if min(np.array(ga_x_states)[:, 0]) < 0:
             error_pos *= 100
         rate_time = max(time_ser) / t_free
-        return Ah * error_pos ** 2 + Bh * error_vel ** 2# + rate_time * 10
+        return Ah * error_pos ** 2 + Bh * error_vel ** 2 + rate_time * 10
 
     json_list = {}
     file_name_1 = type_propellant[:3] + "_Out_data"
@@ -245,7 +230,7 @@ def s1d_affine(propellant_geometry, type_problem, r0_, v0_, std_alt_, std_vel_, 
 
         ga = GeneticAlgorithm(max_generation=300, n_individuals=50,
                               ranges_variable=[['float', alpha_min, alpha_max, pulse_thruster],
-                                               ['float', 0.0, t_burn_max, pulse_thruster], ['str', type_propellant],
+                                               ['float', 0.0, t_burn_max, pulse_thruster],
                                                ['float_iter', 0.0, 1.0, pulse_thruster],
                                                ['float_iter', 0.0, x0[0] / np.sqrt(2 * np.abs(g_center_body) * x0[0]),
                                                 pulse_thruster]],

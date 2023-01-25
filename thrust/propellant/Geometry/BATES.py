@@ -14,9 +14,17 @@ class BATES(object):
         self.large = large
         self.diameter_ext = diameter_ext
         self.diameter_int = core_diameter
-        self.init_area = 2 * np.pi * (core_diameter * 0.5) * large  # mm^2
+        self.current_burn_area = 2 * np.pi * (core_diameter * 0.5) * large  # mm^2
         self.volume = (np.pi * ((diameter_ext * 0.5) ** 2 - (core_diameter * 0.5) ** 2)) * large  # mm^3
         return
 
-    def propagate_area(self, r_dot):
-        return 2 * np.pi * self.large * r_dot
+    def propagate_area(self, reg):
+        self.area_by_reg(reg)
+
+    def get_current_burn_area(self):
+        return self.current_burn_area
+
+    def area_by_reg(self, reg):
+        outer = np.pi * (self.diameter_ext * 0.5) ** 2
+        inner = np.pi * (self.diameter_int * 0.5 + reg) ** 2
+        return outer - inner

@@ -20,7 +20,7 @@ class STAR(object):
         else:
             self.theta_star = aux_dimension[1]
         seg = diameter_int * 0.5 * (np.sin(np.pi / self.n_point) / np.sin(self.theta_star / 2))
-        self.init_area = 2 * self.n_point * large * seg
+        self.current_burn_area = 2 * self.n_point * large * seg
         area_triangle = self.calc_triangle_area(self.diameter_int)
         self.volume = large * np.pi * (diameter_ext * 0.5) ** 2 - large * area_triangle * self.n_point * 2
         return
@@ -37,6 +37,9 @@ class STAR(object):
     def cos_theorem(a, b, gamma):
         c = np.sqrt(a ** 2 + b ** 2 - 2 * a * b * np.cos(gamma))
         return c
+
+    def get_current_burn_area(self):
+        return self.current_burn_area
 
     @staticmethod
     def bisection(f, a, b, tol=1.0e-6):

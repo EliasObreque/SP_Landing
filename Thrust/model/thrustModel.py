@@ -4,29 +4,57 @@ els.obrq@gmail.com
 Date: 28-08-2022
 """
 import numpy as np
+from thrust.propellant.source.propellant_data import propellant_data
+
 ge = 9.807
+NEUTRAL = 'neutral'
+PROGRESSIVE = 'progressive'
+REGRESSIVE = 'regressive'
+gasConstant = 8314.0  # J/ kmol K
 
 
 class MathModel:
-    delay_time_percentage = 0.1
-    max_value_at_lag_coef = 0.999
-    percentage_pro_ini = 0.3
-    percentage_reg_end = 0.3
-    lag_coef = 0.5
-    delay_time = 0.2
+    def __init__(self, dt, thruster_properties, propellant_properties):
+        # # propellant
+        # self.exit_pressure = 1e-12
+        # self.amb_pressure = 1e-12
+        # selected_propellant = propellant_properties['mixture_name']
+        # self.selected_propellant = \
+        # [pro_data['data'] for pro_data in propellant_data if pro_data['name'] == selected_propellant][0]
+        # self.r_gases = gasConstant / self.selected_propellant['molecular_weight']
+        # self.gamma = self.selected_propellant['small_gamma']
+        # self.big_gamma = self.get_big_gamma()
+        # self.density = self.selected_propellant['density'] * 1e3  # kg/m3
+        # self.burn_rate_exponent = self.selected_propellant['pressure_exponent']
+        # self.burn_rate_constant = self.selected_propellant['burn_rate_constant'] * 1e-3  # m
+        # self.temperature = self.selected_propellant['temperature']  # K
+        # self.c_char = (1 / self.big_gamma) * (self.r_gases * self.temperature) ** 0.5  # m/s
+        # self.c_f = 0.0
+        # self.throat_diameter = thruster_properties['throat_diameter']
+        # self.diameter_ext = thruster_properties['case_diameter']
+        # self.case_large = thruster_properties['case_large']
+        # self.exit_nozzle_diameter = thruster_properties['exit_nozzle_diameter']
+        # self.area_th = np.pi * self.throat_diameter ** 2 / 4
+        # self.area_exit = np.pi * self.exit_nozzle_diameter ** 2 / 4
+        # self.calc_c_f(self.gamma, 1.0)
 
-    def __init__(self, dt, thruster_properties):
         # variable for model the tanh function
-        # tanh model
+        self.delay_time_percentage = 0.1
+        self.max_value_at_lag_coef = 0.999
+        self.percentage_pro_ini = 0.3
+        self.percentage_reg_end = 0.3
+        self.lag_coef = 0.5
+        self.delay_time = 0.2
+
         self.step_width = dt
-        self.t_burn = thruster_properties['t_burn']
-        self.mass_flow = thruster_properties['max_mass_flow']
-        self.isp = thruster_properties['isp']
-        self.std_noise = thruster_properties['isp_noise_std']
-        self.std_bias = thruster_properties['isp_bias_std']
+        self.t_burn = thruster_properties['thrust_profile']['performance']['t_burn']
+        self.mass_flow = thruster_properties['thrust_profile']['performance']['max_mass_flow']
+        self.isp = thruster_properties['thrust_profile']['performance']['isp']
+        self.std_noise = thruster_properties['thrust_profile']['performance']['isp_noise_std']
+        self.std_bias = thruster_properties['thrust_profile']['performance']['isp_bias_std']
         self.v_exhaust = self.isp * ge
         self.add_bias_isp()
-        self.burn_type = thruster_properties['cross_section']
+        self.burn_type = thruster_properties['thrust_profile']['performance']['cross_section']
         self.current_burn_time = 0
         self.historical_mag_thrust = []
         self.t_ig = 0
@@ -44,7 +72,7 @@ class MathModel:
         self.incline = dy / self.dx
         self.g_displacer_point = 1 - np.arctanh(self.delay_time_percentage * 2 - 1) / self.incline
         self.time_to_rise = (self.g_displacer_point + np.arctanh(self.max_value_at_lag_coef * 2 - 1) / self.incline) * \
-                            self.delay_time
+                             self.delay_time
 
         self.time_pro_intersection = (np.arctanh(2 * self.percentage_pro_ini - 1)
                                       / self.incline + self.g_displacer_point) * self.delay_time
@@ -149,9 +177,9 @@ class MathModel:
 
     def set_t_burn(self, value):
         self.t_burn = value
-        self.calc_thah_model_parameters()
+        self.calc_tanh_model_parameters()
 
-    def calc_thah_model_parameters(self):
+    def calc_tanh_model_parameters(self):
         self.time_pro_intersection = (np.arctanh(2 * self.percentage_pro_ini - 1)
                                       / self.incline + self.g_displacer_point) * self.delay_time
         self.time_reg_intersection = self.t_burn + 2 * self.delay_time - \
@@ -185,6 +213,20 @@ class MathModel:
     def set_thrust_on(self, value):
         self.thr_is_on = value
 
+    # def get_big_gamma(self):
+    #     return np.sqrt(self.gamma * (2 / (self.gamma + 1)) ** ((self.gamma + 1) /
+    #                                                            (self.gamma - 1)))
+    #
+    # def calc_c_f(self, gamma, p_c):
+    #     a = (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1))
+    #     gamma_upper = np.sqrt(a * gamma)
+    #     b = 2 * gamma ** 2 / (gamma - 1)
+    #     ratio_p = self.exit_pressure / p_c
+    #     c = (1 - ratio_p ** ((gamma - 1) / gamma))
+    #     ratio_a = self.area_exit / self.area_th * (self.exit_pressure - self.amb_pressure) / p_c
+    #     cf = np.sqrt(b * a * c) + ratio_a
+    #     self.c_f = cf
+
     def reset_variables(self):
         self.t_ig = 0
         self.thr_is_on = False
@@ -193,3 +235,10 @@ class MathModel:
         self.current_mag_thrust_c = 0
         self.thr_is_burned = False
 
+    def propagate_model(self):
+        if self.burn_type == PROGRESSIVE:
+            self.get_progressive_thrust()
+        elif self.burn_type == REGRESSIVE:
+            self.get_regressive_thrust()
+        else:
+            self.get_neutral_thrust()

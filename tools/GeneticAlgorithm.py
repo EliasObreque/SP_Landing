@@ -183,7 +183,7 @@ class GeneticAlgorithm(object):
             TIME.append([])
             LAND_INDEX.append([])
             self.current_cost.append([])
-            self.ga_dynamics.set_controller_parameters(next_population[indv][3:])
+            self.ga_dynamics.set_controller_parameters(next_population[indv][2:])
 
             if type(next_population[indv][0]) == float:
                 for j in range(len(self.ga_dynamics.thrusters)):

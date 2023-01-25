@@ -8,7 +8,7 @@ els.obrq@gmail.com
 """
 import multiprocessing
 
-from Scenarios.S1D_AFFINE.S1D_AFFINE import s1d_affine
+from scenarios.S1D_AFFINE.S1D_AFFINE import s1d_affine
 
 NEUTRAL = 'neutral'
 PROGRESSIVE = 'progressive'

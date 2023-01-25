@@ -38,10 +38,10 @@ class LinearCoordinate(object):
         rhs[2] = -self.m_dot_p
         return rhs
 
-    def rungeonestep(self, thrust, current_m_dot_p, torque_b=None):
+    def rungeonestep(self, current_x, thrust, current_m_dot_p, torque_b=None):
         self.m_dot_p = current_m_dot_p
         # At each step of the Runge consider constant thrust
-        self.x_fixed = np.array(state)
+        self.x_fixed = np.array(current_x)
         if self.x_fixed[0] <= 0 and self.x_fixed[1] < 0:
             self.x_fixed[1] = 0
         x1 = self.x_fixed

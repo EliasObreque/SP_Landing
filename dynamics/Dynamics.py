@@ -17,7 +17,7 @@ PLANE_D = '2D'
 class Dynamics(object):
     mu = 4.9048695e12  # m3s-2
     r_moon = 1.738e6
-    g_planet = 1.607
+    g_planet = -1.607
     ge = 9.807
 
     def __init__(self, dt, mass, inertia, state, reference_frame, controller='basic_hamilton'):
@@ -29,7 +29,7 @@ class Dynamics(object):
         if reference_frame == ONE_D:
             self.dynamic_model = LinearCoordinate(dt, self.g_planet, mass)
         elif reference_frame == PLANE_D:
-            self.dynamic_model = PlaneCoordinate(dt, self.mu, self.r_moon, mass, inertia)
+            self.dynamic_model = PlaneCoordinate(dt, self.mu, self.r_moon, mass, inertia, state)
         else:
             print('Reference frame not selected')
         self.basic_hamilton_calc = HamilCalcLimit(mass, self.g_planet)
@@ -37,11 +37,10 @@ class Dynamics(object):
         self.controller_parameters = []
         self.controller_function = None
 
-    def set_engines_properties(self, thruster_properties, propellant_properties, burn_type=None):
+    def set_engines_properties(self, thruster_properties, propellant_properties, n_thrusters):
         self.thrusters = []
-        pulse_thruster = propellant_properties['pulse_thruster']
-        for i in range(pulse_thruster):
-            self.thrusters.append(Thruster(self.step_width, thruster_properties, propellant_properties, burn_type))
+        for i in range(len(n_thrusters)):
+            self.thrusters.append(Thruster(self.step_width, thruster_properties, propellant_properties))
         return
 
     def modify_individual_engine(self, n_engine, side, value):
@@ -62,6 +61,7 @@ class Dynamics(object):
         for thruster in self.thrusters:
             thruster.step_width = self.step_width
         thr = []
+        m_dot = []
         index_control = []
         end_index_control = []
         hist_beta = []
@@ -72,10 +72,11 @@ class Dynamics(object):
         land_index = 0
         while end_condition is False:
             total_thrust = 0
+            m_dot_total = 0
             if self.controller_type == 'basic_hamilton':
                 control_signal = self.basic_hamilton_calc.get_signal_control(current_x)
-                self.thrusters[0].set_beta(1 if np.sign(control_signal) < 0 else 0)
-                self.thrusters[0].propagate_thr()
+                self.thrusters[0].set_ignition(1 if np.sign(control_signal) < 0 else 0)
+                self.thrusters[0].propagate_thrust()
                 total_thrust = self.thrusters[0].get_current_thrust()
             elif self.controller_type == 'affine_function':
                 # Get total thrust
@@ -86,13 +87,14 @@ class Dynamics(object):
                         index_control.append(k)
                     if self.thrusters[j].thr_is_burned and self.thrusters[j].thr_is_on:
                         end_index_control.append(k - 1)
-                    self.thrusters[j].set_beta(control_signal, n_engine=j)
-                    self.thrusters[j].propagate_thr()
+                    self.thrusters[j].set_ignition(control_signal)
+                    self.thrusters[j].propagate_thrust()
                     total_thrust += self.thrusters[j].get_current_thrust()
+                    m_dot_total += self.thrusters[j].get_current_m_flow()
             thr.append(total_thrust)
 
             # dynamics
-            next_x = self.dynamic_model.rungeonestep(current_x, total_thrust)
+            next_x = self.dynamic_model.rungeonestep(current_x,  total_thrust, m_dot_total)
 
             # ....................
             k += 1
