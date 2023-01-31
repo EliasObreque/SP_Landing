@@ -272,12 +272,12 @@ def plot_dv_req():
 
     mu = 4.9048695e12  # m3s-2
     rm = 1.738e6
-    ra = 68e6 + rm
-    rp = 2e6 + rm
+    ra = 68e6
+    rp = 2e6
     a = 0.5 * (ra + rp)
 
     v0 = np.sqrt(2 * mu / ra - mu / a)
-    a1 = 0.5 * (rm + ra)
+    a1 = 0.5 * ra
     v1 = np.sqrt(2 * mu / ra - mu / a1)
     dv1 = v0 - v1
     v2 = np.sqrt(mu / rm)
@@ -303,14 +303,14 @@ def plot_dv_req():
     mf = 17.9
     Isp = np.arange(260, 320, 20)
     ge = 9.81
-    mass = [24.0 * (1 - np.exp(-ve / (Isp_i * ge))) for Isp_i in Isp]
+    mass = [24.0 * (1 - np.exp(-v / (Isp_i * ge))) for Isp_i in Isp]
     plt.figure()
     # plt.hlines(mf, rp * 1e-3, ra * 1e-3, color='r', linestyles='-', lw=0.8)
     # plt.hlines(mf * 0.7, rp * 1e-3, ra * 1e-3, color='b', linestyles='--', lw=1, label='Amateur (x0.7)')
     # plt.hlines(mf * 0.8, rp * 1e-3, ra * 1e-3, color='g', linestyles='--', lw=1, label='Space Shuttle SRB (x0.8)')
     # plt.hlines(mf * 0.9, rp * 1e-3, ra * 1e-3, color='m', linestyles='--', lw=1, label='SS - 520 JAXA (x0.9)')
-    [plt.plot(ve, mass[i], color='k', lw=0.8) for i in range(len(Isp))]
-    [plt.text(ve[0], mass[i][0], r'$I_{sp}$=' + str(Isp[i]) + " s", rotation=-0, ha="left", va="center",
+    [plt.plot(r * 1e-3, mass[i], color='k', lw=0.8) for i in range(len(Isp))]
+    [plt.text(r[0] * 1e-3, mass[i][0], r'$I_{sp}$=' + str(Isp[i]) + " s", rotation=-0, ha="left", va="center",
               bbox=dict(boxstyle="round",
                         ec=(0., 0.0, 0.0),
                         fc=(1., 1, 1),
@@ -472,4 +472,5 @@ def isp_vacuum():
 if __name__ == '__main__':
     # plot_polynomial_function(3)
     # compare_performance()
-    isp_vacuum()
+    plot_dv_req()
+    # isp_vacuum()

@@ -11,6 +11,7 @@ from thrust.model.thrustModel import MathModel
 from thrust.thrustProperties import MODEL, GRAIN, FILE
 from scipy.optimize import fsolve
 DEG2RAD = np.pi/180
+ge = 9.807
 
 
 class Thruster(MathModel, Engine):
@@ -28,16 +29,19 @@ class Thruster(MathModel, Engine):
             # self.model = MathModel(dt, thruster_properties['thrust_profile']['performance'])
 
         elif self.thrust_profile_type == FILE:
-            self.thrust_by_file, self.time_profile = self.load_thrust_profile(thruster_properties['thrust_profile']['file_name'])
+            self.thrust_by_file, self.time_profile = self.load_thrust_profile(
+                thruster_properties['thrust_profile']['file_name'],
+                thruster_properties['thrust_profile']['ThrustName'],
+                thruster_properties['thrust_profile']['TimeName'])
             self.isp_by_file = thruster_properties['thrust_profile']['isp']
-            self.dt_profile = self.time_profile[1] - self.time_profile[0]
-
+            self.dt_profile = thruster_properties['thrust_profile']['dt']
+            Engine.__init__(self, dt, thruster_properties, propellant_properties)
         elif self.thrust_profile_type == GRAIN:
             Engine.__init__(self, dt, thruster_properties, propellant_properties)
         else:
             print('Error selecting thrust profile simulation')
 
-        self.historical_mag_thrust = []
+        self.historical_mag_thrust = [0]
         self.current_mag_thrust_c = 0
         self.current_beta = 0
         self.current_dead_time = 0
@@ -75,7 +79,7 @@ class Thruster(MathModel, Engine):
         return self.current_mag_thrust_c
 
     def get_current_m_flow(self):
-        return self.get_current_thrust() / self.propellant.get_isp()
+        return self.get_current_thrust() / self.get_isp() / ge
 
     def set_alpha(self, value):
         self.current_alpha = value
@@ -83,7 +87,6 @@ class Thruster(MathModel, Engine):
     def get_isp(self):
         if self.thrust_profile_type == MODEL:
             isp = self.isp
-
         elif self.thrust_profile_type == FILE:
             isp = self.isp_by_file
 
@@ -139,9 +142,9 @@ class Thruster(MathModel, Engine):
         self.historical_mag_thrust.append(self.current_mag_thrust_c)
 
     @staticmethod
-    def load_thrust_profile(file_name):
-        dataframe = pd.read_csv("thrust/" + file_name)
-        return dataframe['thrust(N)'].values, dataframe['Time(s)'].values
+    def load_thrust_profile(file_name, thrust_name, time_name):
+        dataframe = pd.read_csv(file_name)
+        return dataframe[thrust_name].values, dataframe[time_name].values
 
     def calc_area_by_mass_flow(self, m_dot):
         p_c_ = fsolve(lambda x: m_dot * self.propellant.isp0 * ge - self.calc_c_f(self.propellant.gamma, x, exit_press=None) * x * self.area_th, 10000.0, full_output=1)

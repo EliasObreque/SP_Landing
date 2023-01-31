@@ -18,7 +18,7 @@ class Engine(object):
         self.thr_is_burned = False
         self.current_time = 0
         self.current_burn_time = 0
-        self.historical_mag_thrust = []
+        self.historical_mag_thrust = [0]
         self.current_mag_thrust_c = 0
 
         self.throat_diameter = thruster_properties['throat_diameter']

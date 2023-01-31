@@ -19,12 +19,13 @@ GRAIN = 'grain'
 
 # thrust profile
 # if FILE:
-by_file = {'type': FILE, 'file_name': None, 'isp': 200}
+by_file = {'type': FILE, 'file_name': 'thrust/dataThrust/5kgEngine.csv', 'isp': 200, 'dt': 0.1,
+           'ThrustName': 'Thrust(N)', 'TimeName': 'Time(s)'} # Change these parameters
 # if MODEL:
-by_model = {'type': MODEL, 'performance': {'t_burn': 10.0,
-                                           'max_mass_flow': 0.1,
-                                           'cross_section': REGRESSIVE,
-                                           'isp': 200,
+by_model = {'type': MODEL, 'performance': {'t_burn': 7.5,
+                                           'max_mass_flow': 1.9,
+                                           'cross_section': PROGRESSIVE,
+                                           'isp': 210,
                                            'isp_noise_std': None,
                                            'isp_bias_std': None}}
 # if GRAIN:

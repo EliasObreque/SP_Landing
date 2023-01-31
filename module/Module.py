@@ -19,13 +19,19 @@ class Module(object):
         self.thruster_pos = thruster_pos
         self.thruster_ang = thruster_ang
 
-    def update(self, control):
+    def update(self, control, low_step=False, dt=None):
+        if low_step:
+            self.dynamics.dynamic_model.dt = dt
+            self.dynamics.dynamic_model.h_old = dt
+        for thr_i in self.thrusters:
+            thr_i.step_width = self.dynamics.dynamic_model.dt
         [thr_i.set_ignition(control) for thr_i in self.thrusters]
         [thr_i.propagate_thrust() for thr_i in self.thrusters]
+        [thr_i.log_value() for thr_i in self.thrusters]
         thr = [thr_i.get_current_thrust() for thr_i in self.thrusters]
-        m_dot_p = [thr_i.get_current_m_flow() for thr_i in self.thrusters]
+        m_dot_p = np.sum([thr_i.get_current_m_flow() for thr_i in self.thrusters])
         tau_b = self.calc_torques(thr)
-        self.dynamics.dynamic_model.update(thr, m_dot_p, tau_b)
+        self.dynamics.dynamic_model.update(np.sum(thr), m_dot_p, np.sum(tau_b), low_step)
         return
 
     def calc_torques(self, thr_list):
