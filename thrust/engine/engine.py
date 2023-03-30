@@ -6,28 +6,74 @@ Date: 24-08-2022
 import numpy as np
 from thrust.propellant.propellant import Propellant
 from scipy.optimize import fsolve
+from thrust.basic_thrust import BasicThruster
+from abc import ABC
 
 
-class Engine(object):
-    amb_pressure = 1e-12
+class LogChannel:
+    def __init__(self, name, valueType, unit):
+        if valueType not in (int, float, list, tuple):
+            raise TypeError('Value type not in allowed set')
+        self.name = name
+        self.unit = unit
+        self.valueType = valueType
+        self.data = []
+
+    def getData(self):
+        return self.data
+
+    def getPoint(self, i):
+        """Returns a specific datapoint by index."""
+        return self.data[i]
+
+    def getLast(self):
+        """Returns the last datapoint."""
+        return self.data[-1]
+
+    def addData(self, data):
+        """Adds a new datapoint to the end."""
+        self.data.append(data)
+
+    def getAverage(self):
+        """Returns the average of the datapoints."""
+        if self.valueType in (list, tuple):
+            raise NotImplementedError('Average not supported for list types')
+        return sum(self.data) / len(self.data)
+
+    def getMax(self):
+        """Returns the maximum value of all datapoints. For list datatypes, this operation finds the largest single
+        value in any list."""
+        if self.valueType in (list, tuple):
+            return max([max(l) for l in self.data])
+        return max(self.data)
+
+
+class Engine(BasicThruster, ABC):
+    amb_pressure = 101325
 
     def __init__(self, dt, thruster_properties, propellant_properties):
+        BasicThruster.__init__(self, dt, thruster_properties, propellant_properties)
         self.step = dt
-        self.t_ig = 0
+        self.count = 0
+        self.t_ig = 0.0
         self.thr_is_on = False
         self.thr_is_burned = False
-        self.current_time = 0
-        self.current_burn_time = 0
-        self.historical_mag_thrust = [0]
-        self.current_mag_thrust_c = 0
+        self.current_time = 0.0
+        self.current_burn_time = 0.0
+        self.historical_mag_thrust = [0.0]
+        self.current_mag_thrust_c = 0.0
 
+        # Engine properties
         self.throat_diameter = thruster_properties['throat_diameter']
         self.diameter_ext = thruster_properties['case_diameter']
         self.case_large = thruster_properties['case_large']
         self.divergent_angle = np.deg2rad(thruster_properties['divergent_angle_deg'])
         self.convergent_angle = np.deg2rad(thruster_properties['convergent_angle_deg'])
         self.exit_nozzle_diameter = thruster_properties['exit_nozzle_diameter']
+        self.exit_area = np.pi * self.exit_nozzle_diameter ** 2 / 4
+        self.throat_area = np.pi * self.throat_diameter ** 2 / 4
 
+        # Engine condition
         d = 0.5 * (self.exit_nozzle_diameter - self.throat_diameter) / np.tan(self.convergent_angle)
         volume_convergent_zone = (np.pi * d * (self.diameter_ext * 0.5) ** 2) / 3
         volume_case = np.pi * ((self.diameter_ext * 0.5) ** 2) * self.case_large
@@ -37,38 +83,83 @@ class Engine(object):
         self.chamber_pressure = self.exit_pressure
         self.c_f = 0.0
 
-        self.area_exit = np.pi * self.exit_nozzle_diameter ** 2 / 4
-        self.area_th = np.pi * self.throat_diameter ** 2 / 4
         self.propellant = Propellant(dt, propellant_properties)
         self.volume_free = self.engine_volume - self.propellant.get_grain_volume()
-        self.init_stable_chamber_pressure = self.calc_chamber_pressure(self.propellant.get_burning_area())
-        # TODO: fix check geometry
-        # self.check_geometric_cond()
+        self.init_stable_chamber_pressure = self.calc_chamber_pressure(self.propellant.get_burn_area())
 
-    def propagate_engine(self):
-        p_c = self.get_chamber_pressure()
-        # calc reg, and burn area
-        self.propellant.propagate_grain(p_c)
+        self.channels = {
+            'time': LogChannel('Time', float, 's'),
+            'kn': LogChannel('Kn', float, ''),
+            'pressure': LogChannel('Chamber Pressure', float, 'Pa'),
+            'force': LogChannel('Thrust', float, 'N'),
+            'mass': LogChannel('Propellant Mass', tuple, 'kg'),
+            'volumeLoading': LogChannel('Volume Loading', float, '%'),
+            'massFlow': LogChannel('Mass Flow', tuple, 'kg/s'),
+            'massFlux': LogChannel('Mass Flux', tuple, 'kg/(m^2*s)'),
+            'regression': LogChannel('Regression Depth', tuple, 'm'),
+            'web': LogChannel('Web', tuple, 'm'),
+            'exitPressure': LogChannel('Nozzle Exit Pressure', float, 'Pa'),
+            'dThroat': LogChannel('Change in Throat Diameter', float, 'm')
+        }
 
-        self.calc_chamber_pressure(self.propellant.get_burning_area())
-        self.calc_exit_pressure(self.propellant.gamma)
-        # calc CF
-        self.calc_c_f(self.propellant.gamma)
-        # calc thrust
-        self.calc_thrust(self.propellant.get_burn_area())
+        # At t = 0, the motor has ignited
+        self.channels['time'].addData(0)
+        self.channels['kn'].addData(self.calc_kn(0))
+        self.channels['pressure'].addData(self.calc_chamber_pressure(0))
+        self.channels['force'].addData(0)
+        self.channels['mass'].addData(self.propellant.get_mass_at_reg(0))
+        self.channels['volumeLoading'].addData(100 * (1 - (self.calc_free_volume(0) / self.engine_volume)))
+        self.channels['massFlow'].addData(0)
+        self.channels['massFlux'].addData(0)
+        self.channels['regression'].addData(0)
+        self.channels['web'].addData(self.propellant.get_web_left(0))
+        self.channels['exitPressure'].addData(0)
+        self.channels['dThroat'].addData(0)
+
+        self.check_geometric_cond()
+
+    def propagate_thrust(self):
+        print(self.propellant.get_web_left(self.propellant.current_reg_web))
+        if self.thr_is_on and self.thr_is_burned is False:
+            if self.propellant.get_web_left(self.propellant.current_reg_web) > 1e-4:
+                p_c = self.channels['pressure'].getLast()
+                # calc reg, and burn area
+                self.propellant.propagate_grain(p_c)
+                # calculate mass properties, flux and flow
+                self.propellant.calculate_mass_properties()
+                # new chamber pressure
+                self.calc_chamber_pressure(self.propellant.get_burn_area())
+                self.calc_exit_pressure(self.propellant.gamma)
+                # calc CF
+                self.calc_c_f(self.propellant.gamma)
+                # calc thrust
+                self.calc_thrust(self.propellant.get_burn_area())
+            else:
+                self.current_mag_thrust_c = 0
+                self.exit_pressure = self.amb_pressure
+                self.chamber_pressure = self.exit_pressure
+                self.propellant.reset_var()
+                self.thr_is_burned = True
+            # time
+        self.count += 1
+        self.current_time = self.step * self.count
+
+    def calc_free_volume(self, reg):
+        free_vol = self.engine_volume - self.propellant.get_volume_at_reg(reg)
+        return free_vol
 
     def get_chamber_pressure(self):
         return self.chamber_pressure
 
     def calc_thrust(self, burn_area):
-        self.current_mag_thrust_c = self.c_f * self.chamber_pressure * self.area_th
+        self.current_mag_thrust_c = self.c_f * self.chamber_pressure * self.throat_area
 
     def calc_chamber_pressure(self, burn_area):
-        area_ratio = burn_area / self.area_th
+        area_ratio = burn_area / self.throat_area
         pc = (self.propellant.burn_rate_constant * area_ratio * self.propellant.density *
               self.propellant.c_char) ** (1 / (1 - self.propellant.burn_rate_exponent))
         self.chamber_pressure = pc
-        return pc
+        return self.chamber_pressure
 
     def calc_exit_pressure(self, k, p_c=None):
         if p_c is None:
@@ -78,7 +169,7 @@ class Engine(object):
         return self.exit_pressure
 
     def calc_expansion(self):
-        return (self.area_exit / self.area_th) ** 2
+        return (self.exit_area / self.throat_area) ** 2
 
     @staticmethod
     def eRatioFromPRatio(k, pRatio):
@@ -98,7 +189,7 @@ class Engine(object):
         b = 2 * gamma ** 2 / (gamma - 1)
         ratio_p = p_e / p_c
         c = (1 - ratio_p ** ((gamma - 1) / gamma))
-        ratio_a = self.area_exit / self.area_th * (p_e - self.amb_pressure) / p_c
+        ratio_a = self.exit_area / self.throat_area * (p_e - self.amb_pressure) / p_c
         cf = np.sqrt(b * a * c) + ratio_a
         self.c_f = cf
         return self.c_f
@@ -109,17 +200,17 @@ class Engine(object):
     def calc_kn(self, burning_surface_area):
         """Returns the motor's Kn when it has each grain has regressed by its value in regDepth, which should be a list
         with the same number of elements as there are grains in the motor."""
-        return burning_surface_area / self.area_th
+        return burning_surface_area / self.throat_area
 
     def check_geometric_cond(self):
-        init_burn_area = self.propellant.get_burning_area()
+        init_burn_area = self.propellant.get_port_area(0)
         port_to_throat = self.calc_kn(init_burn_area)
-        print("Port-to-Throat: ", port_to_throat, "- (propellant/Throat) = ", self.grain.get_area_from_reg(0), "/", self.throat_area)
+        print("Port-to-Throat: {} - (propellant/Throat) = {}/ {}".format(port_to_throat, init_burn_area,
+                                                                         self.throat_area))
         if port_to_throat > 2:
             print("ok")
         else:
-            print("Port-to-Throat lower than 2")
-        return port_to_throat
+            print("Port-to-Throat {} lower than 2".format(port_to_throat))
 
     def reset_variables(self):
         self.t_ig = 0
@@ -127,4 +218,26 @@ class Engine(object):
         self.current_burn_time = 0
         self.current_time = 0
         self.current_mag_thrust_c = 0
+        self.exit_pressure = self.amb_pressure
+        self.chamber_pressure = self.exit_pressure
         self.thr_is_burned = False
+        self.propellant.reset_var()
+
+    def set_thrust_on(self, value):
+        self.thr_is_on = value
+
+    def log_value(self):
+        self.historical_mag_thrust.append(self.current_mag_thrust_c)
+        if self.propellant.isGrain():
+            self.channels['time'].addData(self.current_time)
+            self.channels['kn'].addData(self.calc_kn(self.propellant.get_burning_area(self.propellant.current_reg_web)))
+            self.channels['pressure'].addData(self.chamber_pressure)
+            self.channels['force'].addData(self.current_mag_thrust_c)
+            self.channels['mass'].addData(self.propellant.get_mass())
+            self.channels['volumeLoading'].addData(100 * (1 - (self.calc_free_volume(self.propellant.current_reg_web) / self.engine_volume)))
+            self.channels['massFlow'].addData(self.propellant.mass_flow)
+            self.channels['massFlux'].addData(self.propellant.mass_flux)
+            self.channels['regression'].addData(self.propellant.current_reg_web)
+            self.channels['web'].addData(self.propellant.get_web_left(self.propellant.current_reg_web))
+            self.channels['exitPressure'].addData(self.exit_pressure)
+            self.channels['dThroat'].addData(0)

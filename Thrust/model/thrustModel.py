@@ -4,7 +4,8 @@ els.obrq@gmail.com
 Date: 28-08-2022
 """
 import numpy as np
-from thrust.propellant.source.propellant_data import propellant_data
+from thrust.basic_thrust import BasicThruster
+from abc import ABC
 
 ge = 9.807
 NEUTRAL = 'neutral'
@@ -13,8 +14,9 @@ REGRESSIVE = 'regressive'
 gasConstant = 8314.0  # J/ kmol K
 
 
-class MathModel:
-    def __init__(self, dt, thruster_properties, propellant_properties):
+class MathModel(BasicThruster, ABC):
+    def __init__(self, dt, thruster_properties):
+        BasicThruster.__init__(self, dt, thruster_properties)
         # # propellant
         # self.exit_pressure = 1e-12
         # self.amb_pressure = 1e-12
@@ -45,7 +47,7 @@ class MathModel:
         self.percentage_reg_end = 0.3
         self.lag_coef = 0.5
         self.delay_time = 0.2
-
+        self.current_alpha = 0.0
         self.step_width = dt
         self.t_burn = thruster_properties['thrust_profile']['performance']['t_burn']
         self.max_mass_flow = thruster_properties['thrust_profile']['performance']['max_mass_flow']
@@ -56,7 +58,7 @@ class MathModel:
         self.add_bias_isp()
         self.burn_type = thruster_properties['thrust_profile']['performance']['cross_section']
         self.current_burn_time = 0
-        self.historical_mag_thrust = []
+        self.historical_mag_thrust = [0.0]
         self.t_ig = 0
         self.thr_is_on = False
         self.thr_is_burned = False
@@ -92,6 +94,18 @@ class MathModel:
         elif to == 'decaying':
             return (1 + np.tanh((-self.g_displacer_point - (self.current_burn_time - self.t_burn - 2 * self.delay_time)
                                  / self.delay_time) * self.incline)) * 0.5
+
+    def set_lag_coef(self, val):
+        self.lag_coef = val
+
+    def set_alpha(self, value):
+        self.current_alpha = value
+
+    def set_t_burn(self, value):
+        self.t_burn = value
+
+    def get_current_thrust(self):
+        return self.current_mag_thrust_c
 
     def get_neutral_thrust(self):
         if self.thr_is_on:
@@ -210,22 +224,8 @@ class MathModel:
         else:
             return self.v_exhaust
 
-    def set_thrust_on(self, value):
-        self.thr_is_on = value
-
-    # def get_big_gamma(self):
-    #     return np.sqrt(self.gamma * (2 / (self.gamma + 1)) ** ((self.gamma + 1) /
-    #                                                            (self.gamma - 1)))
-    #
-    # def calc_c_f(self, gamma, p_c):
-    #     a = (2 / (gamma + 1)) ** ((gamma + 1) / (gamma - 1))
-    #     gamma_upper = np.sqrt(a * gamma)
-    #     b = 2 * gamma ** 2 / (gamma - 1)
-    #     ratio_p = self.exit_pressure / p_c
-    #     c = (1 - ratio_p ** ((gamma - 1) / gamma))
-    #     ratio_a = self.area_exit / self.area_th * (self.exit_pressure - self.amb_pressure) / p_c
-    #     cf = np.sqrt(b * a * c) + ratio_a
-    #     self.c_f = cf
+    def log_value(self):
+        self.historical_mag_thrust.append(self.current_mag_thrust_c)
 
     def reset_variables(self):
         self.t_ig = 0
@@ -235,7 +235,7 @@ class MathModel:
         self.current_mag_thrust_c = 0
         self.thr_is_burned = False
 
-    def propagate_model(self):
+    def propagate_thrust(self):
         if self.burn_type == PROGRESSIVE:
             self.get_progressive_thrust()
         elif self.burn_type == REGRESSIVE:

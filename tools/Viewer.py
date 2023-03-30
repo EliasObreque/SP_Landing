@@ -334,7 +334,7 @@ def plot_thrust(time, thrust, thrust_free=None, names=None, dead=0):
     plt.figure()
     plt.xlabel('Time [s]')
     plt.ylabel('thrust [N]')
-    #plt.ylim(0, 1.5)
+    # plt.ylim(0, 1.5)
     plt.plot(np.array(time) + dead, thrust)
     if thrust_free is not None:
         plt.plot(time, thrust_free)

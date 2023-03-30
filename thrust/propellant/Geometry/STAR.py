@@ -23,6 +23,7 @@ class STAR(object):
         self.current_burn_area = 2 * self.n_point * large * seg
         area_triangle = self.calc_triangle_area(self.diameter_int)
         self.volume = large * np.pi * (diameter_ext * 0.5) ** 2 - large * area_triangle * self.n_point * 2
+        self.wall_web = 0
         return
 
     def calc_triangle_area(self, current_diameter_int):
@@ -67,3 +68,9 @@ class STAR(object):
         def f(theta):
             return (np.pi * 0.5 + np.pi / self.n_point - theta * 0.5) - 1 / np.tan(theta * 0.5)
         return self.bisection(f, 0.001, np.pi)
+
+    def get_area_at_reg(self, reg):
+        return 0
+
+    def get_core_perimeter_at_reg(self, reg):
+        return 0
