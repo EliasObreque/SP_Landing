@@ -17,12 +17,12 @@ class EndBurning(object):
         return
 
     def propagate_area(self, reg):
-        self.get_area_at_reg(reg)
+        self.get_transversal_area_at_reg(reg)
 
     def get_current_burn_area(self):
         return self.current_burn_area
 
-    def get_area_at_reg(self, reg):
+    def get_transversal_area_at_reg(self, reg):
         pass
 
     def get_volume_at_reg(self, reg):

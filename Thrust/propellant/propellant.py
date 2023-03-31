@@ -50,7 +50,13 @@ class Propellant(GeometryGrain):
         if self.geometry_grain is not None:
             GeometryGrain.__init__(self, self.geometry_grain, propellant_properties['geometry']['setting'],
                                    *aux_dimension)
+            # Mass properties:
+            # mass
             self.mass = self.selected_geometry.volume * self.density
+            # mass flux [kg/mm2]
+            self.mass_flux = 0.0
+            # mass flow [kg/s]
+            self.mass_flow = 0.0
         else:
             print("Error defining grain geometry")
 
@@ -65,10 +71,10 @@ class Propellant(GeometryGrain):
     def propagate_grain(self, p_c: float):
         reg = self.dt * self.get_burn_rate(p_c)
         self.current_reg_web += reg
-        self.calc_burn_area(reg)
+        # self.calc_burn_area(reg)
 
     def get_burn_area(self):
-        return super().get_burning_area()
+        return super().get_burning_area(self.current_reg_web)
 
     def get_burn_rate(self, p_c):
         return self.burn_rate_constant * p_c ** self.burn_rate_exponent + 0.0001
@@ -88,7 +94,7 @@ class Propellant(GeometryGrain):
     def get_v_eq(self) -> float:
         return self.v_exhaust
 
-    def calc_mass_flow_propellant_(self, area_p, r_rate):
+    def calc_mass_flow_propellant(self, area_p, r_rate):
         den_p = self.density
         return den_p * area_p * r_rate
 
@@ -109,6 +115,22 @@ class Propellant(GeometryGrain):
 
     def get_isp(self):
         return self.v_exhaust / ge
+
+    def get_mass_at_reg(self, reg):
+        return self.density * self.get_volume_at_reg(reg)
+
+    def calculate_mass_properties(self, p_c):
+        dreg = self.get_burn_rate(p_c) * self.dt
+        self.mass_flux = self.get_mass_flux(self.current_reg_web, self.dt, self.mass_flow, dreg, self.density)
+        new_mass = self.get_mass_at_reg(self.current_reg_web)
+        self.mass_flow += (self.mass - new_mass) / self.dt
+        self.mass = new_mass
+
+    def reset_var(self):
+        self.mass = self.get_mass_at_reg(0)
+        self.mass_flow = 0.0
+        self.mass_flux = 0.0
+        self.current_reg_web = 0.0
 
 
 if __name__ == '__main__':

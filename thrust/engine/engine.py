@@ -77,14 +77,14 @@ class Engine(BasicThruster, ABC):
         d = 0.5 * (self.exit_nozzle_diameter - self.throat_diameter) / np.tan(self.convergent_angle)
         volume_convergent_zone = (np.pi * d * (self.diameter_ext * 0.5) ** 2) / 3
         volume_case = np.pi * ((self.diameter_ext * 0.5) ** 2) * self.case_large
-        self.engine_volume = volume_case + volume_convergent_zone
+        self.empty_engine_volume = volume_case + volume_convergent_zone
         self.chamber_temperature = 0.0
         self.exit_pressure = self.amb_pressure
         self.chamber_pressure = self.exit_pressure
         self.c_f = 0.0
 
         self.propellant = Propellant(dt, propellant_properties)
-        self.volume_free = self.engine_volume - self.propellant.get_grain_volume()
+        self.volume_free = self.empty_engine_volume - self.propellant.get_grain_volume()
         self.init_stable_chamber_pressure = self.calc_chamber_pressure(self.propellant.get_burn_area())
 
         self.channels = {
@@ -108,7 +108,7 @@ class Engine(BasicThruster, ABC):
         self.channels['pressure'].addData(self.calc_chamber_pressure(0))
         self.channels['force'].addData(0)
         self.channels['mass'].addData(self.propellant.get_mass_at_reg(0))
-        self.channels['volumeLoading'].addData(100 * (1 - (self.calc_free_volume(0) / self.engine_volume)))
+        self.channels['volumeLoading'].addData(100 * (1 - (self.calc_free_volume(0) / self.empty_engine_volume)))
         self.channels['massFlow'].addData(0)
         self.channels['massFlux'].addData(0)
         self.channels['regression'].addData(0)
@@ -126,7 +126,7 @@ class Engine(BasicThruster, ABC):
                 # calc reg, and burn area
                 self.propellant.propagate_grain(p_c)
                 # calculate mass properties, flux and flow
-                self.propellant.calculate_mass_properties()
+                self.propellant.calculate_mass_properties(p_c)
                 # new chamber pressure
                 self.calc_chamber_pressure(self.propellant.get_burn_area())
                 self.calc_exit_pressure(self.propellant.gamma)
@@ -145,7 +145,7 @@ class Engine(BasicThruster, ABC):
         self.current_time = self.step * self.count
 
     def calc_free_volume(self, reg):
-        free_vol = self.engine_volume - self.propellant.get_volume_at_reg(reg)
+        free_vol = self.empty_engine_volume - self.propellant.get_volume_at_reg(reg)
         return free_vol
 
     def get_chamber_pressure(self):
@@ -170,6 +170,12 @@ class Engine(BasicThruster, ABC):
 
     def calc_expansion(self):
         return (self.exit_area / self.throat_area) ** 2
+
+    def get_isp(self):
+        return 0.0
+
+    def get_current_thrust(self):
+        return self.current_mag_thrust_c
 
     @staticmethod
     def eRatioFromPRatio(k, pRatio):
@@ -233,8 +239,8 @@ class Engine(BasicThruster, ABC):
             self.channels['kn'].addData(self.calc_kn(self.propellant.get_burning_area(self.propellant.current_reg_web)))
             self.channels['pressure'].addData(self.chamber_pressure)
             self.channels['force'].addData(self.current_mag_thrust_c)
-            self.channels['mass'].addData(self.propellant.get_mass())
-            self.channels['volumeLoading'].addData(100 * (1 - (self.calc_free_volume(self.propellant.current_reg_web) / self.engine_volume)))
+            self.channels['mass'].addData(self.propellant.mass)
+            self.channels['volumeLoading'].addData(100 * (1 - (self.calc_free_volume(self.propellant.current_reg_web) / self.empty_engine_volume)))
             self.channels['massFlow'].addData(self.propellant.mass_flow)
             self.channels['massFlux'].addData(self.propellant.mass_flux)
             self.channels['regression'].addData(self.propellant.current_reg_web)

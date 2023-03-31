@@ -63,8 +63,8 @@ if __name__ == '__main__':
     propellant_properties_['isp_bias_std'] = (upper_isp_bias - Isp) / 3
 
     thruster_properties_ = default_thruster
-    # thruster_properties_['thrust_profile'] = {'type': GRAIN}
-    thruster_properties_['thrust_profile']['type'] = MODEL
+    thruster_properties_['thrust_profile'] = {'type': GRAIN}
+    # thruster_properties_['thrust_profile']['type'] = MODEL
     thruster_properties_['max_ignition_dead_time'] = 0.5
     ctrl_a = [1.0]
     ctrl_b = [6.91036]
@@ -101,7 +101,7 @@ if __name__ == '__main__':
     k = 1
     current_time = 0
     beta = 0
-    while current_time <= 2 * t_burn:
+    while current_time <= 2 * t_burn + 10:
         thr = 0
         if current_time >= 0.5:
             beta = 1

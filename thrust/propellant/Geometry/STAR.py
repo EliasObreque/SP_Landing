@@ -69,7 +69,7 @@ class STAR(object):
             return (np.pi * 0.5 + np.pi / self.n_point - theta * 0.5) - 1 / np.tan(theta * 0.5)
         return self.bisection(f, 0.001, np.pi)
 
-    def get_area_at_reg(self, reg):
+    def get_transversal_area_at_reg(self, reg):
         return 0
 
     def get_core_perimeter_at_reg(self, reg):
