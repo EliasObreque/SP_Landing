@@ -32,7 +32,7 @@ class GeometryGrain(object):
         elif selected_geometry == bates:
             self.selected_geometry = BATES(self.diameter_int, self.diameter_ext, self.large)
         elif selected_geometry == star:
-            self.selected_geometry = STAR(self.diameter_int, self.diameter_ext, self.large, *aux_dimension)
+            self.selected_geometry = STAR(self.diameter_int, self.diameter_ext, self.large, grain_properties)
         elif selected_geometry == CUSTOM:
             pass
         else:

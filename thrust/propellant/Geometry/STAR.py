@@ -10,15 +10,14 @@ import numpy as np
 
 
 class STAR(object):
-    def __init__(self, diameter_int, diameter_ext, large, *aux_dimension):
+    def __init__(self, diameter_int, diameter_ext, large, grain_properties):
         self.large = large
         self.diameter_ext = diameter_ext
         self.diameter_int = diameter_int
-        self.n_point = aux_dimension[0]
-        if len(aux_dimension) != 2:
+        self.n_point = grain_properties['n_points']
+        self.theta_star = grain_properties['star_angle_deg']
+        if self.theta_star is None:
             self.theta_star = self.calc_neutral_theta()
-        else:
-            self.theta_star = aux_dimension[1]
         seg = diameter_int * 0.5 * (np.sin(np.pi / self.n_point) / np.sin(self.theta_star / 2))
         self.current_burn_area = 2 * self.n_point * large * seg
         area_triangle = self.calc_triangle_area(self.diameter_int)
