@@ -102,6 +102,15 @@ class PlaneCoordinate(object):
         self.historical_inertia.append(self.current_inertia)
         self.historical_time.append(self.current_time)
 
+    def get_state_idx(self, idx):
+        return [self.historical_pos_i[idx],
+                self.historical_vel_i[idx],
+                self.historical_mass[idx],
+                self.historical_theta[idx],
+                self.historical_omega[idx],
+                self.historical_inertia[idx],
+                self.historical_time[idx]]
+
     def rkf45(self, thrust_i, m_dot_p, torque_b, tol=1e-12):
         x = np.concatenate([self.current_pos_i, self.current_vel_i, np.array([self.current_mass, self.current_theta,
                                                                               self.current_omega,

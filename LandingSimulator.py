@@ -42,7 +42,7 @@ state = [position, velocity, theta, omega]
 
 current_time = 0
 dt = 0.1
-tf = 20 * 60 * 60
+tf = 60 * 60 * 60
 modules = [Module(mass_0, inertia_0, state, thruster_pos, thruster_ang, thruster_properties,
                   propellant_properties, reference_frame, dt) for i in range(n_modules)]
 
@@ -53,7 +53,7 @@ subk = 0
 
 for i, module_i in enumerate(modules):
     # module_i.set_control_function()
-    module_i.simulate(tf, low_step=None)
+    module_i.simulate(tf, low_step=0.01)
     module_i.evaluate()
 
 plt.figure()
@@ -66,8 +66,10 @@ ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3,
 plt.plot(np.array(modules[0].dynamics.dynamic_model.historical_pos_i)[:, 0] * 1e-3,
          np.array(modules[0].dynamics.dynamic_model.historical_pos_i)[:, 1] * 1e-3)
 
-plt.plot(modules[0].get_ignition_state('init'), 'xg')
-plt.plot(modules[0].get_ignition_state('end'), 'xr')
+print(modules[0].get_mass_used())
+
+plt.plot(*modules[0].get_ignition_state('init')[0][0] * 1e-3, 'xg')
+plt.plot(*modules[0].get_ignition_state('end')[0][0] * 1e-3, 'xr')
 
 ax.add_patch(ellipse)
 ax.add_patch(ellipse_moon)
@@ -81,16 +83,17 @@ plt.plot(modules[0].dynamics.dynamic_model.historical_time,
 plt.plot(modules[0].dynamics.dynamic_model.historical_time,
          np.array(modules[0].dynamics.dynamic_model.historical_pos_i)[:, 1] * 1e-3, '+')
 
-plt.plot(modules[0].get_ignition_state('init'), 'xg')
-plt.plot(modules[0].get_ignition_state('end'), 'xr')
+plt.plot(modules[0].get_ignition_state('init')[0][-1], modules[0].get_ignition_state('init')[0][0][1] * 1e-3, 'xg')
+plt.plot(modules[0].get_ignition_state('end')[0][-1], modules[0].get_ignition_state('end')[0][0][1] * 1e-3, 'xr')
 plt.grid()
 
 plt.figure()
 plt.title("X-Position")
 plt.plot(modules[0].dynamics.dynamic_model.historical_time,
          np.array(modules[0].dynamics.dynamic_model.historical_pos_i)[:, 0] * 1e-3)
-plt.plot(modules[0].get_ignition_state('init'), 'xg')
-plt.plot(modules[0].get_ignition_state('end'), 'xr')
+
+plt.plot(modules[0].get_ignition_state('init')[0][-1], modules[0].get_ignition_state('init')[0][0][0] * 1e-3, 'xg')
+plt.plot(modules[0].get_ignition_state('end')[0][-1], modules[0].get_ignition_state('end')[0][0][0] * 1e-3, 'xr')
 plt.grid()
 
 plt.figure()
@@ -102,6 +105,8 @@ plt.figure()
 plt.title("Mass (kg)")
 plt.plot(modules[0].dynamics.dynamic_model.historical_time,
          np.array(modules[0].dynamics.dynamic_model.historical_mass))
+plt.plot(modules[0].dynamics.dynamic_model.historical_time,
+         np.array(modules[0].dynamics.dynamic_model.historical_mass), '+')
 plt.grid()
 
 plt.figure()
@@ -109,8 +114,10 @@ plt.title("Thrust (N)")
 plt.plot(modules[0].thrusters[0].get_time(), modules[0].thrusters[0].historical_mag_thrust)
 plt.plot(modules[0].thrusters[0].get_time(), modules[0].thrusters[0].historical_mag_thrust, '+')
 
-plt.plot(modules[0].get_ignition_state('init'), 'xg')
-plt.plot(modules[0].get_ignition_state('end'), 'xr')
+plt.plot(modules[0].get_ignition_state('init')[0][-1],
+         modules[0].thrusters[0].historical_mag_thrust[modules[0].thrusters_action_wind[0][0]], 'xg')
+plt.plot(modules[0].get_ignition_state('end')[0][-1],
+         modules[0].thrusters[0].historical_mag_thrust[modules[0].thrusters_action_wind[0][1]], 'xr')
 
 plt.grid()
 plt.show()

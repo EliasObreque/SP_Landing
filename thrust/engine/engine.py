@@ -150,7 +150,7 @@ class Engine(BasicThruster, ABC):
         return self.chamber_pressure
 
     def get_current_m_flow(self):
-        return self.propellant.mass_flow
+        return self.propellant.mass_flow # self.channels['massFlow'].getLast()
 
     def calc_thrust(self, burn_area):
         self.current_mag_thrust_c = self.c_f * self.chamber_pressure * self.throat_area
@@ -251,3 +251,10 @@ class Engine(BasicThruster, ABC):
 
     def get_time(self):
         return self.channels['time'].getData()
+
+    def get_mass(self):
+        return self.channels['mass'].getLast()
+
+    def set_step_time(self, value):
+        self.step_width = value
+        self.propellant.dt = value
