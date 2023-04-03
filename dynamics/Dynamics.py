@@ -10,6 +10,7 @@ import copy
 from .OneDCoordinate import LinearCoordinate
 from .PlaneCoordinate import PlaneCoordinate
 from thrust.thruster import Thruster
+
 ONE_D = '1D'
 PLANE_D = '2D'
 
@@ -23,8 +24,8 @@ class Dynamics(object):
     def __init__(self, dt, mass, inertia, state, reference_frame, controller='basic_hamilton'):
         self.mass = mass
         self.controller_type = controller
-        self.step_width = dt
-        self.current_time = 0
+        # self.step_width = dt
+        # self.current_time = 0
         self.reference_frame = reference_frame
         if reference_frame == ONE_D:
             self.dynamic_model = LinearCoordinate(dt, self.g_planet, mass)
@@ -81,7 +82,8 @@ class Dynamics(object):
             elif self.controller_type == 'affine_function':
                 # Get total thrust
                 for j in range(len(self.thrusters)):
-                    control_signal, beta = self.controller_function(self.controller_parameters[j], current_x, type_control='affine')
+                    control_signal, beta = self.controller_function(self.controller_parameters[j], current_x,
+                                                                    type_control='affine')
                     hist_beta.append(beta)
                     if control_signal == 1 and self.thrusters[j].current_beta == 0:
                         index_control.append(k)
@@ -94,7 +96,7 @@ class Dynamics(object):
             thr.append(total_thrust)
 
             # dynamics
-            next_x = self.dynamic_model.rungeonestep(current_x,  total_thrust, m_dot_total)
+            next_x = self.dynamic_model.rungeonestep(current_x, total_thrust, m_dot_total)
 
             # ....................
             k += 1
@@ -125,7 +127,8 @@ class Dynamics(object):
             land_index -= 1
         if land_index == 0:
             land_index = -1
-        return np.array(x_states), np.array(time_series), np.array(thr), index_control, end_index_control, land_index, hist_beta
+        return np.array(x_states), np.array(time_series), np.array(
+            thr), index_control, end_index_control, land_index, hist_beta
 
     def calc_limits_by_single_hamiltonian(self, t_burn_min, t_burn_max, alpha_min, alpha_max, plot_data=False):
         self.basic_hamilton_calc.calc_limits_with_const_time(t_burn_min, alpha_min, alpha_max)
@@ -141,4 +144,8 @@ class Dynamics(object):
             self.controller_parameters.append([])
             for k in range(len(parameters)):
                 self.controller_parameters[i].append(parameters[k][i])
-        return
+
+    def get_current_state(self):
+        return [self.dynamic_model.current_pos_i, self.dynamic_model.current_vel_i,
+                self.dynamic_model.current_theta, self.dynamic_model.current_omega,
+                self.dynamic_model.current_mass]

@@ -9,6 +9,8 @@ import numpy as np
 from abc import abstractmethod, ABC
 from scipy.optimize import fsolve
 
+ge = 9.807
+
 
 class BasicThruster(ABC):
     """
@@ -57,12 +59,6 @@ class BasicThruster(ABC):
         self.ignition_dead_time = np.random.uniform(0, self.max_dead_time)
         self.current_dead_time = 0.0
 
-    def get_current_m_flow(self):
-        """
-        Return mass flow [T/(Isp ge) (kg/s)]
-        :return:
-        """
-        return self.get_current_thrust() / self.get_isp() / ge
 
     def set_thrust_on(self, value):
         """
@@ -131,3 +127,9 @@ class BasicThruster(ABC):
     @abstractmethod
     def get_current_thrust(self):
         """Get Thrust for mathematical model, File, or Engine"""
+
+    @abstractmethod
+    def get_current_m_flow(self):
+        """
+        Return mass flow [T/(Isp ge) (kg/s)]
+        """

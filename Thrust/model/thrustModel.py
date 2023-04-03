@@ -107,6 +107,9 @@ class MathModel(BasicThruster, ABC):
     def get_current_thrust(self):
         return self.current_mag_thrust_c
 
+    def get_current_m_flow(self):
+        return self.get_current_thrust() / self.get_isp() / ge
+
     def get_neutral_thrust(self):
         if self.thr_is_on:
             v_exhaust = self.add_noise_isp()

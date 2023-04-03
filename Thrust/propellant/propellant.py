@@ -53,6 +53,7 @@ class Propellant(GeometryGrain):
             # Mass properties:
             # mass
             self.mass = self.selected_geometry.volume * self.density
+            print("Initial mass: {} [kg]".format(self.mass))
             # mass flux [kg/mm2]
             self.mass_flux = 0.0
             # mass flow [kg/s]

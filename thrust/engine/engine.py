@@ -53,7 +53,6 @@ class Engine(BasicThruster, ABC):
 
     def __init__(self, dt, thruster_properties, propellant_properties):
         BasicThruster.__init__(self, dt, thruster_properties, propellant_properties)
-        self.step = dt
         self.count = 0
         self.t_ig = 0.0
         self.thr_is_on = False
@@ -119,7 +118,7 @@ class Engine(BasicThruster, ABC):
         self.check_geometric_cond()
 
     def propagate_thrust(self):
-        print(self.propellant.get_web_left(self.propellant.current_reg_web))
+        # print(self.propellant.get_web_left(self.propellant.current_reg_web))
         if self.thr_is_on and self.thr_is_burned is False:
             if self.propellant.get_web_left(self.propellant.current_reg_web) > 1e-4:
                 p_c = self.channels['pressure'].getLast()
@@ -141,8 +140,7 @@ class Engine(BasicThruster, ABC):
                 self.propellant.reset_var()
                 self.thr_is_burned = True
             # time
-        self.count += 1
-        self.current_time = self.step * self.count
+        self.current_time += self.step_width
 
     def calc_free_volume(self, reg):
         free_vol = self.empty_engine_volume - self.propellant.get_volume_at_reg(reg)
@@ -150,6 +148,9 @@ class Engine(BasicThruster, ABC):
 
     def get_chamber_pressure(self):
         return self.chamber_pressure
+
+    def get_current_m_flow(self):
+        return self.propellant.mass_flow
 
     def calc_thrust(self, burn_area):
         self.current_mag_thrust_c = self.c_f * self.chamber_pressure * self.throat_area
@@ -247,3 +248,6 @@ class Engine(BasicThruster, ABC):
             self.channels['web'].addData(self.propellant.get_web_left(self.propellant.current_reg_web))
             self.channels['exitPressure'].addData(self.exit_pressure)
             self.channels['dThroat'].addData(0)
+
+    def get_time(self):
+        return self.channels['time'].getData()

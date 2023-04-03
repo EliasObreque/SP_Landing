@@ -38,5 +38,5 @@ default_thruster = {'throat_diameter': throat_diameter,
                     'exit_nozzle_diameter': e_nozzle_diameter,
                     'convergent_angle_deg': 60,
                     'divergent_angle_deg': 15,
-                    'thrust_profile': by_model,
+                    'thrust_profile': by_grain,
                     'max_ignition_dead_time': 0.5}

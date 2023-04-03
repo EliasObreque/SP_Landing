@@ -29,6 +29,9 @@ class Thruster(ABC):
     def __call__(self, *args, **kwargs):
         return self.base
 
+    def get_time(self):
+        self.base.get_time()
+
 
 if __name__ == '__main__':
     from thrust.propellant.propellantProperties import *

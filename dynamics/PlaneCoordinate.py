@@ -9,6 +9,15 @@ els.obrq@gmail.com
 
 import numpy as np
 ge = 9.807
+a = np.array([0, 1 / 4, 3 / 8, 12 / 13, 1, 1 / 2])
+b = np.array([[0, 0, 0, 0, 0],
+              [1 / 4, 0, 0, 0, 0],
+              [3 / 32, 9 / 32, 0, 0, 0],
+              [1932 / 2197, -7200 / 2197, 7296 / 2197, 0, 0],
+              [439 / 216, -8, 3680 / 513, -845 / 4104, 0],
+              [-8 / 27, 2, -3544 / 2565, 1859 / 4104, -11 / 40]])
+c4 = np.array([25 / 216, 0, 1408 / 2565, 2197 / 4104, -1 / 5, 0])
+c5 = np.array([16 / 135, 0, 6656 / 12825, 28561 / 56430, -9 / 50, 2 / 55])
 
 
 class PlaneCoordinate(object):
@@ -58,7 +67,7 @@ class PlaneCoordinate(object):
         return rhs
 
     def update(self, thrust_i, m_dot_p, torque_b, low_step):
-        if low_step:
+        if low_step is not None:
             new_var = self.rungeonestep(thrust_i, m_dot_p, torque_b)
         else:
             new_var = self.rkf45(thrust_i, m_dot_p, torque_b)
@@ -93,24 +102,14 @@ class PlaneCoordinate(object):
         self.historical_inertia.append(self.current_inertia)
         self.historical_time.append(self.current_time)
 
-    def rkf45(self, thrust_i, m_dot_p, torque_b, tol=1e-18):
+    def rkf45(self, thrust_i, m_dot_p, torque_b, tol=1e-12):
         x = np.concatenate([self.current_pos_i, self.current_vel_i, np.array([self.current_mass, self.current_theta,
                                                                               self.current_omega,
                                                                               self.current_inertia])])
         self.m_dot_p = m_dot_p
         beta = 0.9
         hmin = 1e-9
-        a = np.array([0, 1 / 4, 3 / 8, 12 / 13, 1, 1 / 2])
-        b = np.array([[0, 0, 0, 0, 0],
-                      [1 / 4, 0, 0, 0, 0],
-                      [3 / 32, 9 / 32, 0, 0, 0],
-                      [1932 / 2197, -7200 / 2197, 7296 / 2197, 0, 0],
-                      [439 / 216, -8, 3680 / 513, -845 / 4104, 0],
-                      [-8 / 27, 2, -3544 / 2565, 1859 / 4104, -11 / 40]])
-        c4 = np.array([25 / 216, 0, 1408 / 2565, 2197 / 4104, -1 / 5, 0])
-        c5 = np.array([16 / 135, 0, 6656 / 12825, 28561 / 56430, -9 / 50, 2 / 55])
         h = self.h_old
-        h_time = h
         k_i = np.zeros(len(x))
         x_out = np.zeros(len(x))
         k_nn = np.tile(k_i, (6, 1))
@@ -132,15 +131,13 @@ class PlaneCoordinate(object):
             delta = (te_allowed / (error + np.finfo(np.float64).eps)) ** (1.0 / 5.0)
             if error <= te_allowed:
                 end_condition = True
-                # h = min(h, tf - t)
-                h_time = h
                 x_out = x + h * np.dot(c5, k_nn)
-            h = min(delta * h, 4 * h)
+                self.current_time += h
+            h = min(beta * delta * h, 4 * h)
             if h < hmin:
                 raise print('Warning: Step size fell below its minimum allowable value {}'.format(h))
         self.h_old = h
         self.dt = h
-        self.current_time += h_time
         return x_out
 
 
