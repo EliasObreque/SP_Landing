@@ -52,7 +52,7 @@ class Module(object):
         subk = 0
         k = 0
         control = [0.0] * len(self.thrusters)
-        while self.dynamics.dynamic_model.current_time <= tf:
+        while self.dynamics.dynamic_model.current_time <= tf and self.dynamics.isTouchdown() is False:
             for i, thr in enumerate(self.thrusters):
                 control[i] = self.control_function(self.dynamics.get_current_state())
                 if control[i] == 1 and self.thrusters[i].thr_is_burned == False:
@@ -66,6 +66,7 @@ class Module(object):
                 print('Progress {} % - Thrust: {}'.format(self.dynamics.dynamic_model.current_time / tf * 100, self.get_thrust()))
                 k = 0
             k += 1
+        return self.dynamics.get_current_state()
 
     def train(self):
         pass
