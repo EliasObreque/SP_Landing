@@ -124,11 +124,10 @@ class Propellant(GeometryGrain):
         dreg = self.get_burn_rate(p_c) * self.dt
         self.mass_flux = self.get_mass_flux(self.current_reg_web, self.dt, self.mass_flow, dreg, self.density)
         new_mass = self.get_mass_at_reg(self.current_reg_web)
-        self.mass_flow += (self.mass - new_mass) / self.dt
+        self.mass_flow = (self.mass - new_mass) / self.dt
         self.mass = new_mass
 
     def reset_var(self):
-        self.mass = self.get_mass_at_reg(0)
         self.mass_flow = 0.0
         self.mass_flux = 0.0
         self.current_reg_web = 0.0
