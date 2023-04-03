@@ -10,7 +10,7 @@ import numpy as np
 
 
 class STAR(object):
-    def __init__(self, diameter_int, diameter_ext, large, grain_properties):
+    def __init__(self, diameter_int, diameter_ext, large, grain_properties=None):
         self.large = large
         self.diameter_ext = diameter_ext
         self.diameter_int = diameter_int

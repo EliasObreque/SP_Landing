@@ -115,7 +115,7 @@ class Engine(BasicThruster, ABC):
         self.channels['exitPressure'].addData(0)
         self.channels['dThroat'].addData(0)
 
-        self.check_geometric_cond()
+        # self.check_geometric_cond()
 
     def propagate_thrust(self):
         # print(self.propellant.get_web_left(self.propellant.current_reg_web))
@@ -228,7 +228,7 @@ class Engine(BasicThruster, ABC):
         self.exit_pressure = self.amb_pressure
         self.chamber_pressure = self.exit_pressure
         self.thr_is_burned = False
-        self.propellant.reset_var()
+        self.propellant.reset_var(force=True)
 
     def set_thrust_on(self, value):
         self.thr_is_on = value

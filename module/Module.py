@@ -10,15 +10,20 @@ from thrust.thruster import Thruster
 
 
 class Module(object):
+    thruster_conf = None
+    propellant_properties = None
+    th = 0.0
 
     def __init__(self, mass, inertia, init_state, thruster_pos, thruster_ang, thruster_conf,
                  propellant_properties, reference_frame, dt):
 
+        self.thruster_conf = thruster_conf
+        self.propellant_properties = propellant_properties
         self.thrusters = [Thruster(dt, thruster_conf[i], propellant_properties[i])() for i in range(len(thruster_conf))]
         self.dynamics = Dynamics(dt, mass, inertia, init_state, reference_frame)
         self.thruster_pos = thruster_pos
         self.thruster_ang = thruster_ang
-        self.thrusters_action_wind = [[]] * len(self.thrusters)
+        self.thrusters_action_wind = [[] for _ in range(len(self.thrusters))]
         self.control_function = self.__default_control
         # self.current_time = 0.0
         # self.dt = dt
@@ -48,14 +53,14 @@ class Module(object):
     def get_thrust(self):
         return np.sum([thr_i.current_mag_thrust_c for thr_i in self.thrusters])
 
-    def simulate(self, tf, low_step=None):
+    def simulate(self, tf, low_step=None, progress=True):
         # save ignition time and stop time
         subk = 0
         k = 0
         control = [0.0] * len(self.thrusters)
         while self.dynamics.dynamic_model.current_time <= tf and self.dynamics.isTouchdown() is False:
             for i, thr in enumerate(self.thrusters):
-                control[i] = self.control_function(self.dynamics.get_current_state())
+                control[i] = self.control_function(self.dynamics.get_current_state(), n_e=i)
                 if control[i] == 1 and self.thrusters[i].thr_is_burned is False:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 0 else None
                     low_step_ = low_step
@@ -65,7 +70,7 @@ class Module(object):
                 self.update(control, low_step_)
                 self.save_log()
                 subk += 1
-            if k > 29:
+            if k > 29 and progress:
                 print('Progress {} % - Thrust: {}'.format(self.dynamics.dynamic_model.current_time / tf * 100,
                                                           self.get_thrust()))
                 k = 0
@@ -78,16 +83,41 @@ class Module(object):
     def evaluate(self):
         pass
 
+    def reset(self):
+        [thr.reset_variables() for thr in self.thrusters]
+        self.dynamics.dynamic_model.reset()
+        self.thrusters_action_wind = [[] for _ in range(len(self.thrusters))]
+
     @staticmethod
-    def __default_control(state):
+    def __default_control(state, n_e=0):
         if state[0][1] < 0.0:
             control = 1
         else:
             control = 1
         return control
 
-    def set_control_function(self, function):
-        self.control_function = function
+    def on_off_control(self, value, n_e=0):
+        if n_e == 0:
+            value = np.arctan2(value[0][1], value[0][0])
+            if value > self.th[n_e]:
+                return 1
+            else:
+                return 0
+        else:
+            value = np.linalg.norm(value[0])
+            if value < self.th[n_e]:
+                return 1
+            else:
+                return 0
+
+    def set_control_function(self, control_parameter):
+        self.th = control_parameter
+        self.control_function = self.on_off_control
+
+    def set_thrust_design(self, thrust_design, orientation):
+        for i, value in enumerate(thrust_design):
+            self.propellant_properties[i]['geometry']['setting']['ext_diameter'] = value
+        self.thrusters = [Thruster(self.dynamics.dynamic_model.dt, self.thruster_conf[i], self.propellant_properties[i])() for i in range(len(self.thruster_conf))]
 
     def get_ignition_state(self, moment):
         values = []

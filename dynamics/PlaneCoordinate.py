@@ -23,6 +23,7 @@ c5 = np.array([16 / 135, 0, 6656 / 12825, 28561 / 56430, -9 / 50, 2 / 55])
 class PlaneCoordinate(object):
     def __init__(self, dt, mu_planet, r_planet, mass, inertia, state):
         self.mass_0 = mass
+        self.state_0 = state
         self.current_mass = mass
         self.dt = dt
         self.mu = mu_planet
@@ -49,6 +50,24 @@ class PlaneCoordinate(object):
         self.h_old = self.dt
         return
 
+    def reset(self):
+        self.current_mass = self.mass_0
+        self.current_inertia = self.inertia_0
+        self.current_pos_i = self.state_0[0]
+        self.current_vel_i = self.state_0[1]
+        self.current_theta = self.state_0[2]
+        self.current_omega = self.state_0[3]
+        self.current_time = 0.0
+        self.m_dot_p = 0.0
+        self.historical_pos_i = []
+        self.historical_vel_i = []
+        self.historical_mass = []
+        self.historical_theta = []
+        self.historical_omega = []
+        self.historical_inertia = []
+        self.historical_time = []
+        self.save_data()
+
     def dynamic(self, state, F, tau_b, psi=0):
         r = state[0:2]
         v = state[2:4]
@@ -58,6 +77,7 @@ class PlaneCoordinate(object):
         inertia = state[7]
         u_f_i = np.array([-np.sin(theta + self.delta_alpha_k), np.cos(theta + self.delta_alpha_k)])
         rhs = np.zeros(8)
+        u_f_i = -v / np.linalg.norm(v)
         rhs[0:2] = v
         rhs[2:4] = F / m * u_f_i - self.mu * r / (np.linalg.norm(r) ** 3)
         rhs[4] = - self.m_dot_p

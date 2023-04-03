@@ -10,7 +10,7 @@ import numpy as np
 
 
 class BATES(object):
-    def __init__(self, core_diameter, diameter_ext, large):
+    def __init__(self, core_diameter, diameter_ext, large, *args):
         self.large = large
         self.diameter_ext = diameter_ext
         self.diameter_int = core_diameter

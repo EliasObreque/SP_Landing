@@ -8,14 +8,14 @@ from sklearn.metrics import r2_score
 import random
 
 
-class PsoLinerRegression:
-    def __init__(self, func, n_particles, n_steps, main_wind, n_e, parameters):
+class PSORegression:
+    def __init__(self, func, n_particles=100, n_steps=200, parameters=(2.5, 0.5, 0.8, 0.2)):
         self.func = func
         self.dim = None
         self.particle_position = None
         self.particle_velocity = None
         self.max_iteration = n_steps
-        self.w = parameters[0]
+        # self.w = parameters[0]
         self.w1 = parameters[0]
         self.w2 = parameters[1]
         self.c1 = parameters[2]
@@ -25,12 +25,10 @@ class PsoLinerRegression:
         self.pbest_fitness_value = np.array([float('inf') for _ in range(n_particles)])
         self.gbest_fitness_value = float('inf')
         self.gbest_position = None  # gloal best position
-        self.main_wind = main_wind
-        self.total_n_e = n_e
         self.gbest_correlation = 0.0
         self.gbest_r2_score = 0.0
         self.gbest_mse = 0.0
-
+        self.range_var = None
         self.corr_gain = 0.1
         self.mse_gain = 0.9
         self.entropy_gain = 0.0
@@ -38,6 +36,14 @@ class PsoLinerRegression:
         self.historical_p = []
         self.fitness_function = r2_score_function
         return
+
+    def initialize(self, range_var):
+        self.range_var = range_var
+        self.particle_position = np.array(
+            [self.create_random_vector(range_var) for _ in range(self.n_particles)])
+        self.particle_velocity = np.array(
+            [[0.0] * len(range_var) for _ in range(self.n_particles)])
+        self.gbest_position = np.array([1.0 for _ in range(len(range_var))])
 
     def remove_nans(self, var,  obj):
         ind_nan = ~np.isnan(obj)
@@ -51,31 +57,24 @@ class PsoLinerRegression:
     def get_historicals(self):
         return [self.historical_loss, self.historical_p]
 
-    def optimize(self, equation, objetive_data_, dim, n_e):
+    def cut_range(self, new_particle):
+        for i, elem in enumerate(new_particle):
+            if self.range_var[i][0] > elem:
+                new_particle[i] = self.range_var[i][0]
+            elif elem > self.range_var[i][1]:
+                new_particle[i] = self.range_var[i][1]
+        return new_particle
+
+    def optimize(self):
         i_iter = 0
-        self.dim = dim + 1
-        self.particle_position = np.array([self.create_random_vector(self.dim, gain=10.0) for _ in range(self.n_particles)])
-        self.particle_velocity = np.array([self.create_random_vector(self.dim, gain=0) for _ in range(self.n_particles)])
-        self.gbest_position = np.array([1.0 for _ in range(self.dim)])
-        eval_iter = self.func(equation)
-        eval_iter, objetive_data_iter = self.remove_nans(eval_iter, objetive_data_)
-
-        # temp = self.fitness_function(objetive_data_iter, eval_iter)
-        # self.historical_loss.append(temp)
-        # self.historical_p.append(temp)
-        # self.gbest_fitness_value = temp
         stagnation_counter = 0
-        w = self.w
+        w = self.w1
         while i_iter < self.max_iteration:
-            w -= (self.w1 - self.w2) / self.max_iteration
-            eval_iter = [self.func(equation, gains_) for gains_ in self.particle_position]
-            clean_values = [self.remove_nans(v, o) for v, o in zip(eval_iter, np.repeat(objetive_data_.reshape(1, -1), self.n_particles, axis=0))]
+            if i_iter > 0.6 * self.max_iteration:
+                w -= (self.w1 - self.w2) / self.max_iteration
+            eval_iter = [self.func(particle) for particle in self.particle_position]
 
-            eval_iter = [v[0] for v in clean_values]
-            objetive_data_list = [v[1] for v in clean_values]
-
-            fitness_value = [self.fitness_function(objetive_data_list[i], eval_)
-                             for i, eval_ in enumerate(eval_iter)]
+            fitness_value = eval_iter
             fit_position = []
             for i, fit_part in enumerate(fitness_value):
                 if fit_part < self.pbest_fitness_value[i]:
@@ -96,60 +95,41 @@ class PsoLinerRegression:
             self.historical_loss.append(self.gbest_fitness_value)
             # print(self.max_iteration * (n_e - 1) + i_iter, self.gbest_fitness_value)
             if stagnation_counter >= 10:
-                self.particle_velocity = np.array([self.create_random_vector(self.dim, gain=1.0)
-                                                   for _ in range(self.n_particles)])
+                self.particle_velocity += np.random.normal(0, 1.0, size=np.shape(self.particle_velocity))
                 stagnation_counter = 0
             else:
                 self.particle_velocity = w * self.particle_velocity + \
                                          (self.c1 * random.random()) * (self.pbest_position - self.particle_position) + \
                                          (self.c2 * random.random()) * (self.gbest_position - self.particle_position)
             new_position = self.particle_velocity + self.particle_position
+            new_position = np.array([self.cut_range(new_) for new_ in new_position])
             self.particle_position = new_position
             # self.particle_position[np.where(np.abs(self.particle_position) < 1e-2)] = 0.1
-            if i_iter % 4 == 0:
-                self.main_wind.status_bar.info('Constant Optimization for Equation {}/{}. Iteration {}/{} ...'.format(
-                    n_e, self.total_n_e, self.max_iteration * (n_e - 1) + i_iter, self.total_n_e * self.max_iteration),
-                    int(100 * (i_iter + self.max_iteration * (n_e - 1)) / self.max_iteration / self.total_n_e))
             i_iter += 1
-            print(self.gbest_fitness_value, self.gbest_mse)
+            print(i_iter, self.gbest_fitness_value, self.gbest_mse)
 
         # Final selection
-        eval_iter = [self.func(equation, gains_) for gains_ in self.particle_position]
-
-        clean_values = [self.remove_nans(v, o) for v, o in
-                        zip(eval_iter, np.repeat(objetive_data_.reshape(1, -1), self.n_particles, axis=0))]
-
-        eval_iter = [v[0] for v in clean_values]
-        objetive_data_list = [v[1] for v in clean_values]
+        eval_iter = [self.func(particle) for particle in self.particle_position]
 
         # minimize
-        fitness_value = [self.fitness_function(objetive_data_list[i], eval_)
-                         for i, eval_ in enumerate(eval_iter)]
+        fitness_value = eval_iter
 
         if np.min(fitness_value) < self.gbest_fitness_value:
             index_min = np.argmin(fitness_value)
             self.gbest_fitness_value = fitness_value[index_min]
             self.gbest_position = self.particle_position[index_min]
 
-        final_eval = self.func(equation, self.gbest_position)
-        final_eval, final_objective = self.remove_nans(final_eval, objetive_data_)
-        self.gbest_correlation = abs(np.corrcoef(np.array([final_eval, final_objective]))[0, 1])
-        self.gbest_r2_score = self.fitness_function(final_objective, final_eval)
-        self.gbest_mse = calc_rmse_norm(final_objective, final_eval)
-        if n_e == self.total_n_e:
-            self.main_wind.status_bar.info('Constant Optimization Finished', 100)
-        return
+        final_eval = self.func(self.gbest_position)
+        return final_eval
 
     def get_gains(self):
         return self.gbest_position
 
     @staticmethod
-    def create_random_vector(dim, gain=50.0):
+    def create_random_vector(range_var: list, vel=False) -> list:
         var = []
-        for _ in range(dim):
-            temp = (-1) ** (bool(random.getrandbits(1))) * random.random() * gain
-            if np.abs(temp) < 1e-2:
-                temp = 0.1 * np.sign(temp)
+        for elem in range_var:
+            temp = np.random.uniform(elem[0], elem[1])
             var.append(temp)
         return var
 

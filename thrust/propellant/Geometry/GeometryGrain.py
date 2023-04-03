@@ -28,7 +28,7 @@ class GeometryGrain(object):
         self.current_reg_web = 0.0
 
         if selected_geometry == end_burning:
-            self.selected_geometry = EndBurning(self.diameter_ext, self.large)
+            self.selected_geometry = EndBurning(0.0, self.diameter_ext, self.large)
         elif selected_geometry == bates:
             self.selected_geometry = BATES(self.diameter_int, self.diameter_ext, self.large)
         elif selected_geometry == star:
