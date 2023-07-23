@@ -9,14 +9,13 @@ els.obrq@gmail.com
 import time
 
 from datetime import datetime
-from thrust.propellant.propellantProperties import *
-from thrust.thrustProperties import default_thruster, MODEL, GRAIN, FILE
+from core.thrust import default_thruster, MODEL
 from tools.GeneticAlgorithm import GeneticAlgorithm
 from tools.ext_requirements import mass_req
-from dynamics.Dynamics import Dynamics
-from thrust.propellant.propellant import propellant_data
+from core.dynamics.Dynamics import Dynamics
+from core.thrust.propellant.propellant import propellant_data
 from tools.Viewer import *
-from Evaluation import Evaluation
+from evaluation.Evaluation import Evaluation
 from tools.ext_requirements import save_data
 
 if os.path.isdir("./logs/") is False:

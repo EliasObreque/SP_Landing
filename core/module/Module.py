@@ -5,8 +5,8 @@ Date: 24-08-2022
 """
 import numpy as np
 
-from dynamics.Dynamics import Dynamics
-from thrust.thruster import Thruster
+from core.dynamics.Dynamics import Dynamics
+from core.thrust.thruster import Thruster
 
 
 class Module(object):
@@ -53,7 +53,7 @@ class Module(object):
     def get_thrust(self):
         return np.sum([thr_i.current_mag_thrust_c for thr_i in self.thrusters])
 
-    def simulate(self, tf, low_step=None, progress=True):
+    def simulate(self, tf, low_step: float = None, progress: bool = True):
         # save ignition time and stop time
         subk = 0
         k = 0
@@ -67,6 +67,8 @@ class Module(object):
                 else:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 1 else None
                     low_step_ = None
+                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 10000.0:
+                    low_step_ = low_step
                 self.update(control, low_step_)
                 self.save_log()
                 subk += 1

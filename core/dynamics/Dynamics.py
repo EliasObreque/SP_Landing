@@ -9,7 +9,7 @@ import numpy as np
 import copy
 from .OneDCoordinate import LinearCoordinate
 from .PlaneCoordinate import PlaneCoordinate
-from thrust.thruster import Thruster
+from core.thrust.thruster import Thruster
 
 ONE_D = '1D'
 PLANE_D = '2D'

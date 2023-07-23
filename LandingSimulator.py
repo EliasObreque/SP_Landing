@@ -5,9 +5,8 @@ Date: 24-08-2022
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from module.Module import Module
-from thrust.thrustProperties import default_thruster
-from thrust.propellant.propellantProperties import *
+from core.module import Module
+from core.thrust import default_thruster
 from matplotlib.patches import Ellipse
 from tools.pso import PSORegression
 
@@ -49,42 +48,46 @@ modules = [Module(mass_0, inertia_0, state, thruster_pos, thruster_ang, thruster
 
 
 def cost_function(modules_setting):
-    r_target, v_target, theta_target, omega_target = 1.738e6 + 2000, 50.0, 0.0, 0.0
+    r_target, v_target, theta_target, omega_target = 1.738e6 + 2000, 100.0, 0.0, 0.0
     states = []
     for i, module_i in enumerate(modules):
         module_i.set_thrust_design([modules_setting[1], modules_setting[3]], modules_setting[4])
         module_i.set_control_function([modules_setting[0], modules_setting[2]])
-        last_state = module_i.simulate(tf, low_step=0.01, progress=False)
+        last_state = module_i.simulate(tf, low_step=0.1, progress=False)
         states.append(last_state)
         module_i.reset()
 
     cost = []
     for st in states:
         r_state, v_state = np.linalg.norm(st[0]), np.linalg.norm(st[1])
-        cost.append(((r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5)
-    # print(states, np.sum(cost))
+        cost.append((0.1 * (r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5)
+        print("Altitude: {}, Velocity: {}, Cost: {}".format(r_state - rm, v_state, cost[-1]))
     return np.mean(cost)
 
 
 # Optimal Design of the Control
-range_variables = [(0, 2 * np.pi),  # First ignition position (angle)
-                   (0.02, 0.17),    # Main engine diameter (meter)
-                   (1.738e6 + 2000, rp),  # Second ignition position (meter)
-                   (0.02, 0.170),  # Secondary engine diameter (meter)
+range_variables = [(np.pi/2, 2 * np.pi-np.pi/2),  # First ignition position (angle)
+                   (0.02, 0.2),    # Main engine diameter (meter)
+                   (1.738e6 + 2000, rp*4),  # Second ignition position (meter)
+                   (0.02, 0.19),  # Secondary engine diameter (meter)
                    (0, 2 * np.pi)  # Orientation
                    ]
 
-pso_algorithm = PSORegression(cost_function, n_particles=100, n_steps=50)
+pso_algorithm = PSORegression(cost_function, n_particles=100, n_steps=100)
 pso_algorithm.initialize(range_variables)
 final_eval = pso_algorithm.optimize()
 modules_setting = pso_algorithm.gbest_position
+
+plt.figure()
+plt.plot(pso_algorithm.historical_loss)
+plt.grid()
 
 print("Final evaluation: {}".format(final_eval))
 
 for i, module_i in enumerate(modules):
     module_i.set_thrust_design([modules_setting[1], modules_setting[3]], modules_setting[4])
     module_i.set_control_function([modules_setting[0], modules_setting[2]])
-    final_state = module_i.simulate(tf, low_step=0.01)
+    final_state = module_i.simulate(tf, low_step=0.1)
     module_i.evaluate()
 
     print("Final State {}: ".format(final_state))

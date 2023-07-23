@@ -4,9 +4,9 @@ els.obrq@gmail.com
 Date: 24-08-2022
 """
 import numpy as np
-from thrust.propellant.propellant import Propellant
+from core.thrust.propellant.propellant import Propellant
 from scipy.optimize import fsolve
-from thrust.basic_thrust import BasicThruster
+from core.thrust.basic_thrust import BasicThruster
 from abc import ABC
 
 

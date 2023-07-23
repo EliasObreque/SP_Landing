@@ -9,7 +9,7 @@ import random
 
 
 class PSORegression:
-    def __init__(self, func, n_particles=100, n_steps=200, parameters=(2.5, 0.5, 0.8, 0.2)):
+    def __init__(self, func, n_particles=100, n_steps=200, parameters=(6.5, 0.5, 0.3, 0.7)):
         self.func = func
         self.dim = None
         self.particle_position = None

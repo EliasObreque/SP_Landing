@@ -5,10 +5,10 @@ email: els.obrq@gmail.com
 
 """
 import numpy as np
-from thrust.dataThrust.thrustData import ThrustMeasure
-from thrust.engine.engine import Engine
-from thrust.model.thrustModel import MathModel
-from thrust.thrustProperties import MODEL, GRAIN, FILE
+from core.thrust.dataThrust.thrustData import ThrustMeasure
+from core.thrust.engine.engine import Engine
+from core.thrust.model.thrustModel import MathModel
+from core.thrust.thrustProperties import MODEL, GRAIN, FILE
 from abc import ABC
 
 DEG2RAD = np.pi/180
@@ -34,10 +34,9 @@ class Thruster(ABC):
 
 
 if __name__ == '__main__':
-    from thrust.propellant.propellantProperties import *
     from thrustProperties import default_thruster
     from tools.Viewer import plot_thrust, show_plot
-    from thrust.propellant.source.propellant_data import propellant_data
+    from core.thrust.propellant.source.propellant_data import propellant_data
 
     NEUTRAL = 'neutral'
     PROGRESSIVE = 'progressive'

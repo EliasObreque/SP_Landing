@@ -5,16 +5,15 @@ Created on Mon Mar 13 13:16:59 2023
 @author: FATE
 """
 
-import gym
 from gym import Env
-from gym.spaces import Discrete, Box, Dict, Tuple, MultiBinary, MultiDiscrete
+from gym.spaces import Discrete, Box
 
-from dynamics.OneDCoordinate import LinearCoordinate
+from core.dynamics.OneDCoordinate import LinearCoordinate
 
 import numpy as np
 import random
 import matplotlib.pyplot as plt
-import os
+
 
 #%%
 

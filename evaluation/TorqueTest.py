@@ -3,8 +3,8 @@ Created by Elias Obreque
 els.obrq@gmail.com
 Date: 04-08-2022
 """
-from thrust.propellant.propellant import propellant_data
-from thrust.thruster import Thruster
+from core.thrust.propellant.propellant import propellant_data
+from core.thrust import Thruster
 import numpy as np
 import matplotlib.pyplot as plt
 

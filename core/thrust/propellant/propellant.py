@@ -6,11 +6,10 @@ Created by:
 els.obrq@gmail.com
 
 """
-from thrust.propellant.Geometry.GeometryGrain import GeometryGrain
+from core.thrust.propellant.Geometry.GeometryGrain import GeometryGrain
 from .source.propellant_data import propellant_data
 
 import numpy as np
-import sys
 
 array_propellant_names = ['JPL_540A', 'ANP-2639AF', 'CDT(80)',
                           'TRX-H609', 'KNSU']
@@ -53,7 +52,7 @@ class Propellant(GeometryGrain):
             # Mass properties:
             # mass
             self.mass = self.selected_geometry.volume * self.density
-            print("Initial mass: {} [kg]".format(self.mass))
+            # print("Initial mass: {} [kg]".format(self.mass))
             # mass flux [kg/mm2]
             self.mass_flux = 0.0
             # mass flow [kg/s]
@@ -127,13 +126,13 @@ class Propellant(GeometryGrain):
         self.mass_flow = (self.mass - new_mass) / self.dt
         self.mass = new_mass
 
-    def reset_var(self):
+    def reset_var(self, force=False):
         self.mass_flow = 0.0
         self.mass_flux = 0.0
         self.current_reg_web = 0.0
+        if force:
+            self.mass = self.get_mass_at_reg(0.0)
 
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-
     propellant_grain = Propellant(array_propellant_names[2], 4, 30, 100, BATES, 3)
