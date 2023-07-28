@@ -97,7 +97,8 @@ if __name__ == '__main__':
     pso_algorithm.initialize(range_variables)
 
     pso_algorithm_gra = PSORegression(cost_function, n_particles=20, n_steps=20)
-
+    pso_algorithm_gra.pbest_fitness_value = np.array([float('inf') for _ in range(pso_algorithm_gra.npar)])
+    pso_algorithm_gra.gbest_fitness_value = float('inf')
     pso_algorithm_gra.range_var = range_variables
     pso_algorithm_gra.position = pso_algorithm.position.copy()
     pso_algorithm_gra.velocity = pso_algorithm.velocity.copy()
