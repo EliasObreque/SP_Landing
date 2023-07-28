@@ -60,7 +60,9 @@ def cost_function(modules_setting, plot=False):
     min_state = []
     min_cost = np.inf
     cost = []
-    for i, module_i in enumerate(modules):
+    modules_ = [Module(mass_0, inertia_0, state, thruster_pos, thruster_ang, thruster_properties,
+                      propellant_properties, reference_frame, dt) for _ in range(n_modules)]
+    for i, module_i in enumerate(modules_):
         module_i.set_thrust_design([modules_setting[1], modules_setting[3]], 0)
         module_i.set_control_function([modules_setting[0], modules_setting[2]])
         historical_state = module_i.simulate(tf, low_step=0.01, progress=False)
@@ -68,8 +70,8 @@ def cost_function(modules_setting, plot=False):
         module_i.reset()
 
         r_state, v_state = np.linalg.norm(states[0]), np.linalg.norm(states[1])
-        #error = np.abs(get_energy(mu, r_state, v_state) - energy_target)
-        error = (0.1 * (r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5
+        error = np.abs(get_energy(mu, r_state, v_state) - energy_target)
+        # error = (0.1 * (r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5
         cost.append(error)
         if error < min_cost:
             min_state = historical_state
