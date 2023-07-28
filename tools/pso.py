@@ -17,7 +17,7 @@ rm = 1.738e6
 
 
 class PSORegression:
-    def __init__(self, func, n_particles=100, n_steps=200, parameters=(0.8, 0.05, 0.5, 2.5)):
+    def __init__(self, func, n_particles=100, n_steps=200, parameters=(0.5, 0.05, 0.2, .5)):
         self.fitness_function = func
         self.dim = None
         self.position = []
@@ -49,8 +49,6 @@ class PSORegression:
         self.position = np.array(
             [self.create_random_vector(range_var) for _ in range(self.npar)])
         self.velocity = np.array(
-            [[0.0] * len(range_var) for _ in range(self.npar)])
-        self.velocity = np.array(
             [self.create_random_vector(range_var) for _ in range(self.npar)])
         self.pbest_position = self.position
         self.gbest_position = np.array([np.inf for _ in range(self.npar)])
@@ -77,9 +75,10 @@ class PSORegression:
                 new_particle[i] = self.range_var[i][1]
         return new_particle
 
-    def optimize(self):
+    def optimize(self, grav=False):
         iteration = 0
         W = self.w1
+        gravity = 0
         while iteration < self.max_iteration:
             result = [self.fitness_function(pos) for pos in self.position]
             fitness = np.array([elem[0] for elem in result])
@@ -98,7 +97,13 @@ class PSORegression:
             cognitive_comp = self.c1 * np.diag(r[:, 0]) @ (self.pbest_position - self.position)
             social_comp = self.c2 * np.diag(r[:, 1]) @ (gbest - self.position)
             modified_comp = self.c1 / self.c2 * (gbest - self.pbest_position)
-            self.velocity = W * self.velocity + cognitive_comp + social_comp + modified_comp
+            mu = 0.01
+            r = (gbest - self.position)
+            r_norm = np.linalg.norm(r, axis=1)
+            if grav:
+                gravity = np.array([mu * r_/r_norm_ ** 3 if r_norm_ != 0 else r_ for r_, r_norm_ in zip(r, r_norm)])
+                print("gravity: {}".format(np.sum(gravity, axis=0)))
+            self.velocity = W * self.velocity + cognitive_comp + social_comp + modified_comp + gravity
             W = self.w1 - (self.w1 + self.w2) * iteration / self.max_iteration
             self.position = np.clip(self.velocity + self.position, np.array(self.range_var)[:, 0], np.array(self.range_var)[:, 1])
             self.evol_best_fitness[iteration] = self.gbest_fitness_value
