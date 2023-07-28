@@ -5,6 +5,7 @@ Date: 24-08-2022
 """
 import numpy as np
 from sklearn.metrics import r2_score
+import multiprocessing
 import random
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
@@ -80,7 +81,10 @@ class PSORegression:
         W = self.w1
         gravity = 0
         while iteration < self.max_iteration:
-            result = [self.fitness_function(pos) for pos in self.position]
+            pool = multiprocessing.Pool(processes=3)
+            result = pool.map(self.fitness_function, self.position)
+            pool.close()
+            # result = [self.fitness_function(pos) for pos in self.position]
             fitness = np.array([elem[0] for elem in result])
             result = [elem[1] for elem in result]
             self.pbest_position[fitness < self.pbest_fitness_value] = self.position[fitness < self.pbest_fitness_value]
