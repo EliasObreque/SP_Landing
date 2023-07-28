@@ -115,7 +115,7 @@ class PlaneCoordinate(object):
 
     def save_data(self):
         self.historical_pos_i.append(self.current_pos_i)
-        self.historical_vel_i.append(self.current_pos_i)
+        self.historical_vel_i.append(self.current_vel_i)
         self.historical_mass.append(self.current_mass)
         self.historical_theta.append(self.current_theta)
         self.historical_omega.append(self.current_omega)
@@ -131,7 +131,16 @@ class PlaneCoordinate(object):
                 self.historical_inertia[idx],
                 self.historical_time[idx]]
 
-    def rkf45(self, thrust_i, m_dot_p, torque_b, tol=1e-9):
+    def get_historial(self):
+        return [self.historical_pos_i,
+                self.historical_vel_i,
+                self.historical_mass,
+                self.historical_theta,
+                self.historical_omega,
+                self.historical_inertia,
+                self.historical_time]
+
+    def rkf45(self, thrust_i, m_dot_p, torque_b, tol=1e-12):
         x = np.concatenate([self.current_pos_i, self.current_vel_i, np.array([self.current_mass, self.current_theta,
                                                                               self.current_omega,
                                                                               self.current_inertia])])

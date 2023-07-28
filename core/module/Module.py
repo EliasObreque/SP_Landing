@@ -59,25 +59,26 @@ class Module(object):
         k = 0
         control = [0.0] * len(self.thrusters)
         while self.dynamics.dynamic_model.current_time <= tf and self.dynamics.isTouchdown() is False:
+            low_step_ = False
             for i, thr in enumerate(self.thrusters):
                 control[i] = self.control_function(self.dynamics.get_current_state(), n_e=i)
                 if control[i] == 1 and self.thrusters[i].thr_is_burned is False:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 0 else None
-                    low_step_ = low_step
+                    low_step_ = sum([True, low_step_])
                 else:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 1 else None
-                    low_step_ = None
-                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 10000.0:
-                    low_step_ = low_step
-                self.update(control, low_step_)
-                self.save_log()
-                subk += 1
+                    low_step_ = sum([False, low_step_])
+                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 2e3:
+                    low_step_ = sum([True, low_step_])
+            subk += 1
+            self.update(control, low_step if low_step_ else None)
+            self.save_log()
             if k > 29 and progress:
                 print('Progress {} % - Thrust: {}'.format(self.dynamics.dynamic_model.current_time / tf * 100,
                                                           self.get_thrust()))
                 k = 0
             k += 1
-        return self.dynamics.get_current_state()
+        return self.dynamics.dynamic_model.get_historial()
 
     def train(self):
         pass
@@ -101,7 +102,17 @@ class Module(object):
     def on_off_control(self, value, n_e=0):
         if n_e == 0:
             value = np.arctan2(value[0][1], value[0][0])
-            if value > self.th[n_e]:
+            if value < 0:
+                value += 2 * np.pi
+            if value >= self.th[n_e]:
+                return 1
+            else:
+                return 0
+        elif n_e == 1:
+            value = np.arctan2(value[0][1], value[0][0])
+            if value < 0:
+                value += 2 * np.pi
+            if value >= self.th[n_e]:
                 return 1
             else:
                 return 0

@@ -18,7 +18,13 @@ multiprocessing
 
 To install run:
 ```
-pip install -r requirements.txt
+$ git clone https://github.com/EliasObreque/SP_Landing.git
+$ python -m venv .sp-venv
+# Windows
+$ .sp-venv/Scripts/activate
+W Linux
+$ source .sp-venv/bin/activate
+$ pip install -r requirements.txt
 ```
 
 ## For simultaneous simulation (Multi Core: 3 Core):

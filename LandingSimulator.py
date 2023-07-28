@@ -5,8 +5,9 @@ Date: 24-08-2022
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from core.module import Module
-from core.thrust import default_thruster
+from core.module.Module import Module
+from core.thrust.thrustProperties import default_thruster
+from core.thrust.propellant.propellantProperties import default_propellant
 from matplotlib.patches import Ellipse
 from tools.pso import PSORegression
 
@@ -40,37 +41,49 @@ theta = -90 * np.deg2rad(1)
 omega = 0
 state = [position, velocity, theta, omega]
 
+
 current_time = 0
 dt = 0.1
-tf = 260 * 60 * 60
+tf = 180 * 60 * 60
 modules = [Module(mass_0, inertia_0, state, thruster_pos, thruster_ang, thruster_properties,
                   propellant_properties, reference_frame, dt) for i in range(n_modules)]
 
 
-def cost_function(modules_setting):
-    r_target, v_target, theta_target, omega_target = 1.738e6 + 2000, 100.0, 0.0, 0.0
-    states = []
+def get_energy(mu, r, v):
+    return 0.5 * np.linalg.norm(v) ** 2 - mu/np.linalg.norm(r)
+
+
+def cost_function(modules_setting, plot=False):
+    h_target = rm + 1000e3
+    r_target, v_target, theta_target, omega_target = h_target, np.sqrt(mu/h_target), 0.0, 0.0
+    energy_target = get_energy(mu, r_target, v_target)
+    min_state = []
+    min_cost = np.inf
+    cost = []
     for i, module_i in enumerate(modules):
-        module_i.set_thrust_design([modules_setting[1], modules_setting[3]], modules_setting[4])
+        module_i.set_thrust_design([modules_setting[1], modules_setting[3]], 0)
         module_i.set_control_function([modules_setting[0], modules_setting[2]])
-        last_state = module_i.simulate(tf, low_step=0.1, progress=False)
-        states.append(last_state)
+        historical_state = module_i.simulate(tf, low_step=0.01, progress=False)
+        states = module_i.dynamics.get_current_state()
         module_i.reset()
 
-    cost = []
-    for st in states:
-        r_state, v_state = np.linalg.norm(st[0]), np.linalg.norm(st[1])
-        cost.append((0.1 * (r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5)
-        print("Altitude: {}, Velocity: {}, Cost: {}".format(r_state - rm, v_state, cost[-1]))
-    return np.mean(cost)
+        r_state, v_state = np.linalg.norm(states[0]), np.linalg.norm(states[1])
+        #error = np.abs(get_energy(mu, r_state, v_state) - energy_target)
+        error = (0.1 * (r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5
+        cost.append(error)
+        if error < min_cost:
+            min_state = historical_state
+            min_cost = error
+        # cost.append(energy_ite)
+    print(np.mean(cost))
+    return np.mean(cost), min_state
 
 
-# Optimal Design of the Control
-range_variables = [(np.pi/2, 2 * np.pi-np.pi/2),  # First ignition position (angle)
-                   (0.02, 0.2),    # Main engine diameter (meter)
-                   (1.738e6 + 2000, rp*4),  # Second ignition position (meter)
-                   (0.02, 0.19),  # Secondary engine diameter (meter)
-                   (0, 2 * np.pi)  # Orientation
+# Optimal Design of the Control (First stage: Decrease the altitude, and the mass to decrease the rw mass/inertia)
+range_variables = [(0, 2 * np.pi),  # First ignition position (angle)
+                   (0.0, 0.7),    # Main engine diameter (meter)
+                   (0, 2 * np.pi),  # Second ignition position (meter)
+                   (0, 0.1),  # Secondary engine diameter (meter)
                    ]
 
 pso_algorithm = PSORegression(cost_function, n_particles=100, n_steps=100)
@@ -85,19 +98,16 @@ plt.grid()
 print("Final evaluation: {}".format(final_eval))
 
 for i, module_i in enumerate(modules):
-    module_i.set_thrust_design([modules_setting[1], modules_setting[3]], modules_setting[4])
+    module_i.set_thrust_design([modules_setting[1], modules_setting[3]], 0)
     module_i.set_control_function([modules_setting[0], modules_setting[2]])
-    final_state = module_i.simulate(tf, low_step=0.1)
+    final_state = module_i.simulate(tf, low_step=0.01)
     module_i.evaluate()
 
     print("Final State {}: ".format(final_state))
 
 plt.figure()
 ax = plt.gca()
-ellipse = Ellipse(xy=(0, -(a - rp) * 1e-3), width=b * 2 * 1e-3, height=2 * a * 1e-3,
-                  edgecolor='r', fc='None', lw=0.7)
-ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3,
-                       edgecolor='gray', fc='None', lw=0.7)
+
 
 plt.plot(np.array(modules[0].dynamics.dynamic_model.historical_pos_i)[:, 0] * 1e-3,
          np.array(modules[0].dynamics.dynamic_model.historical_pos_i)[:, 1] * 1e-3)
@@ -109,7 +119,10 @@ plt.plot(*modules[0].get_ignition_state('end')[0][0] * 1e-3, 'xr')
 plt.plot(*modules[0].get_ignition_state('init')[1][0] * 1e-3, 'xg')
 plt.plot(*modules[0].get_ignition_state('end')[1][0] * 1e-3, 'xr')
 
-
+ellipse = Ellipse(xy=(0, -(a - rp) * 1e-3), width=b * 2 * 1e-3, height=2 * a * 1e-3,
+                  edgecolor='r', fc='None', lw=0.7)
+ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
+                       edgecolor='black', fc='gray', lw=0.4)
 ax.add_patch(ellipse)
 ax.add_patch(ellipse_moon)
 plt.grid()
