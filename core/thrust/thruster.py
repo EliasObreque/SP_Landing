@@ -37,6 +37,8 @@ if __name__ == '__main__':
     from thrustProperties import default_thruster
     from tools.Viewer import plot_thrust, show_plot
     from core.thrust.propellant.source.propellant_data import propellant_data
+    from propellant.propellantProperties import default_propellant, BATES, bates_geom
+    import matplotlib.pyplot as plt
 
     NEUTRAL = 'neutral'
     PROGRESSIVE = 'progressive'
@@ -118,12 +120,23 @@ if __name__ == '__main__':
         current_time += dt
         time_array.append(current_time)
 
+    mass = comp_thrust_free.channels['mass'].getData()
+    mass_flow = comp_thrust_free.channels['massFlow'].getData()
+    print(dt * np.sum(mass_flow))
     total_thrust = 0
     torque = 0
     for hist in comp_thrust:
         total_thrust += np.array(hist.historical_mag_thrust)
     # print([elem[1].getData() for elem in comp_thrust[0]().channels.items()])
     # print("radius mm: ", comp_thrust[0].calc_area_by_mass_flow(10.16e-3))
+
+    plt.figure()
+    plt.plot(time_array, mass)
+    plt.show()
+
+    plt.figure()
+    plt.plot(time_array, mass_flow)
+    plt.show()
 
     plot_thrust(time_array, total_thrust, thrust_free=comp_thrust_free.historical_mag_thrust, names=['Model thrust [N]', 'Ideal thrust [N]'], dead=.0)
     show_plot()

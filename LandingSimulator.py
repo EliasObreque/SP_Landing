@@ -9,7 +9,7 @@ from core.module.Module import Module
 from core.thrust.thrustProperties import default_thruster
 from core.thrust.propellant.propellantProperties import default_propellant
 from matplotlib.patches import Ellipse
-from tools.pso import PSORegression
+from tools.pso import PSOStandard, APSO
 
 n_thrusters = 2
 thruster_pos = [np.array([0, 0])] * 2
@@ -49,22 +49,28 @@ def get_energy(mu, r, v):
 
 
 def cost_function(modules_setting, plot=False):
-    h_target = rm + 1000e3
-    r_target, v_target, theta_target, omega_target = h_target, np.sqrt(mu / h_target), 0.0, 0.0
+    h_target = rm + 100e3
+    rp_target = 2e6
+    r_target, v_target, theta_target, omega_target = h_target, np.sqrt(mu * (2/h_target - 1/rp_target)), 0.0, 0.0
     energy_target = get_energy(mu, r_target, v_target)
     min_state = []
     min_cost = np.inf
     cost = []
+    thruster_properties = [thr_properties] * len(modules_setting[1::2])
+    propellant_properties = [default_propellant] * len(modules_setting[1::2])
     modules_ = [Module(mass_0, inertia_0, state, thruster_pos, thruster_ang, thruster_properties,
                        propellant_properties, reference_frame, dt) for _ in range(n_modules)]
     for i, module_i in enumerate(modules_):
-        module_i.set_thrust_design([modules_setting[1], modules_setting[3]], 0)
-        module_i.set_control_function([modules_setting[0], modules_setting[2]])
+        engine_diam = modules_setting[1::2]
+        control_set = modules_setting[0::2]
+        module_i.set_thrust_design(engine_diam, 0)
+        module_i.set_control_function(control_set)
         historical_state = module_i.simulate(tf, low_step=0.1, progress=False)
-        states = module_i.dynamics.get_current_state()
-        r_state, v_state = np.linalg.norm(states[0]), np.linalg.norm(states[1])
-        error = np.abs(get_energy(mu, r_state, v_state) - energy_target)
-        # error = (0.1 * (r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5
+        r_state = np.array([np.linalg.norm(elem) for elem in historical_state[0]])
+        v_state = np.array([np.linalg.norm(elem) for elem in historical_state[1]])
+        state_energy = np.array([get_energy(mu, r_state_, v_state_) for r_state_, v_state_ in zip(r_state, v_state)])
+        error = np.abs(np.mean(state_energy[-10:-1]) - energy_target)
+        # error = ((r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5
         error *= 10000 if module_i.dynamics.isTouchdown() else 1
         cost.append(error)
         if error < min_cost:
@@ -82,49 +88,44 @@ if __name__ == '__main__':
     modules = [Module(mass_0, inertia_0, state, thruster_pos, thruster_ang, thruster_properties,
                       propellant_properties, reference_frame, dt) for i in range(n_modules)]
 
-
-
-
-
     # Optimal Design of the Control (First stage: Decrease the altitude, and the mass to decrease the rw mass/inertia)
-    range_variables = [(0, 2 * np.pi),  # First ignition position (angle)
-                       (0.0, 0.7),    # Main engine diameter (meter)
-                       (0, 2 * np.pi),  # Second ignition position (meter)
-                       (0, 0.1),  # Secondary engine diameter (meter)
+    range_variables = [(0.8*np.pi/2, 1.2 * np.pi/2),  # First ignition position (angle)
+                       (0.1, 0.3)    # Main engine diameter (meter)
+                       #(0, 2 * np.pi),  # Second ignition position (meter)
+                       #(0.0, 0.2),  # Secondary engine diameter (meter)
                        ]
 
-    pso_algorithm = PSORegression(cost_function, n_particles=20, n_steps=20)
+    pso_algorithm = PSOStandard(cost_function, n_particles=15, n_steps=20)
     pso_algorithm.initialize(range_variables)
 
-    pso_algorithm_gra = PSORegression(cost_function, n_particles=20, n_steps=20)
-    pso_algorithm_gra.pbest_fitness_value = np.array([float('inf') for _ in range(pso_algorithm_gra.npar)])
-    pso_algorithm_gra.gbest_fitness_value = float('inf')
+    pso_algorithm_gra = APSO(cost_function, n_particles=15, n_steps=20)
     pso_algorithm_gra.range_var = range_variables
     pso_algorithm_gra.position = pso_algorithm.position.copy()
     pso_algorithm_gra.velocity = pso_algorithm.velocity.copy()
-    pso_algorithm_gra.pbest_position = pso_algorithm.position.copy()
-    pso_algorithm_gra.gbest_position = pso_algorithm.gbest_position.copy()
-    pso_algorithm_gra.evol_best_fitness = np.zeros(pso_algorithm.max_iteration)
-    pso_algorithm_gra.evol_p_fitness = np.zeros((pso_algorithm.npar, pso_algorithm.max_iteration))
+    pso_algorithm_gra.pbest_position = pso_algorithm_gra.position
 
     final_eval = pso_algorithm.optimize()
-    final_eval_gra = pso_algorithm_gra.optimize(grav=True)
-
     modules_setting = pso_algorithm.gbest_position
+
+    final_eval_gra = pso_algorithm_gra.optimize()
     modules_setting_gra = pso_algorithm_gra.gbest_position
 
+    print("Final evaluation: {}, Final evaluation gra: {}".format(final_eval, final_eval_gra))
+
     plt.figure()
-    plt.plot(pso_algorithm_gra.evol_best_fitness)
+    plt.plot(pso_algorithm_gra.evol_best_fitness, '-o')
     plt.plot(pso_algorithm.evol_best_fitness)
     plt.grid()
     plt.legend(['gravity', "apso"])
     plt.show()
 
-    print("Final evaluation: {}, Final evaluation gra: {}".format(final_eval, final_eval_gra))
-
+    if final_eval_gra < final_eval:
+        modules_setting = modules_setting_gra
     for i, module_i in enumerate(modules):
-        module_i.set_thrust_design([modules_setting[1], modules_setting[3]], 0)
-        module_i.set_control_function([modules_setting[0], modules_setting[2]])
+        engine_diam = modules_setting[1::2]
+        control_set = modules_setting[0::2]
+        module_i.set_thrust_design(engine_diam, 0)
+        module_i.set_control_function(control_set)
         final_state = module_i.simulate(tf, low_step=0.1)
         module_i.evaluate()
 

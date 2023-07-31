@@ -54,7 +54,7 @@ propellant_data.append({'name': 'TRX-H609',
 
 propellant_data.append({'name': 'Nakka - KNSU',
                         'data': {'density': 1.88,
-                                 'Isp': 164,
+                                 'Isp': 250,
                                  'burn_rate_constant': 0.101,  # mm/(s*Pa^n)
                                  'pressure_exponent': 0.319,
                                  'small_gamma': 1.133,

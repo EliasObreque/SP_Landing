@@ -36,7 +36,7 @@ class Module(object):
             thr_i.set_step_time(self.dynamics.dynamic_model.dt)
         [thr_i.set_ignition(control[i]) for i, thr_i in enumerate(self.thrusters)]
         [thr_i.propagate_thrust() for thr_i in self.thrusters]
-        # [thr_i.log_value() for thr_i in self.thrusters]
+        [thr_i.log_value() for thr_i in self.thrusters]
         thr = [thr_i.get_current_thrust() for thr_i in self.thrusters]
         m_dot_p = np.sum([thr_i.get_current_m_flow() for thr_i in self.thrusters])
         tau_b = self.calc_torques(thr)
@@ -72,7 +72,14 @@ class Module(object):
                     low_step_ = sum([True, low_step_])
             subk += 1
             self.update(control, low_step if low_step_ else None)
+            tf_update = self.get_orbit_period()
             self.save_log()
+            if tf_update is None:
+                break
+            if 1.5 * tf_update < tf:
+                tf = tf_update
+            if tf < self.dynamics.dynamic_model.current_time:
+                break
             if k > 29 and progress:
                 print('Progress {} % - Thrust: {}'.format(self.dynamics.dynamic_model.current_time / tf * 100,
                                                           self.get_thrust()))
@@ -90,6 +97,19 @@ class Module(object):
         [thr.reset_variables() for thr in self.thrusters]
         self.dynamics.dynamic_model.reset()
         self.thrusters_action_wind = [[] for _ in range(len(self.thrusters))]
+
+    def get_orbit_period(self):
+        state = self.dynamics.get_current_state()
+        mu = self.dynamics.mu
+        r = state[0]
+        v = state[1]
+        energy = 0.5 * np.linalg.norm(v) ** 2 - mu / np.linalg.norm(r)
+        a = - mu / energy / 2
+        if a > 0:
+            period = 2 * np.pi * np.sqrt(a ** 3 / mu)
+            return period
+        else:
+            return None
 
     @staticmethod
     def __default_control(state, n_e=0):
@@ -130,6 +150,7 @@ class Module(object):
     def set_thrust_design(self, thrust_design, orientation):
         for i, value in enumerate(thrust_design):
             self.propellant_properties[i]['geometry']['setting']['ext_diameter'] = value
+            self.thruster_conf[i]['case_diameter'] = value
         self.thrusters = [Thruster(self.dynamics.dynamic_model.dt, self.thruster_conf[i], self.propellant_properties[i])() for i in range(len(self.thruster_conf))]
 
     def get_ignition_state(self, moment):

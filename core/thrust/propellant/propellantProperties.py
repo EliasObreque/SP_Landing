@@ -10,10 +10,10 @@ CUSTOM = 'custom'
 
 # inhibit: True 1, False 0
 
-bates_geom = {'ext_diameter': 0.1,
+bates_geom = {'ext_diameter': 0.01,
               'int_diameter': 0.01,
               'large': 0.2,
-              'inhibit': {'top': 1, 'bot': 0}}
+              'inhibit': {'top': 1, 'bot': 1}}
 
 star_geom = {'ext_diameter': 0.03,
              'int_diameter': 0.005,
