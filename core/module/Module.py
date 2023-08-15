@@ -58,7 +58,8 @@ class Module(object):
         subk = 0
         k = 0
         control = [0.0] * len(self.thrusters)
-        while self.dynamics.dynamic_model.current_time <= tf and self.dynamics.isTouchdown() is False:
+
+        while self.dynamics.dynamic_model.current_time <= tf and not self.dynamics.isTouchdown() and not self.dynamics.notMass():
             low_step_ = False
             for i, thr in enumerate(self.thrusters):
                 control[i] = self.control_function(self.dynamics.get_current_state(), n_e=i)
@@ -68,7 +69,7 @@ class Module(object):
                 else:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 1 else None
                     low_step_ = sum([False, low_step_])
-                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 2e3:
+                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 50e3:
                     low_step_ = sum([True, low_step_])
             subk += 1
             self.update(control, low_step if low_step_ else None)
