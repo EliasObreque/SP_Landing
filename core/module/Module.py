@@ -64,7 +64,9 @@ class Module(object):
             for i, thr in enumerate(self.thrusters):
                 control[i] = self.control_function(self.dynamics.get_current_state(), n_e=i)
                 if control[i] == 1 and self.thrusters[i].thr_is_burned is False:
+                    low_step_ = sum([True, low_step_]) #if len(self.thrusters_action_wind[i]) == 0 else sum([False, low_step_])
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 0 else None
+                elif self.thrusters[i].current_beta == 1 and self.thrusters[i].thr_is_burned is False:
                     low_step_ = sum([True, low_step_])
                 else:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 1 else None

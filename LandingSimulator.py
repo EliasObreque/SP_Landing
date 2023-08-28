@@ -47,7 +47,7 @@ theta = -90 * np.deg2rad(1)
 omega = 0
 state = [position, velocity, theta, omega]
 dt = 0.1
-tf = 150 * 60 * 60
+tf = 280 * 60 * 60
 
 
 def get_energy(mu, r, v):
@@ -60,13 +60,21 @@ def cost_function(modules_setting, plot=False):
     # r_target, v_target, theta_target, omega_target = h_target, np.sqrt(mu * (2/h_target - 1/rp_target)), 0.0, 0.0
     # energy_target = get_energy(mu, r_target, v_target)
     energy_target = -mu / (rp_target + h_target)
-    min_state = []
-    min_cost = np.inf
     cost = []
     thruster_properties = [thr_properties] * len(modules_setting[1::2])
     propellant_properties = [default_propellant] * len(modules_setting[1::2])
-    modules_ = [Module(mass_0, inertia_0, state, thruster_pos, thruster_ang, thruster_properties,
-                       propellant_properties, reference_frame, dt) for _ in range(n_modules)]
+    state_ = []
+    energy_module = []
+    for i in range(n_modules):
+        st = [state[0] + np.random.normal(0, 100 if n_modules > 1 else 0, size=2),
+              state[1] + np.random.normal(0, 5 if n_modules > 1 else 0, size=2),
+              state[2],
+              state[3]]
+        state_.append(st)
+    modules_ = [Module(mass_0, inertia_0, state_[i],
+                       thruster_pos, thruster_ang, thruster_properties,
+                       propellant_properties, reference_frame, dt) for i in range(n_modules)]
+    min_state = []
     for i, module_i in enumerate(modules_):
         engine_diam = modules_setting[1::2]
         control_set = modules_setting[0::2]
@@ -78,18 +86,17 @@ def cost_function(modules_setting, plot=False):
         mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
         state_energy = np.array([get_energy(mu, r_state_, v_state_) for r_state_, v_state_ in zip(r_state, v_state)])
         ratio = state_energy[-1] / energy_target
-        error = (state_energy[-1] - energy_target)**2
+        energy_module.append(state_energy[-1])
+        error = (state_energy[-1] - energy_target) ** 2
         # error = ((r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5
         error *= 100 if module_i.dynamics.isTouchdown() else 1
         if module_i.dynamics.notMass():
             error *= 10000
         cost.append(error)
-        if error < min_cost:
-            min_state = historical_state
-            min_cost = error
+        min_state.append(historical_state)
         module_i.reset()
         # cost.append(energy_ite)
-    print("cost: {}, energy target: {}, energy: {}".format(np.mean(cost), energy_target, np.mean(state_energy[-10:-1])))
+    print("cost: {}, energy target: {}, energy: {}".format(np.mean(cost), energy_target, np.mean(energy_module)))
     return np.mean(cost), min_state
 
 
@@ -102,8 +109,8 @@ if __name__ == '__main__':
                        #(0, 2 * np.pi),  # Second ignition position (meter)
                        #(0.0, 0.2),  # Secondary engine diameter (meter)
                        ]
-    n_step = 10
-    n_par = 5
+    n_step = 50
+    n_par = 50
     pso_algorithm = PSOStandard(cost_function, n_particles=n_par, n_steps=n_step)
     pso_algorithm.initialize(range_variables)
 

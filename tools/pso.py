@@ -17,13 +17,14 @@ ecc = 1 - rp / a
 b = a * np.sqrt(1 - ecc ** 2)
 rm = 1.738e6
 MAX_CORE = multiprocessing.cpu_count()
+NCORE = MAX_CORE
 
 
 class PSO:
     def __init__(self, func, n_particles=100, n_steps=200, parameters=(1.5, 0.05, 0.2, .5)):
         self.fitness_function = func
         self.dim = None
-        self.position = []
+        self.position = np.zeros(0)
         self.historical_position = []
         self.velocity = None
         self.max_iteration = n_steps
@@ -56,19 +57,15 @@ class PSO:
             [self.create_random_vector(range_var) for _ in range(self.npar)])
         self.pbest_position = self.position
 
-    def plot_state_solution(self, min_state):
+    def plot_state_solution(self, min_state_full):
         fig_pso, ax_pso = plt.subplots(2, 2, figsize=(10, 8))
         ax_pso = ax_pso.flatten()
-        ax_pso[0].plot(min_state[-1], [elem[0] for elem in min_state[0]])
         ax_pso[0].set_ylabel("X-Position [km]")
         ax_pso[0].grid()
-        ax_pso[1].plot(min_state[-1], [elem[1] for elem in min_state[0]])
         ax_pso[1].set_ylabel("Y-Position [km]")
         ax_pso[1].grid()
-        ax_pso[2].plot(min_state[-1], min_state[2])
         ax_pso[2].set_ylabel("Mass [kg]")
         ax_pso[2].grid()
-        ax_pso[3].plot([elem[0] * 1e-3 for elem in min_state[0]], [elem[1] * 1e-3 for elem in min_state[0]])
         ellipse = Ellipse(xy=(0, -(a - rp) * 1e-3), width=b * 2 * 1e-3, height=2 * a * 1e-3,
                           edgecolor='r', fc='None', lw=0.7)
         ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
@@ -80,6 +77,11 @@ class PSO:
         ax_pso[3].add_patch(ellipse_moon)
         ax_pso[3].set_ylabel("Orbit")
         ax_pso[3].grid()
+        for min_state in min_state_full:
+            ax_pso[0].plot(min_state[-1], [elem[0] for elem in min_state[0]])
+            ax_pso[1].plot(min_state[-1], [elem[1] for elem in min_state[0]])
+            ax_pso[2].plot(min_state[-1], min_state[2])
+            ax_pso[3].plot([elem[0] * 1e-3 for elem in min_state[0]], [elem[1] * 1e-3 for elem in min_state[0]])
 
     def plot_historical_position(self):
         fig, axes = plt.subplots(len(self.range_var), 1)
@@ -122,13 +124,11 @@ class PSO:
         ax.legend()
 
     def show_map(self):
-        cmap = plt.get_cmap('jet')  # I only want 4 colors from this cmap
+        cmap = plt.get_cmap('jet').reversed()  # I only want 4 colors from this cmap
         x = np.array(self.historical_position).T[0]
         y = np.array(self.historical_position).T[1]
         value = np.log10(self.historical_fitness)
-        xi, yi, zi = self.get_gridmap_approximation()
         plt.figure()
-        plt.pcolormesh(xi, yi, zi, cmap='jet')
         plt.scatter(x.T, y.T, c=value, cmap=cmap)
         plt.colorbar(label='Log10')
 
@@ -153,8 +153,8 @@ class PSOStandard(PSO):
         W = self.w1
         min_state = None
         while iteration < self.max_iteration:
-            self.historical_position.append(self.position)
-            pool = multiprocessing.Pool(processes=8)
+            self.historical_position.append(self.position.copy())
+            pool = multiprocessing.Pool(processes=NCORE)
             result = pool.map(self.fitness_function, self.position)
             pool.close()
             # result = [self.fitness_function(pos) for pos in self.position]
@@ -182,7 +182,7 @@ class PSOStandard(PSO):
             self.position[:, 0] = self.position[:, 0] % (2 * np.pi)
             self.position[:, 1] = np.clip(self.position[:, 1], np.array(self.range_var)[1, 0], np.array(self.range_var)[1, 1])
 
-            W = self.w1 - (self.w1 + self.w2) * iteration / self.max_iteration
+            W = self.w1 - (self.w1 - self.w2) * iteration / self.max_iteration
             self.evol_best_fitness[iteration] = self.gbest_fitness_value
             self.evol_p_fitness[:, iteration] = self.pbest_fitness_value
             print("Train: ", iteration, "Fitness: ", self.gbest_fitness_value, "Worst: ", max(self.pbest_fitness_value), "Best:", self.gbest_position)
@@ -200,9 +200,9 @@ class PSOStandard(PSO):
 class APSO(PSOStandard):
     def __init__(self, func, n_particles=100, n_steps=200, parameters=(.5, 0.05, 1.2, 1.5)):
         super().__init__(func, n_particles, n_steps, parameters)
-        self.c1_max = 1.2
+        self.c1_max = 2.
         self.c1_min = 0.5
-        self.c2_max = 1.5
+        self.c2_max = 2.
         self.c2_min = 1.0
 
     def optimize(self):
@@ -213,8 +213,8 @@ class APSO(PSOStandard):
         modified_comp = 0
         min_state = None
         while iteration < self.max_iteration:
-            self.historical_position.append(self.position)
-            pool = multiprocessing.Pool(processes=8)
+            self.historical_position.append(self.position.copy())
+            pool = multiprocessing.Pool(processes=NCORE)
             result = pool.map(self.fitness_function, self.position)
             pool.close()
             # result = [self.fitness_function(pos) for pos in self.position]
@@ -244,9 +244,10 @@ class APSO(PSOStandard):
             self.position[:, 0] = self.position[:, 0] % (2 * np.pi)
             self.position[:, 1] = np.clip(self.position[:, 1], np.array(self.range_var)[1, 0],
                                           np.array(self.range_var)[1, 1])
-            W = self.w1 - (self.w1 + self.w2) * iteration / self.max_iteration
-            c1 = self.c1_max - (self.c1_max + self.c1_min) * iteration / self.max_iteration
-            c2 = self.c2_max - (self.c2_max + self.c2_min) * iteration / self.max_iteration
+            W = self.w1 - (self.w1 - self.w2) * iteration / self.max_iteration
+            c1 = self.c1_max - (self.c1_max - self.c1_min) * iteration / self.max_iteration
+            c2 = self.c2_max - (self.c2_max - self.c2_min) * iteration / self.max_iteration
+            print(c1, c2)
             self.evol_best_fitness[iteration] = self.gbest_fitness_value
             self.evol_p_fitness[:, iteration] = self.pbest_fitness_value
             print("Train: ", iteration, "Fitness: ", self.gbest_fitness_value, "Worst: ", max(self.pbest_fitness_value),

@@ -146,7 +146,7 @@ class PlaneCoordinate(object):
                                                                               self.current_inertia])])
         self.m_dot_p = m_dot_p
         beta = 0.9
-        hmin = 1e-9
+        hmin = 0.1
         h = self.h_old
         k_i = np.zeros(len(x))
         x_out = np.zeros(len(x))
