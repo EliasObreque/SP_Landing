@@ -7,38 +7,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import griddata
+rm = 1.738e6
+rp = 2e6
+mu = 4.9048695e12  # m3s-2
 
-# Tus puntos en coordenadas x, y, z
-x = np.array([1, 2, 3, 4, 5])
-y = np.array([2, 3, 4, 5, 6])
-z = np.array([5, 6, 7, 8, 9])
+
+def get_energy(mu, r, v):
+    return 0.5 * np.linalg.norm(v) ** 2 - mu / np.linalg.norm(r)
+
 
 # Definir la resolución de la superficie
-res = 50
-xi = np.linspace(min(x), max(x), res)
-yi = np.linspace(min(y), max(y), res)
+res = 100
+xi = np.linspace(rm, rp, res)
+yi = np.linspace(0, 2000, res)
 xi, yi = np.meshgrid(xi, yi)
 
-# Interpolación de los puntos para obtener valores z en la superficie
-zi = griddata((x, y), z, (xi, yi), method='cubic')
+z = 0.5 * yi ** 2 - mu / xi
+z_min = np.min(z)
+z_max = np.max(z)
 
-# Crear una figura 3D
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+fig, ax = plt.subplots()
 
-# Graficar la superficie
-surf = ax.plot_surface(xi, yi, zi, cmap='viridis')
+c = ax.pcolormesh(xi, yi, z, cmap='RdBu', vmin=z_min, vmax=z_max)
+ax.set_title('pcolormesh')
+# set the limits of the plot to the limits of the data
+ax.axis([xi.min(), xi.max(), yi.min(), yi.max()])
+fig.colorbar(c, ax=ax)
 
-# Agregar puntos originales
-ax.scatter(x, y, z, color='red', s=50, label='Puntos Originales')
-
-# Personalizar la apariencia
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-ax.set_title('Superficie Aproximada')
-ax.legend()
-
-# Mostrar el gráfico
 plt.show()
+
 

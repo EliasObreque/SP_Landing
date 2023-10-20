@@ -15,8 +15,8 @@ class Module(object):
     th = 0.0
 
     def __init__(self, mass, inertia, init_state, thruster_pos, thruster_ang, thruster_conf,
-                 propellant_properties, reference_frame, dt):
-
+                 propellant_properties, reference_frame, dt, training=False):
+        self.training = training
         self.thruster_conf = thruster_conf
         self.propellant_properties = propellant_properties
         self.thrusters = [Thruster(dt, thruster_conf[i], propellant_properties[i])() for i in range(len(thruster_conf))]
@@ -60,26 +60,27 @@ class Module(object):
         control = [0.0] * len(self.thrusters)
 
         while self.dynamics.dynamic_model.current_time <= tf and not self.dynamics.isTouchdown() and not self.dynamics.notMass():
-            low_step_ = False
+            low_step_flag = False
             for i, thr in enumerate(self.thrusters):
                 control[i] = self.control_function(self.dynamics.get_current_state(), n_e=i)
                 if control[i] == 1 and self.thrusters[i].thr_is_burned is False:
-                    low_step_ = sum([True, low_step_]) #if len(self.thrusters_action_wind[i]) == 0 else sum([False, low_step_])
+                    low_step_flag = sum([True, low_step_flag]) #if len(self.thrusters_action_wind[i]) == 0 else sum([False, low_step_])
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 0 else None
                 elif self.thrusters[i].current_beta == 1 and self.thrusters[i].thr_is_burned is False:
-                    low_step_ = sum([True, low_step_])
+                    low_step_flag = sum([True, low_step_flag])
                 else:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 1 else None
-                    low_step_ = sum([False, low_step_])
+                    low_step_flag = sum([False, low_step_flag])
                 if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 50e3:
-                    low_step_ = sum([True, low_step_])
+                    low_step_flag = sum([True, low_step_flag])
             subk += 1
-            self.update(control, low_step if low_step_ else None)
+            self.update(control, low_step if low_step_flag else None)
             tf_update = self.get_orbit_period()
             self.save_log()
+            left_engine = np.all([thr.thr_is_burned for thr in self.thrusters])
             if tf_update is None:
                 break
-            if 1.5 * tf_update < tf:
+            if 2.5 * tf_update < tf:
                 tf = tf_update
             if tf < self.dynamics.dynamic_model.current_time:
                 break

@@ -44,9 +44,16 @@ rot_90 = np.array([[0, -1], [1, 0]])
 position = rot_90 @ np.array([np.cos(f_0), np.sin(f_0)]) * r_0
 velocity = np.sqrt(mu/p_) * rot_90 @ np.array([-np.sin(f_0), (ecc + np.cos(f_0))])
 theta = -90 * np.deg2rad(1)
+q_i2b = np.array([0, 0, 0, 1])
 omega = 0
-state = [position, velocity, theta, omega]
-dt = 0.1
+if reference_frame == '2D':
+    state = [position, velocity, theta, omega]
+elif reference_frame == '3D':
+    state = [np.array([*position, 0.0]), np.array([*velocity, 0]), q_i2b, np.zeros(3)]
+else:
+    assert False
+
+dt = 0.01
 tf = 280 * 60 * 60
 
 
@@ -57,7 +64,7 @@ def get_energy(mu, r, v):
 def cost_function(modules_setting, plot=False):
     h_target = rm + 100e3
     rp_target = 2e6
-    # r_target, v_target, theta_target, omega_target = h_target, np.sqrt(mu * (2/h_target - 1/rp_target)), 0.0, 0.0
+    r_target, v_target, theta_target, omega_target = h_target, np.sqrt(mu * (2/h_target - 1/rp_target)), 0.0, 0.0
     # energy_target = get_energy(mu, r_target, v_target)
     energy_target = -mu / (rp_target + h_target)
     cost = []
@@ -66,37 +73,46 @@ def cost_function(modules_setting, plot=False):
     state_ = []
     energy_module = []
     for i in range(n_modules):
-        st = [state[0] + np.random.normal(0, 100 if n_modules > 1 else 0, size=2),
-              state[1] + np.random.normal(0, 5 if n_modules > 1 else 0, size=2),
-              state[2],
-              state[3]]
+        if reference_frame == '2D':
+            st = [state[0] + np.random.normal(0, 100 if n_modules > 1 else 0, size=2),
+                  state[1] + np.random.normal(0, 5 if n_modules > 1 else 0, size=2),
+                  state[2],
+                  state[3]]
+        elif reference_frame == '3D':
+            st = [state[0] + np.random.normal(0, 100 if n_modules > 1 else 0, size=3),
+                  state[1] + np.random.normal(0, 5 if n_modules > 1 else 0, size=3),
+                  state[2] + np.random.normal(0, 0.01 if n_modules > 1 else 0, size=4),
+                  state[3] + np.random.normal(0, 1e-3 if n_modules > 1 else 0, size=3)]
+        else:
+            break
         state_.append(st)
     modules_ = [Module(mass_0, inertia_0, state_[i],
                        thruster_pos, thruster_ang, thruster_properties,
-                       propellant_properties, reference_frame, dt) for i in range(n_modules)]
+                       propellant_properties, reference_frame, dt, training=True) for i in range(n_modules)]
     min_state = []
     for i, module_i in enumerate(modules_):
         engine_diam = modules_setting[1::2]
         control_set = modules_setting[0::2]
         module_i.set_thrust_design(engine_diam, 0)
         module_i.set_control_function(control_set)
-        historical_state = module_i.simulate(tf, low_step=0.1, progress=False)
+        historical_state = module_i.simulate(tf, low_step=0.01, progress=False)
         r_state = np.array([np.linalg.norm(elem) for elem in historical_state[0]])
         v_state = np.array([np.linalg.norm(elem) for elem in historical_state[1]])
         mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
         state_energy = np.array([get_energy(mu, r_state_, v_state_) for r_state_, v_state_ in zip(r_state, v_state)])
         ratio = state_energy[-1] / energy_target
         energy_module.append(state_energy[-1])
-        error = (state_energy[-1] - energy_target) ** 2
+        error = np.abs(state_energy[-1] - energy_target) / mass_state[-1]#  ** 2
         # error = ((r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5
         error *= 100 if module_i.dynamics.isTouchdown() else 1
         if module_i.dynamics.notMass():
-            error *= 10000
+            error *= 10
         cost.append(error)
         min_state.append(historical_state)
         module_i.reset()
         # cost.append(energy_ite)
-    print("cost: {}, energy target: {}, energy: {}".format(np.mean(cost), energy_target, np.mean(energy_module)))
+    print("cost: {}, energy target: {}, energy: {}, pos: {}, vel: {}".format(
+        np.mean(cost), energy_target, np.mean(energy_module), r_state[-1] - rm, v_state[-1]))
     return np.mean(cost), min_state
 
 
@@ -110,35 +126,34 @@ if __name__ == '__main__':
                        #(0.0, 0.2),  # Secondary engine diameter (meter)
                        ]
     n_step = 50
-    n_par = 50
+    n_par = 10
     pso_algorithm = PSOStandard(cost_function, n_particles=n_par, n_steps=n_step)
     pso_algorithm.initialize(range_variables)
 
-    pso_algorithm_gra = APSO(cost_function, n_particles=n_par, n_steps=n_step)
-    pso_algorithm_gra.range_var = range_variables
-    pso_algorithm_gra.position = pso_algorithm.position.copy()
-    pso_algorithm_gra.velocity = pso_algorithm.velocity.copy()
-    pso_algorithm_gra.pbest_position = pso_algorithm_gra.position
+    # pso_algorithm_gra = APSO(cost_function, n_particles=n_par, n_steps=n_step)
+    # pso_algorithm_gra.range_var = range_variables
+    # pso_algorithm_gra.position = pso_algorithm.position.copy()
+    # pso_algorithm_gra.velocity = pso_algorithm.velocity.copy()
+    # pso_algorithm_gra.pbest_position = pso_algorithm_gra.position
 
     final_eval = pso_algorithm.optimize()
     modules_setting = pso_algorithm.gbest_position
     pso_algorithm.show_map()
-    final_eval_gra = pso_algorithm_gra.optimize()
-    modules_setting_gra = pso_algorithm_gra.gbest_position
-    pso_algorithm_gra.show_map()
+    # final_eval_gra = pso_algorithm_gra.optimize()
+    # modules_setting_gra = pso_algorithm_gra.gbest_position
+    # pso_algorithm_gra.show_map()
 
-    print("Final evaluation: {}, Final evaluation gra: {}".format(final_eval, final_eval_gra))
-
+    # print("Final evaluation: {}, Final evaluation gra: {}".format(final_eval, final_eval_gra))
     plt.figure()
     plt.plot(pso_algorithm.evol_best_fitness)
-    plt.plot(pso_algorithm_gra.evol_best_fitness, '-o')
+    # plt.plot(pso_algorithm_gra.evol_best_fitness, '-o')
     plt.grid()
     plt.legend(['Standard', "apso"])
     plt.yscale("log")
     plt.show()
 
-    if pso_algorithm_gra.gbest_fitness_value < pso_algorithm.gbest_fitness_value:
-        modules_setting = modules_setting_gra
+    # if pso_algorithm_gra.gbest_fitness_value < pso_algorithm.gbest_fitness_value:
+    #     modules_setting = modules_setting_gra
 
     thruster_properties = [thr_properties] * len(modules_setting[1::2])
     propellant_properties = [default_propellant] * len(modules_setting[1::2])
@@ -198,7 +213,7 @@ if __name__ == '__main__':
 
     plt.figure()
     plt.plot(modules[0].dynamics.dynamic_model.historical_time,
-             np.array(modules[0].dynamics.dynamic_model.historical_theta))
+             np.array(modules[0].dynamics.dynamic_model.historical_qi2b))
     plt.grid()
 
     plt.figure()

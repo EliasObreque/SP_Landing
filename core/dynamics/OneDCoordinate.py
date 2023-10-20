@@ -17,7 +17,6 @@ class LinearCoordinate(object):
         self.g_planet = g_planet
         self.x_fixed = None
         self.m_dot_p = 0.0
-        return
 
     def dynamics_1d(self, state, T):
         alt = state[0]
@@ -54,3 +53,6 @@ class LinearCoordinate(object):
         k4 = self.dynamics_1d(xk4, thrust)
         next_x = x1 + (self.dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
         return next_x
+
+    def get_current_state(self):
+        return [self.current_pos_i, self.current_vel_i, self.current_mass]

@@ -9,10 +9,12 @@ import numpy as np
 import copy
 from .OneDCoordinate import LinearCoordinate
 from .PlaneCoordinate import PlaneCoordinate
+from .SixDoF import SixDoF
 from core.thrust.thruster import Thruster
 
 ONE_D = '1D'
 PLANE_D = '2D'
+THREE_D = '3D'
 
 
 class Dynamics(object):
@@ -31,6 +33,8 @@ class Dynamics(object):
             self.dynamic_model = LinearCoordinate(dt, self.g_planet, mass)
         elif reference_frame == PLANE_D:
             self.dynamic_model = PlaneCoordinate(dt, self.mu, self.r_moon, mass, inertia, state)
+        elif reference_frame == THREE_D:
+            self.dynamic_model = SixDoF(dt, self.mu, self.r_moon, mass, inertia, state)
         else:
             print('Reference frame not selected')
         self.basic_hamilton_calc = HamilCalcLimit(mass, self.g_planet)
@@ -146,9 +150,7 @@ class Dynamics(object):
                 self.controller_parameters[i].append(parameters[k][i])
 
     def get_current_state(self):
-        return [self.dynamic_model.current_pos_i, self.dynamic_model.current_vel_i,
-                self.dynamic_model.current_theta, self.dynamic_model.current_omega,
-                self.dynamic_model.current_mass]
+        return self.dynamic_model.get_current_state()
 
     def isTouchdown(self) -> bool:
         return bool(np.linalg.norm(self.dynamic_model.current_pos_i) - 2000.0 - self.r_moon < 0.0)
