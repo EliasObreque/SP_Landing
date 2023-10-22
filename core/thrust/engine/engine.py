@@ -20,7 +20,7 @@ class LogChannel:
         self.data = []
 
     def getData(self):
-        return self.data
+        return np.array(self.data)
 
     def getPoint(self, i):
         """Returns a specific datapoint by index."""
@@ -104,7 +104,7 @@ class Engine(BasicThruster, ABC):
         # At t = 0, the motor has ignited
         self.channels['time'].addData(0)
         self.channels['kn'].addData(self.calc_kn(0))
-        self.channels['pressure'].addData(self.calc_chamber_pressure(0))
+        self.channels['pressure'].addData(0)
         self.channels['force'].addData(0)
         self.channels['mass'].addData(self.propellant.get_mass_at_reg(0))
         self.channels['volumeLoading'].addData(100 * (1 - (self.calc_free_volume(0) / self.empty_engine_volume)))
@@ -160,7 +160,6 @@ class Engine(BasicThruster, ABC):
         pc = (self.propellant.burn_rate_constant * area_ratio * self.propellant.density *
               self.propellant.c_char) ** (1 / (1 - self.propellant.burn_rate_exponent))
         self.chamber_pressure = pc
-        return self.chamber_pressure
 
     def calc_exit_pressure(self, k, p_c=None):
         if p_c is None:

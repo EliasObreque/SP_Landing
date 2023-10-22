@@ -53,7 +53,7 @@ propellant_data.append({'name': 'TRX-H609',
                                  'maxPressure': 10342500}})
 
 propellant_data.append({'name': 'Nakka - KNSU',
-                        'data': {'density': 1.88,
+                        'data': {'density': 1.8,
                                  'Isp': 250,
                                  'burn_rate_constant': 0.101,  # mm/(s*Pa^n)
                                  'pressure_exponent': 0.319,

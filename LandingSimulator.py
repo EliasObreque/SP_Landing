@@ -3,6 +3,8 @@ Created by Elias Obreque
 els.obrq@gmail.com
 Date: 24-08-2022
 """
+import time
+
 import numpy as np
 import matplotlib.pyplot as plt
 from core.module.Module import Module
@@ -54,7 +56,7 @@ else:
     assert False
 
 dt = 0.01
-tf = 280 * 60 * 60
+tf = 1210000
 
 
 def get_energy(mu, r, v):
@@ -100,10 +102,9 @@ def cost_function(modules_setting, plot=False):
         v_state = np.array([np.linalg.norm(elem) for elem in historical_state[1]])
         mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
         state_energy = np.array([get_energy(mu, r_state_, v_state_) for r_state_, v_state_ in zip(r_state, v_state)])
-        ratio = state_energy[-1] / energy_target
         energy_module.append(state_energy[-1])
-        error = np.abs(state_energy[-1] - energy_target) / mass_state[-1]#  ** 2
-        # error = ((r_target - r_state) ** 2 + (v_target - v_state) ** 2) ** 0.5
+        # error = np.abs(state_energy[-1] - energy_target) / mass_state[-1]
+        error = ((r_target - r_state[-4]) ** 2 + (v_target - v_state[-1]) ** 2) ** 0.5
         error *= 100 if module_i.dynamics.isTouchdown() else 1
         if module_i.dynamics.notMass():
             error *= 10
@@ -121,12 +122,12 @@ if __name__ == '__main__':
 
     # Optimal Design of the Control (First stage: Decrease the altitude, and the mass to decrease the rw mass/inertia)
     range_variables = [(0, 2 * np.pi),  # First ignition position (angle)
-                       (0.1, 0.25)    # Main engine diameter (meter)
+                       (0.1, 0.2)    # Main engine diameter (meter)
                        #(0, 2 * np.pi),  # Second ignition position (meter)
                        #(0.0, 0.2),  # Secondary engine diameter (meter)
                        ]
     n_step = 50
-    n_par = 10
+    n_par = 30
     pso_algorithm = PSOStandard(cost_function, n_particles=n_par, n_steps=n_step)
     pso_algorithm.initialize(range_variables)
 
@@ -135,10 +136,13 @@ if __name__ == '__main__':
     # pso_algorithm_gra.position = pso_algorithm.position.copy()
     # pso_algorithm_gra.velocity = pso_algorithm.velocity.copy()
     # pso_algorithm_gra.pbest_position = pso_algorithm_gra.position
-
+    init_time = time.time()
     final_eval = pso_algorithm.optimize()
+    end_time = time.time()
+    print("Optimization Time: {}".format((end_time - init_time) / 60))
     modules_setting = pso_algorithm.gbest_position
-    pso_algorithm.show_map()
+    pso_algorithm.show_map(0, 1)
+
     # final_eval_gra = pso_algorithm_gra.optimize()
     # modules_setting_gra = pso_algorithm_gra.gbest_position
     # pso_algorithm_gra.show_map()

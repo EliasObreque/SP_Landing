@@ -69,7 +69,7 @@ if __name__ == '__main__':
     thruster_properties_ = default_thruster
     thruster_properties_['thrust_profile'] = {'type': GRAIN}
     # thruster_properties_['thrust_profile']['type'] = MODEL
-    thruster_properties_['max_ignition_dead_time'] = 0.5
+    thruster_properties_['max_ignition_dead_time'] = 0.2
     ctrl_a = [1.0]
     ctrl_b = [6.91036]
     max_mass_flow = 1 / Isp / ge
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     k = 1
     current_time = 0
     beta = 0
-    while current_time <= 2 * t_burn + 10:
+    while current_time <= 2 * t_burn:
         thr = 0
         if current_time >= 0.5:
             beta = 1
@@ -122,21 +122,45 @@ if __name__ == '__main__':
 
     mass = comp_thrust_free.channels['mass'].getData()
     mass_flow = comp_thrust_free.channels['massFlow'].getData()
-    print(dt * np.sum(mass_flow))
+    print(dt * np.sum(mass_flow), max(mass))
     total_thrust = 0
     torque = 0
+    total_kn = 0
+    total_pressure = 0
+    total_web = 0
     for hist in comp_thrust:
         total_thrust += np.array(hist.historical_mag_thrust)
+        total_kn += hist.channels['kn'].getData()
+        total_web += hist.channels['web'].getData()
+        total_pressure += hist.channels['pressure'].getData() * 1e-6
     # print([elem[1].getData() for elem in comp_thrust[0]().channels.items()])
     # print("radius mm: ", comp_thrust[0].calc_area_by_mass_flow(10.16e-3))
 
     plt.figure()
+    plt.grid()
+    plt.title("Propellant Mass [kg]")
     plt.plot(time_array, mass)
-    plt.show()
 
     plt.figure()
+    plt.grid()
+    plt.title("Mass flow [kg/s]")
     plt.plot(time_array, mass_flow)
-    plt.show()
 
-    plot_thrust(time_array, total_thrust, thrust_free=comp_thrust_free.historical_mag_thrust, names=['Model thrust [N]', 'Ideal thrust [N]'], dead=.0)
+    plt.figure()
+    plt.grid()
+    plt.title("KN ")
+    plt.plot(time_array, total_kn)
+
+    plt.figure()
+    plt.grid()
+    plt.title("Web [mm]")
+    plt.plot(time_array, total_web * 1e3)
+
+    plt.figure()
+    plt.grid()
+    plt.title("Chamber Pressure [MPa]")
+    plt.plot(time_array, total_pressure)
+
+    plot_thrust(time_array, total_thrust, thrust_free=comp_thrust_free.historical_mag_thrust,
+                names=['Model thrust [N]', 'Ideal thrust [N]'], dead=.0)
     show_plot()

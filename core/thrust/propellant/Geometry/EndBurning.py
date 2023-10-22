@@ -13,6 +13,7 @@ class EndBurning(object):
     def __init__(self, di, diameter_ext, large, *args):
         self.current_burn_area = np.pi * (diameter_ext * 0.5) ** 2  # mm^2
         self.volume = self.current_burn_area * large  # mm^3
+        self.diameter_ext = diameter_ext
         self.wall_web = large
         return
 
@@ -23,7 +24,8 @@ class EndBurning(object):
         return self.current_burn_area
 
     def get_transversal_area_at_reg(self, reg):
-        pass
+        outer = np.pi * (self.diameter_ext * 0.5) ** 2
+        return outer
 
     def get_volume_at_reg(self, reg):
         return 0

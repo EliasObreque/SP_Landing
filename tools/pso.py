@@ -10,6 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+
 ra = 68e6
 rp = 2e6
 a = 0.5 * (ra + rp)
@@ -21,7 +22,7 @@ NCORE = int(MAX_CORE * 1)
 
 
 class PSO:
-    def __init__(self, func, n_particles=100, n_steps=200, parameters=(1.5, 0.05, 0.2, .5)):
+    def __init__(self, func, n_particles=100, n_steps=200, parameters=(1.0, 0.05, 0.2, .5)):
         self.fitness_function = func
         self.dim = None
         self.position = np.zeros(0)
@@ -57,31 +58,38 @@ class PSO:
             [self.create_random_vector(range_var) for _ in range(self.npar)])
         self.pbest_position = self.position
 
-    def plot_state_solution(self, min_state_full):
+    @staticmethod
+    def plot_state_solution(min_state_full):
         fig_pso, ax_pso = plt.subplots(2, 2, figsize=(10, 8))
         ax_pso = ax_pso.flatten()
         ax_pso[0].set_ylabel("X-Position [km]")
+        ax_pso[0].set_xlabel("Time [sec]")
         ax_pso[0].grid()
         ax_pso[1].set_ylabel("Y-Position [km]")
+        ax_pso[1].set_xlabel("Time [sec]")
         ax_pso[1].grid()
         ax_pso[2].set_ylabel("Mass [kg]")
+        ax_pso[2].set_xlabel("Time [sec]")
         ax_pso[2].grid()
-        ellipse = Ellipse(xy=(0, -(a - rp) * 1e-3 / (rm*1e-3)), width=b * 2 * 1e-3/ (rm*1e-3), height=2 * a * 1e-3/ (rm*1e-3),
+        ellipse = Ellipse(xy=(0, -(a - rp) * 1e-3), width=b * 2 * 1e-3,
+                          height=2 * a * 1e-3,
                           edgecolor='r', fc='None', lw=0.7)
-        ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm /rm, height=2 * rm / rm, fill=True,
+        ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
                                edgecolor='black', fc='None', lw=0.4)
-        ellipse_target = Ellipse(xy=(0, 0), width=2*(rm * 1e-3 + 100) / (rm*1e-3) , height=2*(rm * 1e-3 + 100)/ (rm*1e-3),
+        ellipse_target = Ellipse(xy=(0, 0), width=2 * (rm * 1e-3 + 100),
+                                 height=2 * (rm * 1e-3 + 100),
                                  edgecolor='green', fc='None', lw=0.7)
         ax_pso[3].add_patch(ellipse)
         ax_pso[3].add_patch(ellipse_target)
         ax_pso[3].add_patch(ellipse_moon)
-        ax_pso[3].set_ylabel("Orbit")
+        ax_pso[3].set_ylabel("Y-Position [km]")
+        ax_pso[3].set_xlabel("X-Position [km]")
         ax_pso[3].grid()
         for min_state in min_state_full:
-            ax_pso[0].plot(min_state[-1], [elem[0] for elem in min_state[0]])
-            ax_pso[1].plot(min_state[-1], [elem[1] for elem in min_state[0]])
+            ax_pso[0].plot(min_state[-1], [elem[0] * 1e-3 for elem in min_state[0]], 'o-')
+            ax_pso[1].plot(min_state[-1], [elem[1] * 1e-3 for elem in min_state[0]], 'o-')
             ax_pso[2].plot(min_state[-1], min_state[2])
-            ax_pso[3].plot([elem[0] / rm for elem in min_state[0]], [elem[1] / rm for elem in min_state[0]])
+            ax_pso[3].plot([elem[0] * 1e-3 for elem in min_state[0]], [elem[1] * 1e-3 for elem in min_state[0]])
 
     def plot_historical_position(self):
         fig, axes = plt.subplots(len(self.range_var), 1)
@@ -90,7 +98,7 @@ class PSO:
             ax.plot(np.arange(1, self.max_iteration + 1),
                     np.array(self.historical_position).T[i].T, lw=0.7, color='b')
             ax.plot(np.arange(1, self.max_iteration + 1),
-                              np.array(self.historical_g_position).T[i], lw=1.2, color='r')
+                    np.array(self.historical_g_position).T[i], lw=1.2, color='r')
             ax.grid()
 
     @staticmethod
@@ -123,10 +131,10 @@ class PSO:
         ax.set_title('PSO evaluation')
         ax.legend()
 
-    def show_map(self):
+    def show_map(self, a_, b_):
         cmap = plt.get_cmap('jet').reversed()  # I only want 4 colors from this cmap
-        x = np.array(self.historical_position).T[0]
-        y = np.array(self.historical_position).T[1]
+        x = np.array(self.historical_position).T[a_]
+        y = np.array(self.historical_position).T[b_]
         value = np.log10(self.historical_fitness)
         plt.figure()
         plt.scatter(x.T, y.T, c=value, cmap=cmap)
@@ -145,7 +153,7 @@ class PSO:
 
 
 class PSOStandard(PSO):
-    def __init__(self, func, n_particles=100, n_steps=200, parameters=(1.0, 0.1, 1.2, 1.5)):
+    def __init__(self, func, n_particles=100, n_steps=200, parameters=(0.8, 0.01, 1., 1.5)):
         super().__init__(func, n_particles, n_steps, parameters)
 
     def optimize(self):
@@ -174,18 +182,22 @@ class PSOStandard(PSO):
 
             self.historical_g_position.append(self.gbest_position)
             gbest = np.tile(self.gbest_position, (self.npar, 1))
-            r = np.random.uniform(size=(self.npar, 2))
-            cognitive_comp = self.c1 * np.diag(r[:, 0]) @ (self.pbest_position - self.position)
-            social_comp = self.c2 * np.diag(r[:, 1]) @ (gbest - self.position)
+            r = np.random.uniform(size=2)
+            cognitive_comp = self.c1 * r[0] * (self.pbest_position - self.position)
+            social_comp = self.c2 * r[1] * (gbest - self.position)
             self.velocity = W * self.velocity + cognitive_comp + social_comp
             self.position = self.velocity + self.position
             self.position[:, 0] = self.position[:, 0] % (2 * np.pi)
-            self.position[:, 1] = np.clip(self.position[:, 1], np.array(self.range_var)[1, 0], np.array(self.range_var)[1, 1])
+            # self.position[:, 0] = self.position[:, 0] % (2 * np.pi)
+            # self.position[:, 2] = self.position[:, 2] % (2 * np.pi)
+            self.position = np.clip(self.position, np.array(self.range_var)[:, 0],
+                                    np.array(self.range_var)[:, 1])
 
             W = self.w1 - (self.w1 - self.w2) * (iteration + 1) / self.max_iteration
             self.evol_best_fitness[iteration] = self.gbest_fitness_value
             self.evol_p_fitness[:, iteration] = self.pbest_fitness_value
-            print("Train: ", iteration, "Fitness: ", self.gbest_fitness_value, "Worst: ", max(self.pbest_fitness_value), "Best:", self.gbest_position)
+            print("Train: ", iteration, "Fitness: ", self.gbest_fitness_value, "Worst: ", max(self.pbest_fitness_value),
+                  "Best:", self.gbest_position)
             iteration += 1
         print("Finished")
 
@@ -262,4 +274,3 @@ class APSO(PSOStandard):
         self.plot_state_solution(min_state)
         self.plot_historical_position()
         return self.gbest_position
-
