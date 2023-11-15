@@ -4,12 +4,72 @@ Autor: Elias Obreque Sepulveda
 email: els.obrq@gmail.com
 
 """
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 import os
 from matplotlib import patches
+from matplotlib.patches import Ellipse
 import numpy as np
-plt.rcParams["font.family"] = "Times New Roman"
-plt.rcParams['font.size'] = 14
+# plt.rcParams["font.family"] = "Times New Roman"
+# plt.rcParams['font.size'] = 14
+
+ra = 68e6
+rp = 2e6
+a = 0.5 * (ra + rp)
+ecc = 1 - rp / a
+b = a * np.sqrt(1 - ecc ** 2)
+rm = 1.738e6
+
+
+def plot_state_solution(min_state_full, list_name, folder, name, aux: dict = None):
+    for i, min_state in enumerate(min_state_full[:-1]):
+        fig = plt.figure()
+        plt.grid()
+        if list_name is not None:
+            plt.ylabel(list_name[i])
+        plt.xlabel("Time [s]")
+        plt.plot(min_state_full[-1], min_state)
+        if aux is not None:
+            if i in list(aux.keys()):
+                plt.hlines(aux[i], xmin=min(min_state_full[-1]), xmax=max(min_state_full[-1]), colors='red')
+
+        fig.savefig(folder + name + "_" + list_name[i].split(" ")[0] + '.pdf', format='pdf')
+
+
+def plot_orbit_solution(min_state_full, list_name, folder, name):
+    fig_pso, ax_pso = plt.subplots(2, 2, figsize=(10, 8))
+    ax_pso = ax_pso.flatten()
+    ax_pso[0].set_ylabel("X-Position [km]")
+    ax_pso[0].set_xlabel("Time [sec]")
+    ax_pso[0].grid()
+    ax_pso[1].set_ylabel("Y-Position [km]")
+    ax_pso[1].set_xlabel("Time [sec]")
+    ax_pso[1].grid()
+    ax_pso[2].set_ylabel("Altitude [km]")
+    ax_pso[2].set_xlabel("Time [sec]")
+    ax_pso[2].grid()
+    ellipse = Ellipse(xy=(0, -(a - rp) * 1e-3), width=b * 2 * 1e-3,
+                      height=2 * a * 1e-3,
+                      edgecolor='r', fc='None', lw=0.7)
+    ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
+                           edgecolor='black', fc='None', lw=0.4)
+    ellipse_target = Ellipse(xy=(0, 0), width=2 * (rm * 1e-3 + 100),
+                             height=2 * (rm * 1e-3 + 100),
+                             edgecolor='green', fc='None', lw=0.7)
+    ax_pso[3].add_patch(ellipse)
+    ax_pso[3].add_patch(ellipse_target)
+    ax_pso[3].add_patch(ellipse_moon)
+    ax_pso[3].set_ylabel("Y-Position [km]")
+    ax_pso[3].set_xlabel("X-Position [km]")
+    ax_pso[3].grid()
+    for min_state in min_state_full:
+        x_pos = [elem[0] * 1e-3 for elem in min_state[0]]
+        y_pos = [elem[1] * 1e-3 for elem in min_state[0]]
+        ax_pso[0].plot(min_state[-1], x_pos, 'o-')
+        ax_pso[1].plot(min_state[-1], y_pos, 'o-')
+        ax_pso[2].plot(min_state[-1], np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3)
+        ax_pso[3].plot([elem[0] * 1e-3 for elem in min_state[0]], [elem[1] * 1e-3 for elem in min_state[0]])
+    fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
 
 
 def create_plot():
@@ -267,9 +327,6 @@ def plot_performance(performance_list, n_thrusters, save=True, folder_name=None,
 def plot_dv_req():
     import matplotlib.pyplot as plt
 
-    plt.rcParams["font.family"] = "Times New Roman"
-    plt.rcParams['font.size'] = 14
-
     mu = 4.9048695e12  # m3s-2
     rm = 1.738e6
     ra = 68e6
@@ -333,7 +390,7 @@ def close_plot():
 def plot_thrust(time, thrust, thrust_free=None, names=None, dead=0):
     plt.figure()
     plt.xlabel('Time [s]')
-    plt.ylabel('thrust [N]')
+    plt.ylabel('Thrust [N]')
     # plt.ylim(0, 1.5)
     plt.plot(np.array(time) + dead, thrust)
     if thrust_free is not None:

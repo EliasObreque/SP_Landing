@@ -11,7 +11,7 @@ CUSTOM = 'custom'
 # inhibit: True 1, False 0
 
 bates_geom = {'ext_diameter': 0.03,
-              'int_diameter': 0.01,
+              'int_diameter': 0.03,
               'large': 0.15,
               'inhibit': {'top': 1, 'bot': 1}}
 

@@ -162,5 +162,5 @@ if __name__ == '__main__':
     plt.plot(time_array, total_pressure)
 
     plot_thrust(time_array, total_thrust, thrust_free=comp_thrust_free.historical_mag_thrust,
-                names=['Model thrust [N]', 'Ideal thrust [N]'], dead=.0)
+                names=['Model thrust with dead time', 'Ideal thrust'], dead=.0)
     show_plot()

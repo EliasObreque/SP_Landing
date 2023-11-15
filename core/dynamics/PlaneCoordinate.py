@@ -29,6 +29,8 @@ class PlaneCoordinate(object):
         self.current_theta = state[2]
         self.current_omega = state[3]
         self.current_time = 0.0
+        self.current_thrust = 0.0
+        self.current_energy = self.get_energy()
         self.m_dot_p = 0.0
         self.historical_pos_i = []
         self.historical_vel_i = []
@@ -37,10 +39,13 @@ class PlaneCoordinate(object):
         self.historical_omega = []
         self.historical_inertia = []
         self.historical_time = []
+        self.historical_thrust = []
+        self.historical_energy = []
         self.save_data()
-
         self.h_old = self.dt
-        return
+
+    def get_energy(self):
+        return 0.5 * np.linalg.norm(self.current_vel_i) ** 2 - self.mu / np.linalg.norm(self.current_pos_i)
 
     def reset(self):
         self.current_mass = self.mass_0
@@ -58,6 +63,8 @@ class PlaneCoordinate(object):
         self.historical_omega = []
         self.historical_inertia = []
         self.historical_time = []
+        self.historical_thrust = []
+        self.historical_energy = []
         self.save_data()
 
     def dynamic(self, state, ct, *args):
@@ -89,6 +96,7 @@ class PlaneCoordinate(object):
                             self.current_theta,
                             self.current_omega,
                             self.current_inertia])
+        self.current_thrust = thrust_i
         if low_step is not None:
             new_var = x_state + runge_kutta_4(self.dynamic, x_state, low_step, self.current_time, thrust_i, torque_b, m_dot_p)
             self.dt = low_step
@@ -112,6 +120,8 @@ class PlaneCoordinate(object):
         self.historical_omega.append(self.current_omega)
         self.historical_inertia.append(self.current_inertia)
         self.historical_time.append(self.current_time)
+        self.historical_thrust.append(self.current_thrust)
+        self.historical_energy.append(self.get_energy())
 
     def get_state_idx(self, idx):
         return [self.historical_pos_i[idx],
@@ -120,7 +130,9 @@ class PlaneCoordinate(object):
                 self.historical_theta[idx],
                 self.historical_omega[idx],
                 self.historical_inertia[idx],
-                self.historical_time[idx]]
+                self.historical_time[idx],
+                self.historical_thrust[idx],
+                self.historical_energy[idx]]
 
     def get_historial(self):
         return [self.historical_pos_i,
@@ -129,6 +141,8 @@ class PlaneCoordinate(object):
                 self.historical_theta,
                 self.historical_omega,
                 self.historical_inertia,
+                self.historical_thrust,
+                self.historical_energy,
                 self.historical_time]
 
     def get_current_state(self):

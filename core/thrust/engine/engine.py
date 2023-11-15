@@ -49,7 +49,7 @@ class LogChannel:
 
 
 class Engine(BasicThruster, ABC):
-    amb_pressure = 101325
+    amb_pressure = 1e-12
 
     def __init__(self, dt, thruster_properties, propellant_properties):
         BasicThruster.__init__(self, dt, thruster_properties, propellant_properties)
@@ -206,7 +206,8 @@ class Engine(BasicThruster, ABC):
     def calc_kn(self, burning_surface_area):
         """Returns the motor's Kn when it has each grain has regressed by its value in regDepth, which should be a list
         with the same number of elements as there are grains in the motor."""
-        return burning_surface_area / self.throat_area
+        kn_ = burning_surface_area / self.throat_area
+        return kn_
 
     def check_geometric_cond(self):
         init_burn_area = self.propellant.get_port_area(0)
