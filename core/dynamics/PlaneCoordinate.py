@@ -20,9 +20,9 @@ class PlaneCoordinate(object):
         self.dt = dt
         self.mu = mu_planet
         self.r_moon = r_planet
-        self.delta_alpha_k = 0#np.random.normal(0, np.deg2rad(2))
-        self.delta_d_k = 0#np.random.normal(0, np.deg2rad(2))
-        self.inertia_0 = inertia # 1 / 12 * self.mass_0 * (0.2 ** 2 + 0.3 ** 2)
+        self.delta_alpha_k = np.random.normal(0, np.deg2rad(1))
+        self.delta_d_k = np.random.normal(0, np.deg2rad(1))
+        self.inertia_0 = 1 / 12 * self.mass_0 * (0.2 ** 2 + 0.3 ** 2)
         self.current_inertia = self.inertia_0
         self.current_pos_i = state[0]
         self.current_vel_i = state[1]
@@ -30,6 +30,7 @@ class PlaneCoordinate(object):
         self.current_omega = state[3]
         self.current_time = 0.0
         self.current_thrust = 0.0
+        self.current_torque = 0.0
         self.current_energy = self.get_energy()
         self.m_dot_p = 0.0
         self.historical_pos_i = []
@@ -41,6 +42,7 @@ class PlaneCoordinate(object):
         self.historical_time = []
         self.historical_thrust = []
         self.historical_energy = []
+        self.historical_torque = []
         self.save_data()
         self.h_old = self.dt
 
@@ -55,6 +57,8 @@ class PlaneCoordinate(object):
         self.current_theta = self.state_0[2]
         self.current_omega = self.state_0[3]
         self.current_time = 0.0
+        self.current_torque = 0.0
+        self.current_thrust = 0.0
         self.m_dot_p = 0.0
         self.historical_pos_i = []
         self.historical_vel_i = []
@@ -65,6 +69,7 @@ class PlaneCoordinate(object):
         self.historical_time = []
         self.historical_thrust = []
         self.historical_energy = []
+        self.historical_torque = []
         self.save_data()
 
     def dynamic(self, state, ct, *args):
@@ -78,12 +83,12 @@ class PlaneCoordinate(object):
         thrust = args[0]
         torque = args[1]
 
-        u_f_i = np.array([-np.sin(theta + self.delta_alpha_k), np.cos(theta + self.delta_alpha_k)])
+        # u_f_i = np.array([-np.sin(theta + self.delta_alpha_k), np.cos(theta + self.delta_alpha_k)])
         rhs = np.zeros(8)
         u_f_i = -v / np.linalg.norm(v)
         rhs[0:2] = v
         rhs[2:4] = thrust / m * u_f_i - self.mu * r / (np.linalg.norm(r) ** 3)
-        rhs[4] = - args[2]
+        rhs[4] = - args[2] if thrust > 0 else 0
         rhs[5] = omega
         rhs[6] = torque / inertia
         rhs[7] = self.inertia_0 * rhs[4] / self.mass_0
@@ -97,6 +102,7 @@ class PlaneCoordinate(object):
                             self.current_omega,
                             self.current_inertia])
         self.current_thrust = thrust_i
+        self.current_torque = torque_b
         if low_step is not None:
             new_var = x_state + runge_kutta_4(self.dynamic, x_state, low_step, self.current_time, thrust_i, torque_b, m_dot_p)
             self.dt = low_step
@@ -108,8 +114,9 @@ class PlaneCoordinate(object):
         self.current_pos_i = new_var[:2]
         self.current_vel_i = new_var[2:4]
         self.current_mass = new_var[4]
-        self.current_theta = new_var[5]
+        self.current_theta = new_var[5] % (2 * np.pi)
         self.current_omega = new_var[6]
+        self.current_inertia = new_var[7]
         self.current_time += h
 
     def save_data(self):
@@ -121,6 +128,7 @@ class PlaneCoordinate(object):
         self.historical_inertia.append(self.current_inertia)
         self.historical_time.append(self.current_time)
         self.historical_thrust.append(self.current_thrust)
+        self.historical_torque.append(self.current_torque)
         self.historical_energy.append(self.get_energy())
 
     def get_state_idx(self, idx):
@@ -132,6 +140,7 @@ class PlaneCoordinate(object):
                 self.historical_inertia[idx],
                 self.historical_time[idx],
                 self.historical_thrust[idx],
+                self.historical_torque[idx],
                 self.historical_energy[idx]]
 
     def get_historial(self):
@@ -142,6 +151,7 @@ class PlaneCoordinate(object):
                 self.historical_omega,
                 self.historical_inertia,
                 self.historical_thrust,
+                self.historical_torque,
                 self.historical_energy,
                 self.historical_time]
 
@@ -151,19 +161,5 @@ class PlaneCoordinate(object):
 
 
 if __name__ == '__main__':
-    import numpy
-    import matplotlib.pyplot as plt
-
-    plt.rcParams["font.family"] = "Times New Roman"
-    plt.rcParams['font.size'] = 14
-
-    mu = 4.9048695e12  # m3s-2
-    rm = 1.738e6
-    ra = 68e6 + rm
-    rp = 2e6 + rm
-    a = 0.5 * (ra + rp)
-
-    v0 = np.sqrt(2 * mu / ra - mu / a)
-    a1 = 0.5 * (rm + ra)
-    v1 = np.sqrt(2 * mu / ra - mu / a1)
+    pass
 

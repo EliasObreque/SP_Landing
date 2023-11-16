@@ -7,6 +7,7 @@ import numpy as np
 
 from core.dynamics.Dynamics import Dynamics
 from core.thrust.thruster import Thruster
+
 rm = 1.738e6
 
 
@@ -26,8 +27,6 @@ class Module(object):
         self.thruster_ang = thruster_ang
         self.thrusters_action_wind = [[] for _ in range(len(self.thrusters))]
         self.control_function = self.__default_control
-        # self.current_time = 0.0
-        # self.dt = dt
 
     def update(self, control, low_step):
         if low_step is not None:
@@ -41,11 +40,34 @@ class Module(object):
         thr = [thr_i.get_current_thrust() for thr_i in self.thrusters]
         m_dot_p = np.sum([thr_i.get_current_m_flow() for thr_i in self.thrusters])
         tau_b = self.calc_torques(thr)
-        self.dynamics.dynamic_model.update(np.sum(thr), m_dot_p, np.sum(tau_b), low_step)
+        # tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
+        #                                    self.dynamics.dynamic_model.current_vel_i,
+        #                                    self.dynamics.dynamic_model.current_theta,
+        #                                    self.dynamics.dynamic_model.current_omega)
+        tau_b = np.sum(tau_b)
+        self.dynamics.dynamic_model.update(np.sum(thr), m_dot_p, tau_b, low_step)
 
     def calc_torques(self, thr_list):
         tau_b = [np.cross(pos_i, thr_i * np.array([0, 1])) for pos_i, thr_i in zip(self.thruster_pos, thr_list)]
         return tau_b
+
+    def get_control_torque(self, r, v, theta, omega):
+        u_target = - v / np.linalg.norm(v)
+        altitude = np.linalg.norm(r) - rm
+
+        if altitude > 2000:
+            u_current = np.array([-np.sin(theta + self.dynamics.dynamic_model.delta_alpha_k),
+                                  np.cos(theta + self.dynamics.dynamic_model.delta_alpha_k)])
+            ang_target = np.arccos(np.dot(u_target, u_current)) * np.sign(np.cross(u_current, u_target))
+            omega_target = np.linalg.norm(v) / np.linalg.norm(r)
+            p_gain = 0.01
+            d_gain = 0.01
+        else:
+            ang_target = np.arctan2(r[0], r[1])
+            p_gain = 0.00001
+            d_gain = 0.00001
+            omega_target = 0
+        return p_gain * ang_target + d_gain * (omega_target - omega)
 
     def save_log(self):
         self.dynamics.dynamic_model.save_data()
@@ -76,11 +98,12 @@ class Module(object):
                     low_step = 0.1
             subk += 1
             self.update(control, low_step if low_step_flag else None)
-            tf_update = self.get_orbit_period(tf)
-            self.save_log()
             left_engine = np.all([thr.thr_is_burned for thr in self.thrusters])
-            if tf_update + self.dynamics.dynamic_model.current_time < tf:
-                tf = tf_update + self.dynamics.dynamic_model.current_time
+            if left_engine:
+                tf_update = self.get_orbit_period(tf)
+                if tf_update + self.dynamics.dynamic_model.current_time < tf:
+                    tf = tf_update + self.dynamics.dynamic_model.current_time
+            self.save_log()
             if tf < self.dynamics.dynamic_model.current_time:
                 break
             if k > 29 and progress:
@@ -151,10 +174,13 @@ class Module(object):
         self.control_function = self.on_off_control
 
     def set_thrust_design(self, thrust_design, orientation):
+        self.thrusters = []
         for i, value in enumerate(thrust_design):
             self.propellant_properties[i]['geometry']['setting']['ext_diameter'] = value
             self.thruster_conf[i]['case_diameter'] = value
-        self.thrusters = [Thruster(self.dynamics.dynamic_model.dt, self.thruster_conf[i], self.propellant_properties[i])() for i in range(len(self.thruster_conf))]
+            self.thrusters.append(Thruster(self.dynamics.dynamic_model.dt,
+                                           self.thruster_conf[i],
+                                           self.propellant_properties[i])())
 
     def get_ignition_state(self, moment):
         values = []

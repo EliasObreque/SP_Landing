@@ -10,7 +10,7 @@ from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 
 MAX_CORE = multiprocessing.cpu_count()
-NCORE = int(MAX_CORE * 1)
+NCORE = int(MAX_CORE)
 
 
 class PSO:
