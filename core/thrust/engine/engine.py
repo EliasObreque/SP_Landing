@@ -165,7 +165,10 @@ class Engine(BasicThruster, ABC):
         if p_c is None:
             p_c = self.get_chamber_pressure()
         """Solves for the nozzle's exit pressure, given an input pressure and the gas's specific heat ratio."""
-        self.exit_pressure = fsolve(lambda x: (1 / self.calc_expansion()) - self.eRatioFromPRatio(k, x / p_c), 0)[0]
+        def expansion(x):
+            return np.array(1 / self.calc_expansion() - self.eRatioFromPRatio(k, x / p_c))
+        self.exit_pressure = fsolve(expansion,
+                                    np.array(0.0))[0]
         return self.exit_pressure
 
     def calc_expansion(self):

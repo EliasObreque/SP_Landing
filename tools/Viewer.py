@@ -6,6 +6,7 @@ email: els.obrq@gmail.com
 """
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
+import pickle
 import os
 from matplotlib import patches
 from matplotlib.patches import Ellipse
@@ -21,7 +22,51 @@ b = a * np.sqrt(1 - ecc ** 2)
 rm = 1.738e6
 
 
-def plot_state_solution(min_state_full, list_name, folder, name, aux: dict = None):
+def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
+    fig = plt.figure()
+    plt.plot(np.arange(1, len(evol_best_fitness) + 1), evol_best_fitness, 'red', lw=1)
+    plt.plot(np.arange(1, len(evol_best_fitness) + 1), evol_p_fitness.T, '-.', color='blue', lw=0.5)
+    plt.grid()
+    plt.yscale("log")
+    plt.ylabel("Evaluation cost")
+    plt.xlabel("Iteration")
+    if folder is not None and name is not None:
+        fig.savefig(folder + name + "_hist_cost.pdf", format='pdf')
+    return fig
+
+
+def plot_historical_position(historical_position, historical_g_position, folder=None, name=None):
+    dim_var = np.shape(historical_position[0])[1]
+    fig, axes = plt.subplots(dim_var, 1, sharex=True, figsize=(10, 5))
+    plt.xlabel("Iteration")
+    if dim_var > 1:
+        axes = axes.flatten()
+    else:
+        axes = [axes]
+    max_iteration = len(historical_g_position)
+    for i, ax in enumerate(axes):
+        ax.set_ylabel("Particle {}".format(i + 1))
+        ax.yaxis.set_label_coords(-0.1, 0.5)
+        ax.plot(np.arange(1, max_iteration + 1),
+                np.array(historical_position).T[i].T, '-.', lw=0.5, color='b')
+        ax.plot(np.arange(1, max_iteration + 1),
+                np.array(historical_g_position).T[i], lw=1.0, color='r')
+        ax.grid()
+    if folder is not None and name is not None:
+        fig.savefig(folder + name + "_hist_pos.pdf", format='pdf')
+    return fig
+
+
+def plot_pso_result(hist_pos, hist_g_pos, eval_pos, eval_g_pos, folder="", name="", plot_flag=True):
+    fig_h = plot_historical_position(hist_pos, hist_g_pos, folder, name)
+    fig_b = plot_best_cost(eval_pos, eval_g_pos, folder, name)
+    if not plot_flag:
+        plt.close(fig_h)
+        plt.close(fig_b)
+
+
+
+def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: dict = None, plot_flag=True):
     for i, min_state in enumerate(min_state_full[:-1]):
         fig = plt.figure()
         plt.grid()
@@ -33,10 +78,13 @@ def plot_state_solution(min_state_full, list_name, folder, name, aux: dict = Non
             if i in list(aux.keys()):
                 plt.hlines(aux[i], xmin=min(min_state_full[-1]), xmax=max(min_state_full[-1]), colors='red')
 
-        fig.savefig(folder + name + "_" + list_name[i].split(" ")[0] + '.pdf', format='pdf')
+        if folder is not None and name is not None:
+            fig.savefig(folder + name + "_" + list_name[i].split(" ")[0] + '.pdf', format='pdf')
+        if not plot_flag:
+            plt.close(fig)
 
 
-def plot_orbit_solution(min_state_full, list_name, folder, name):
+def plot_orbit_solution(min_state_full, list_name, folder=None, name=None, plot_flag=True):
     fig_pso, ax_pso = plt.subplots(2, 2, figsize=(10, 8))
     ax_pso = ax_pso.flatten()
     ax_pso[0].set_ylabel("X-Position [km]")
@@ -69,7 +117,10 @@ def plot_orbit_solution(min_state_full, list_name, folder, name):
         ax_pso[1].plot(min_state[-1], y_pos, 'o-')
         ax_pso[2].plot(min_state[-1], np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3)
         ax_pso[3].plot([elem[0] * 1e-3 for elem in min_state[0]], [elem[1] * 1e-3 for elem in min_state[0]])
-    fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
+    if folder is not None and name is not None:
+        fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
+    if not plot_flag:
+        plt.close(fig_pso)
 
 
 def create_plot():
@@ -529,5 +580,11 @@ def isp_vacuum():
 if __name__ == '__main__':
     # plot_polynomial_function(3)
     # compare_performance()
-    plot_dv_req()
+    # plot_dv_req()
     # isp_vacuum()
+    data = open("../logs/plane/test", 'rb')
+    data_loaded = dict(pickle.load(data))
+
+    for key, item in data_loaded.items():
+        print(key)
+

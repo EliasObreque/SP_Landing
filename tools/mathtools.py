@@ -5,6 +5,8 @@ email: els.obrq@gmail.com
 """
 import numpy as np
 import datetime
+import numba
+
 twopi = 2.0 * np.pi
 deg2rad = np.pi / 180.0
 a = np.array([0, 1 / 4, 3 / 8, 12 / 13, 1, 1 / 2])

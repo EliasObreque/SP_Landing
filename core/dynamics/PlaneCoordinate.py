@@ -95,8 +95,10 @@ class PlaneCoordinate(object):
         return rhs
 
     def update(self, thrust_i, m_dot_p, torque_b, low_step):
-        x_state = np.array([*self.current_pos_i,
-                            *self.current_vel_i,
+        x_state = np.stack([self.current_pos_i[0],
+                            self.current_pos_i[1],
+                            self.current_vel_i[0],
+                            self.current_vel_i[1],
                             self.current_mass,
                             self.current_theta,
                             self.current_omega,

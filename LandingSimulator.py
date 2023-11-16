@@ -5,19 +5,21 @@ Date: 24-08-2022
 """
 import time
 import copy
-import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 import os
 import pickle
+import numpy as np
+import datetime
+import multiprocessing
 
 from core.module.Module import Module
 from core.thrust.thrustProperties import default_thruster
 from core.thrust.propellant.propellantProperties import default_propellant
 from tools.pso import PSOStandard
-from tools.Viewer import plot_orbit_solution, plot_state_solution
+from tools.Viewer import plot_orbit_solution, plot_state_solution, plot_pso_result
 
-mass_0 = 24.0
+mass_0 = np.array(24.0)
 inertia_0 = 100
 mu = 4.9048695e12  # m3s-2
 rm = 1.738e6
@@ -36,9 +38,8 @@ rot_90 = np.array([[0, -1], [1, 0]])
 
 position = rot_90 @ np.array([np.cos(f_0), np.sin(f_0)]) * r_0
 velocity = np.sqrt(mu / p_) * rot_90 @ np.array([-np.sin(f_0), (ecc + np.cos(f_0))])
-theta = 270 * np.deg2rad(1)
-q_i2b = np.array([0, 0, 0, 1])
-omega = 0
+theta = np.array(270.0 * np.deg2rad(1))
+omega = np.array(0.0)
 
 # TARGET
 h_target = rm + 100e3
@@ -54,7 +55,7 @@ def parse_args():
     parser.add_argument("-bs", "--batch", type=int, help="Batch Size")
     parser.add_argument("-l", "--loop", type=int, help="Number of loops")
     parser.add_argument("-s", "--stage", type=str, help="Stage, Descend (D), Landing (L)")
-    parser.add_argument("-ps", "--plot_show", action="store_false", help="Show")
+    parser.add_argument("-ps", "--plot_show", type=int, help="Show")
     return parser.parse_args()
 
 
@@ -67,14 +68,12 @@ def cost_function_descend(modules_setting_):
     dt = 0.1
     tf = 1210000
 
-    n_thrusters = 2
-    thruster_pos = [np.array([0, 0])] * 2
-    thruster_ang = [0] * 2
-    thr_properties = copy.deepcopy(default_thruster)
-    prp_properties = copy.deepcopy(default_propellant)
+    thruster_pos = [np.array([0, 0]),
+                    np.array([0, 0])]
+    thruster_ang = [0.0, 0.0]
 
-    thruster_properties_ = [copy.deepcopy(thr_properties) for _ in range(len(modules_setting_[1::2]))]
-    propellant_properties_ = [copy.deepcopy(prp_properties) for _ in range(len(modules_setting_[1::2]))]
+    thruster_properties_ = [copy.deepcopy(default_thruster) for _ in range(len(modules_setting_[1::2]))]
+    propellant_properties_ = [copy.deepcopy(default_propellant) for _ in range(len(modules_setting_[1::2]))]
 
     thruster_properties_[1]['throat_diameter'] = 0.005
     propellant_properties_[1]['geometry']['setting']['int_diameter'] = 0.01
@@ -83,47 +82,53 @@ def cost_function_descend(modules_setting_):
               state[1] + np.random.normal(0, 5, size=2),
               state[2],
               state[3]]
-    modules_ = Module(mass_0, inertia_0, state_,
-                      thruster_pos, thruster_ang, thruster_properties_,
-                      propellant_properties_, "2D", dt, training=True)
+    module = Module(mass_0, inertia_0, state_,
+                    thruster_pos, thruster_ang, thruster_properties_,
+                    propellant_properties_, "2D", dt, training=True)
 
-    engine_diameter = modules_setting[1::2]
-    control_set_ = modules_setting[0::2]
-    modules_.set_thrust_design(engine_diameter, 0)
-    modules_.set_control_function(control_set_)
-    historical_state = modules_.simulate(tf, low_step=0.01, progress=False)
+    engine_diameter = modules_setting_[1::2]
+    control_set_ = modules_setting_[0::2]
+    module.set_thrust_design(engine_diameter, 0)
+    module.set_control_function(control_set_)
+    historical_state = module.simulate(tf, low_step=0.01, progress=False)
     r_state = np.array([np.linalg.norm(elem) for elem in historical_state[0]])
     mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
     state_energy = historical_state[8]
-    error = 0
-    for j, act in enumerate(modules_.thrusters_action_wind):
+    error = 0.0
+    for j, act in enumerate(module.thrusters_action_wind):
         if len(act) > 0:
             error += np.abs(state_energy[min(act[1] + 1, len(state_energy) - 5)] - energy_target[j]) / mass_state[-1]
         else:
             error += np.abs(state_energy[-1] - energy_target[j]) / mass_state[-1]
-    error *= 1000 if modules_.dynamics.isTouchdown() else 1
-    error *= 100 if modules_.dynamics.notMass() else 1
+    error *= 1000 if module.dynamics.isTouchdown() else 1
+    error *= 100 if module.dynamics.notMass() else 1
     error *= 1000 if min(r_state) < h_target * 0.9 else 1
 
-    modules_.reset()
+    module.reset()
     return error, historical_state
 
 
 if __name__ == '__main__':
-    n_step = 50
+    # Fix multiprocessing with freeze (pyinstaller) on Windows
+    # REF: https://github.com/pyinstaller/pyinstaller/wiki/Recipe-Multiprocessing
+    multiprocessing.freeze_support()
+
+    # python .\LandingSimulator.py -f regressive -n block1 -bs 10 -l 2 -s D -ps 0
+    n_step = 150
     n_par = 30
     folder = "logs/"
     name = "test"
     stage = "D"
-    plot_flag = True
+    plot_flag = False
 
-    batch_size = 50
-    n_loop = 5
+    batch_size = 3
+    n_loop = 2
 
     args = parse_args()
 
     if args.folder:
-        folder = folder + args.folder + "/"
+        date_name = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M")
+        folder = folder + args.folder + "_{}_".format(stage) + date_name + "/"
         # create folder
         if not os.path.exists(os.path.normpath(folder)):
             os.makedirs(os.path.normpath(folder))
@@ -145,7 +150,12 @@ if __name__ == '__main__':
     plot_flag = args.plot_show
 
     for nl in range(n_loop):
+        data_handle = open(folder + name + "_{}".format(nl), 'wb')
+        print(folder + name + "_{}".format(nl))
+        dataset = {}
         for nb in range(batch_size):
+            name_temp = name + "_{}".format(nb + nl * batch_size)
+            print(name_temp)
             if stage == "D":
                 # Optimal Design of the Control
                 # (First stage: Decrease the altitude, and the mass to decrease the rw mass/inertia)
@@ -159,18 +169,30 @@ if __name__ == '__main__':
                 pso_algorithm.initialize(range_variables)
 
                 init_time = time.time()
-                final_eval, best_state = pso_algorithm.optimize()
+                final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_algorithm.optimize()
                 end_time = time.time()
                 print("Optimization Time: {}".format((end_time - init_time) / 60))
-                pso_algorithm.plot_result(folder, name)
+                plt.switch_backend('Agg')
+                plot_pso_result(hist_pos, hist_g_pos, eval_pos, eval_g_pos, folder, name_temp, plot_flag=plot_flag)
 
                 list_name = ["Position [m]", "Velocity [m/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
                              "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]"]
-                plot_state_solution(best_state, list_name, folder, name, aux={8: energy_target})
-                plot_orbit_solution([best_state], ["orbit"], folder, name)
+                plot_state_solution(best_state, list_name, folder, name_temp, aux={8: energy_target},
+                                    plot_flag=plot_flag)
+                plot_orbit_solution([best_state], ["orbit"], folder, name_temp, plot_flag=plot_flag)
                 modules_setting = pso_algorithm.gbest_position
             elif stage == "L":
                 pass
 
+            data = {'state': best_state,
+                    'state_name': list_name,
+                    'best_cost': pso_algorithm.evol_best_fitness,
+                    'p_cost': pso_algorithm.evol_p_fitness,
+                    'best_part': pso_algorithm.historical_g_position,
+                    'hist_part': pso_algorithm.historical_position}
+
+            dataset[name_temp] = data
             if plot_flag:
-                plt.show()
+                plt.show(block=False)
+        pickle.dump(dataset, data_handle)
+        data_handle.close()

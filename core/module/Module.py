@@ -4,7 +4,6 @@ els.obrq@gmail.com
 Date: 24-08-2022
 """
 import numpy as np
-
 from core.dynamics.Dynamics import Dynamics
 from core.thrust.thruster import Thruster
 
@@ -37,8 +36,8 @@ class Module(object):
         [thr_i.set_ignition(control[i]) for i, thr_i in enumerate(self.thrusters)]
         [thr_i.propagate_thrust() for thr_i in self.thrusters]
         [thr_i.log_value() for thr_i in self.thrusters]
-        thr = [thr_i.get_current_thrust() for thr_i in self.thrusters]
-        m_dot_p = np.sum([thr_i.get_current_m_flow() for thr_i in self.thrusters])
+        thr = np.array([thr_i.get_current_thrust() for thr_i in self.thrusters])
+        m_dot_p = np.sum(np.array([thr_i.get_current_m_flow() for thr_i in self.thrusters]))
         tau_b = self.calc_torques(thr)
         # tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
         #                                    self.dynamics.dynamic_model.current_vel_i,
@@ -49,7 +48,7 @@ class Module(object):
 
     def calc_torques(self, thr_list):
         tau_b = [np.cross(pos_i, thr_i * np.array([0, 1])) for pos_i, thr_i in zip(self.thruster_pos, thr_list)]
-        return tau_b
+        return np.array(tau_b)
 
     def get_control_torque(self, r, v, theta, omega):
         u_target = - v / np.linalg.norm(v)
@@ -74,7 +73,7 @@ class Module(object):
         [thr_i.log_value() for thr_i in self.thrusters]
 
     def get_thrust(self):
-        return np.sum([thr_i.current_mag_thrust_c for thr_i in self.thrusters])
+        return np.sum(np.array([thr_i.current_mag_thrust_c for thr_i in self.thrusters]))
 
     def simulate(self, tf, low_step: float = None, progress: bool = True):
         # save ignition time and stop time
@@ -98,7 +97,7 @@ class Module(object):
                     low_step = 0.1
             subk += 1
             self.update(control, low_step if low_step_flag else None)
-            left_engine = np.all([thr.thr_is_burned for thr in self.thrusters])
+            left_engine = np.all(np.array([thr.thr_is_burned for thr in self.thrusters]))
             if left_engine:
                 tf_update = self.get_orbit_period(tf)
                 if tf_update + self.dynamics.dynamic_model.current_time < tf:
@@ -196,4 +195,4 @@ class Module(object):
             return None
 
     def get_mass_used(self):
-        return np.sum([thr_i.channels['mass'].getPoint(0) for thr_i in self.thrusters])
+        return np.sum(np.array([thr_i.channels['mass'].getPoint(0) for thr_i in self.thrusters]))
