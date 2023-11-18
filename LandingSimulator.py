@@ -114,12 +114,12 @@ if __name__ == '__main__':
     multiprocessing.freeze_support()
 
     # python .\LandingSimulator.py -f regressive -n block1 -bs 10 -l 2 -s D -ps 0
-    n_step = 150
+    n_step = 100
     n_par = 30
     folder = "logs/"
     name = "test"
     stage = "D"
-    plot_flag = False
+    plot_flag = True
 
     batch_size = 3
     n_loop = 2
@@ -159,9 +159,9 @@ if __name__ == '__main__':
             if stage == "D":
                 # Optimal Design of the Control
                 # (First stage: Decrease the altitude, and the mass to decrease the rw mass/inertia)
-                range_variables = [(1.0, 2),  # First ignition position (angle)
-                                   (0.1, 0.19),  # Main engine diameter (meter)
-                                   (3, 6),  # Second ignition position (meter)
+                range_variables = [(1.0, 2.0),  # First ignition position (angle)
+                                   (0.15, 0.19),  # Main engine diameter (meter)
+                                   (2.5, 4.5),  # Second ignition position (meter)
                                    (0.001, 0.1)  # Secondary engine diameter (meter)
                                    ]
 

@@ -36,5 +36,5 @@ custom_geom = {'ext_diameter': 0.1,
 default_propellant = {'mixture_name': 'Nakka - KNSU',
                       'geometry': {'type': BATES,
                                    'setting': bates_geom},
-                      'isp_noise_std': None,
-                      'isp_bias_std': None}
+                      'isp_noise_std': 3,
+                      'isp_bias_std': 10}
