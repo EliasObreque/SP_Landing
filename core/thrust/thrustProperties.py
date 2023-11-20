@@ -6,7 +6,7 @@ Date: 24-08-2022
 engine_diameter_ext = 0.03
 throat_diameter = 0.01 # m
 e_nozzle_diameter = 0.03  # m
-height = 0.15  # m
+height = 0.2  # m
 file_name = "thrust/StarGrain7.csv"
 
 NEUTRAL = 'neutral'

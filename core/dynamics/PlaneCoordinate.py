@@ -20,9 +20,9 @@ class PlaneCoordinate(object):
         self.dt = dt
         self.mu = mu_planet
         self.r_moon = r_planet
-        self.delta_alpha_k = np.random.normal(0, np.deg2rad(1))
-        self.delta_d_k = np.random.normal(0, np.deg2rad(1))
-        self.inertia_0 = 1 / 12 * self.mass_0 * (0.2 ** 2 + 0.3 ** 2)
+        # self.delta_alpha_k = np.random.normal(0, np.deg2rad(1))
+        # self.delta_d_k = np.random.normal(0, np.deg2rad(1))
+        self.inertia_0 = inertia
         self.current_inertia = self.inertia_0
         self.current_pos_i = state[0]
         self.current_vel_i = state[1]
@@ -83,9 +83,9 @@ class PlaneCoordinate(object):
         thrust = args[0]
         torque = args[1]
 
-        # u_f_i = np.array([-np.sin(theta + self.delta_alpha_k), np.cos(theta + self.delta_alpha_k)])
+        u_f_i = np.array([-np.sin(theta), np.cos(theta)])
         rhs = np.zeros(8)
-        u_f_i = -v / np.linalg.norm(v)
+        # u_f_i = -v / np.linalg.norm(v)
         rhs[0:2] = v
         rhs[2:4] = thrust / m * u_f_i - self.mu * r / (np.linalg.norm(r) ** 3)
         rhs[4] = - args[2] if thrust > 0 else 0

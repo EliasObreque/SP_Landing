@@ -12,7 +12,7 @@ CUSTOM = 'custom'
 
 bates_geom = {'ext_diameter': 0.03,
               'int_diameter': 0.03,
-              'large': 0.15,
+              'large': 0.2,
               'inhibit': {'top': 1, 'bot': 1}}
 
 star_geom = {'ext_diameter': 0.03,
@@ -36,5 +36,5 @@ custom_geom = {'ext_diameter': 0.1,
 default_propellant = {'mixture_name': 'Nakka - KNSU',
                       'geometry': {'type': BATES,
                                    'setting': bates_geom},
-                      'isp_noise_std': 3,
-                      'isp_bias_std': 10}
+                      'isp_noise_std': 3.25,
+                      'isp_bias_std': 10.83}

@@ -65,7 +65,6 @@ def plot_pso_result(hist_pos, hist_g_pos, eval_pos, eval_g_pos, folder="", name=
         plt.close(fig_b)
 
 
-
 def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: dict = None, plot_flag=True):
     for i, min_state in enumerate(min_state_full[:-1]):
         fig = plt.figure()
@@ -84,7 +83,7 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
             plt.close(fig)
 
 
-def plot_orbit_solution(min_state_full, list_name, folder=None, name=None, plot_flag=True):
+def plot_orbit_solution(min_state_full, list_name, folder=None, name=None, h_target=None, plot_flag=True):
     fig_pso, ax_pso = plt.subplots(2, 2, figsize=(10, 8))
     ax_pso = ax_pso.flatten()
     ax_pso[0].set_ylabel("X-Position [km]")
@@ -101,8 +100,8 @@ def plot_orbit_solution(min_state_full, list_name, folder=None, name=None, plot_
                       edgecolor='r', fc='None', lw=0.7)
     ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
                            edgecolor='black', fc='None', lw=0.4)
-    ellipse_target = Ellipse(xy=(0, 0), width=2 * (rm * 1e-3 + 100),
-                             height=2 * (rm * 1e-3 + 100),
+    ellipse_target = Ellipse(xy=(0, 0), width=2 * (h_target * 1e-3),
+                             height=2 * (h_target * 1e-3),
                              edgecolor='green', fc='None', lw=0.7)
     ax_pso[3].add_patch(ellipse)
     ax_pso[3].add_patch(ellipse_target)

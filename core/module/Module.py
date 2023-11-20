@@ -36,19 +36,25 @@ class Module(object):
         [thr_i.set_ignition(control[i]) for i, thr_i in enumerate(self.thrusters)]
         [thr_i.propagate_thrust() for thr_i in self.thrusters]
         [thr_i.log_value() for thr_i in self.thrusters]
-        thr = np.array([thr_i.get_current_thrust() for thr_i in self.thrusters])
-        m_dot_p = np.sum(np.array([thr_i.get_current_m_flow() for thr_i in self.thrusters]))
-        tau_b = self.calc_torques(thr)
-        # tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
-        #                                    self.dynamics.dynamic_model.current_vel_i,
-        #                                    self.dynamics.dynamic_model.current_theta,
-        #                                    self.dynamics.dynamic_model.current_omega)
-        tau_b = np.sum(tau_b)
-        self.dynamics.dynamic_model.update(np.sum(thr), m_dot_p, tau_b, low_step)
 
-    def calc_torques(self, thr_list):
-        tau_b = [np.cross(pos_i, thr_i * np.array([0, 1])) for pos_i, thr_i in zip(self.thruster_pos, thr_list)]
-        return np.array(tau_b)
+        thr_mag = np.array([thr_i.get_current_thrust() for thr_i in self.thrusters])
+        m_dot_p = np.sum(np.array([thr_i.get_current_m_flow() for thr_i in self.thrusters]))
+
+        thr_vec, tau_b = self.calc_thrust_torques(thr_mag)
+
+        tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
+                                           self.dynamics.dynamic_model.current_vel_i,
+                                           self.dynamics.dynamic_model.current_theta,
+                                           self.dynamics.dynamic_model.current_omega)
+        tau_b = np.sum(tau_b) + tau_ctrl
+        self.dynamics.dynamic_model.update(np.sum(thr_vec), m_dot_p, tau_ctrl, low_step)
+
+    def calc_thrust_torques(self, thr_list):
+        thr_vec = [thr_i * np.array([-np.sin(alpha_), np.cos(alpha_)])
+                   for thr_i, alpha_ in zip(thr_list, self.thruster_ang)]
+
+        tau_b = [np.cross(pos_i,thr_i) for pos_i, thr_i in zip(self.thruster_pos, thr_vec)]
+        return np.array(tau_b), np.array(thr_vec)
 
     def get_control_torque(self, r, v, theta, omega):
         u_target = - v / np.linalg.norm(v)
