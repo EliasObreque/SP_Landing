@@ -64,7 +64,7 @@ class PSOStandard(PSO):
     def __init__(self, func, n_particles=100, n_steps=200, parameters=(0.8, 0.01, 1.2, 1.5)):
         super().__init__(func, n_particles, n_steps, parameters)
 
-    def optimize(self):
+    def optimize(self, clip=True):
         iteration = 0
         W = self.w1
         min_state = None
@@ -95,11 +95,8 @@ class PSOStandard(PSO):
             social_comp = self.c2 * r[1] * (gbest - self.position)
             self.velocity = W * self.velocity + cognitive_comp + social_comp
             self.position = self.velocity + self.position
-            # self.position[:, 0] = self.position[:, 0] % (2 * np.pi)
-            # self.position[:, 0] = self.position[:, 0] % (2 * np.pi)
-            # self.position[:, 2] = self.position[:, 2] % (2 * np.pi)
-            self.position = np.clip(self.position, np.array(self.range_var)[:, 0],
-                                    np.array(self.range_var)[:, 1])
+            if clip:
+                self.position = np.clip(self.position, np.array(self.range_var)[:, 0], np.array(self.range_var)[:, 1])
 
             W = self.w1 - (self.w1 - self.w2) * (iteration + 1) / self.max_iteration
             self.evol_best_fitness[iteration] = self.gbest_fitness_value

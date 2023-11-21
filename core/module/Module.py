@@ -26,6 +26,7 @@ class Module(object):
         self.thruster_ang = thruster_ang
         self.thrusters_action_wind = [[] for _ in range(len(self.thrusters))]
         self.control_function = self.__default_control
+        self.rev_count = 0.0
 
     def update(self, control, low_step):
         if low_step is not None:
@@ -40,39 +41,46 @@ class Module(object):
         thr_mag = np.array([thr_i.get_current_thrust() for thr_i in self.thrusters])
         m_dot_p = np.sum(np.array([thr_i.get_current_m_flow() for thr_i in self.thrusters]))
 
-        thr_vec, tau_b = self.calc_thrust_torques(thr_mag)
+        tau_b, thr_vec = self.calc_thrust_torques(thr_mag)
 
         tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
                                            self.dynamics.dynamic_model.current_vel_i,
                                            self.dynamics.dynamic_model.current_theta,
                                            self.dynamics.dynamic_model.current_omega)
-        tau_b = np.sum(tau_b) + tau_ctrl
-        self.dynamics.dynamic_model.update(np.sum(thr_vec), m_dot_p, tau_ctrl, low_step)
+        tau_b = 0 * tau_b + 0 * tau_ctrl
+        # rev
+        rev0 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
+                          self.dynamics.dynamic_model.current_pos_i[0])
+        self.dynamics.dynamic_model.update(thr_vec, m_dot_p, tau_b, low_step)
+        rev1 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
+                          self.dynamics.dynamic_model.current_pos_i[0])
+        self.rev_count += ((rev1 - rev0) % 2 * np.pi)
 
     def calc_thrust_torques(self, thr_list):
         thr_vec = [thr_i * np.array([-np.sin(alpha_), np.cos(alpha_)])
                    for thr_i, alpha_ in zip(thr_list, self.thruster_ang)]
 
-        tau_b = [np.cross(pos_i,thr_i) for pos_i, thr_i in zip(self.thruster_pos, thr_vec)]
-        return np.array(tau_b), np.array(thr_vec)
+        tau_b = [np.cross(pos_i, thr_i) for pos_i, thr_i in zip(self.thruster_pos, thr_vec)]
+        return np.sum(np.array(tau_b)), np.sum(np.array(thr_vec), axis=0)
 
     def get_control_torque(self, r, v, theta, omega):
         u_target = - v / np.linalg.norm(v)
         altitude = np.linalg.norm(r) - rm
 
         if altitude > 2000:
-            u_current = np.array([-np.sin(theta + self.dynamics.dynamic_model.delta_alpha_k),
-                                  np.cos(theta + self.dynamics.dynamic_model.delta_alpha_k)])
-            ang_target = np.arccos(np.dot(u_target, u_current)) * np.sign(np.cross(u_current, u_target))
+            u_current = np.array([-np.sin(theta),
+                                  np.cos(theta)])
+            ang_error = np.arccos(np.dot(u_target, u_current)) * np.sign(np.cross(u_current, u_target))
             omega_target = np.linalg.norm(v) / np.linalg.norm(r)
-            p_gain = 0.01
-            d_gain = 0.01
+            p_gain = 1e-5
+            d_gain = 1e-5
+            return p_gain * ang_error + d_gain * (omega_target - omega)
         else:
-            ang_target = np.arctan2(r[0], r[1])
+            ang_error = np.arctan2(r[0], r[1])
             p_gain = 0.00001
             d_gain = 0.00001
             omega_target = 0
-        return p_gain * ang_target + d_gain * (omega_target - omega)
+        return p_gain * ang_error + d_gain * (omega_target - omega)
 
     def save_log(self):
         self.dynamics.dynamic_model.save_data()
@@ -85,7 +93,7 @@ class Module(object):
         # save ignition time and stop time
         subk = 0
         k = 0
-        control = [0.0] * len(self.thrusters)
+        control = [0.0 for _ in range(len(self.thrusters))]
         while self.dynamics.dynamic_model.current_time <= tf and not self.dynamics.isTouchdown() and not self.dynamics.notMass():
             low_step_flag = False
             for i, thr in enumerate(self.thrusters):
@@ -101,8 +109,9 @@ class Module(object):
                 if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 10e3:
                     low_step_flag = sum([True, low_step_flag])
                     low_step = 0.1
+            low_step_ = low_step if low_step_flag else None
             subk += 1
-            self.update(control, low_step if low_step_flag else None)
+            self.update(control, low_step_)
             left_engine = np.all(np.array([thr.thr_is_burned for thr in self.thrusters]))
             if left_engine:
                 tf_update = self.get_orbit_period(tf)
@@ -150,17 +159,25 @@ class Module(object):
             control = 1
         return control
 
-    def on_off_control(self, value, n_e=0):
+    def on_off_control(self, value_vec, n_e=0):
         if n_e == 0:
-            value = np.arctan2(value[0][1], value[0][0])
+            value = np.arctan2(value_vec[0][1], value_vec[0][0])
             if value < 0:
                 value += 2 * np.pi
             if value >= self.th[n_e]:
                 return 1
             else:
                 return 0
-        elif n_e == 1:
-            value = np.arctan2(value[0][1], value[0][0])
+        elif n_e == 1 or n_e == 2:
+            value = np.arctan2(value_vec[0][1], value_vec[0][0])
+            if value < 0:
+                value += 2 * np.pi
+            if value >= self.th[n_e]:
+                return 1
+            else:
+                return 0
+        elif n_e == 3 or n_e == 4:
+            value = np.arctan2(value_vec[0][1], value_vec[0][0])
             if value < 0:
                 value += 2 * np.pi
             if value >= self.th[n_e]:
@@ -168,7 +185,7 @@ class Module(object):
             else:
                 return 0
         else:
-            value = np.linalg.norm(value[0])
+            value = np.linalg.norm(value_vec[0])
             if value < self.th[n_e]:
                 return 1
             else:

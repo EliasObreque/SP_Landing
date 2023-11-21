@@ -34,10 +34,10 @@ class Thruster(ABC):
 
 
 if __name__ == '__main__':
-    from thrustProperties import default_thruster
+    from thrustProperties import default_thruster, second_thruster
     from tools.Viewer import plot_thrust, show_plot
     from core.thrust.propellant.source.propellant_data import propellant_data
-    from propellant.propellantProperties import default_propellant, BATES, bates_geom
+    from propellant.propellantProperties import default_propellant, BATES, bates_geom, second_propellant
     import matplotlib.pyplot as plt
 
     NEUTRAL = 'neutral'
@@ -52,11 +52,11 @@ if __name__ == '__main__':
     mixture_name = 'Nakka - KNSU'
     propellant_data_ = [pro_data for pro_data in propellant_data if pro_data['name'] == mixture_name][0]
     Isp = propellant_data_['data']['Isp']
-    propellant_properties_ = default_propellant
+    propellant_properties_ = second_propellant
     propellant_properties_['mixture_name'] = mixture_name
-    propellant_properties_['geometry']['type'] = BATES
-    if propellant_properties_['geometry']['type'] is not None:
-        propellant_properties_['geometry']['setting'] = bates_geom
+    # propellant_properties_['geometry']['type'] = BATES
+    # if propellant_properties_['geometry']['type'] is not None:
+    #   propellant_properties_['geometry']['setting'] = bates_geom
 
     percentage_variation_n = 3
     upper_isp_noise = Isp * (1.0 + percentage_variation_n / 100.0)
@@ -66,14 +66,14 @@ if __name__ == '__main__':
     upper_isp_bias = Isp * (1.0 + percentage_variation_b / 100.0)
     propellant_properties_['isp_bias_std'] = (upper_isp_bias - Isp) / 3
 
-    thruster_properties_ = default_thruster
+    thruster_properties_ = second_thruster
     thruster_properties_['thrust_profile'] = {'type': GRAIN}
     # thruster_properties_['thrust_profile']['type'] = MODEL
     thruster_properties_['max_ignition_dead_time'] = 0.2
     ctrl_a = [1.0]
     ctrl_b = [6.91036]
     max_mass_flow = 1 / Isp / ge
-    t_burn = 2
+    t_burn = 10
     json_list = {'1': {'Best_individual': [max_mass_flow, t_burn, ctrl_a, ctrl_b]}}
 
     if thruster_properties_['thrust_profile']['type'] == MODEL:

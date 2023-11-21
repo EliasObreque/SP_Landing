@@ -31,6 +31,3 @@ class BATES(object):
     def get_core_perimeter_at_reg(self, reg):
         self.current_core_perimeter = 2 * np.pi * (self.diameter_int * 0.5 + reg)
         return max(0, self.current_core_perimeter)
-
-    def get_current_burn_area(self):
-        return 0.0

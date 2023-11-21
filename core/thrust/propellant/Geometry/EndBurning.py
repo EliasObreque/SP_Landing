@@ -28,7 +28,7 @@ class EndBurning(object):
         return outer
 
     def get_volume_at_reg(self, reg):
-        return 0
+        return self.get_transversal_area_at_reg(reg) * (self.wall_web - reg)
 
     def get_core_perimeter_at_reg(self, reg):
         return 0

@@ -97,6 +97,9 @@ class GeometryGrain(object):
 
     def get_mass_flux(self, reg, dt, mass_flow, dreg, density):
         """Uses the grain's mass flux method to return the max. Assumes that it will be at the port of the grain!"""
+        if isinstance(self.selected_geometry, EndBurning):
+            return 0
+
         end_position = self.get_large_pos(reg)
 
         diameter = self.selected_geometry.diameter_ext

@@ -27,7 +27,6 @@ def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
     plt.plot(np.arange(1, len(evol_best_fitness) + 1), evol_best_fitness, 'red', lw=1)
     plt.plot(np.arange(1, len(evol_best_fitness) + 1), evol_p_fitness.T, '-.', color='blue', lw=0.5)
     plt.grid()
-    plt.yscale("log")
     plt.ylabel("Evaluation cost")
     plt.xlabel("Iteration")
     if folder is not None and name is not None:
@@ -86,10 +85,10 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
 def plot_orbit_solution(min_state_full, list_name, folder=None, name=None, h_target=None, plot_flag=True):
     fig_pso, ax_pso = plt.subplots(2, 2, figsize=(10, 8))
     ax_pso = ax_pso.flatten()
-    ax_pso[0].set_ylabel("X-Position [km]")
+    ax_pso[0].set_ylabel("Radial Velocity [km/s]")
     ax_pso[0].set_xlabel("Time [sec]")
     ax_pso[0].grid()
-    ax_pso[1].set_ylabel("Y-Position [km]")
+    ax_pso[1].set_ylabel("Normal Velocity [km/s]")
     ax_pso[1].set_xlabel("Time [sec]")
     ax_pso[1].grid()
     ax_pso[2].set_ylabel("Altitude [km]")
@@ -112,10 +111,18 @@ def plot_orbit_solution(min_state_full, list_name, folder=None, name=None, h_tar
     for min_state in min_state_full:
         x_pos = [elem[0] * 1e-3 for elem in min_state[0]]
         y_pos = [elem[1] * 1e-3 for elem in min_state[0]]
-        ax_pso[0].plot(min_state[-1], x_pos, 'o-')
-        ax_pso[1].plot(min_state[-1], y_pos, 'o-')
+
+        ang_rot = [np.arctan2(y_, x_) for x_, y_ in zip(x_pos, y_pos)]
+        v_t_n = [np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]]) @ v_
+                 for ang, v_ in zip(ang_rot, min_state[1])]
+
+        ax_pso[0].plot(min_state[-1], np.array(v_t_n)[:, 0])
+        ax_pso[1].plot(min_state[-1], np.array(v_t_n)[:, 1])
         ax_pso[2].plot(min_state[-1], np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3)
         ax_pso[3].plot([elem[0] * 1e-3 for elem in min_state[0]], [elem[1] * 1e-3 for elem in min_state[0]])
+        ax_pso[3].set_xlim([-4500, 4500])
+        ax_pso[3].set_ylim([-4500, 4500])
+    plt.tight_layout()
     if folder is not None and name is not None:
         fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
     if not plot_flag:

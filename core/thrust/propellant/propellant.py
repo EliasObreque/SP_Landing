@@ -82,9 +82,9 @@ class Propellant(GeometryGrain):
     def add_noise_isp(self):
         if self.std_noise is not None:
             noise_isp = np.random.normal(0, self.std_noise)
-            return self.v_exhaust + noise_isp * ge
+            return self.v_exhaust / ge + noise_isp
         else:
-            return self.v_exhaust
+            return self.v_exhaust / ge
 
     def add_bias_isp(self) -> None:
         if self.std_bias is not None:

@@ -132,7 +132,7 @@ class Engine(BasicThruster, ABC):
                 # calc CF
                 self.calc_c_f(self.propellant.gamma)
                 # calc thrust
-                self.calc_thrust(self.propellant.get_burn_area())
+                self.calc_thrust(self.propellant.add_noise_isp())
             else:
                 self.current_mag_thrust_c = 0
                 self.exit_pressure = self.amb_pressure
@@ -152,8 +152,11 @@ class Engine(BasicThruster, ABC):
     def get_current_m_flow(self):
         return self.channels['massFlow'].getLast()
 
-    def calc_thrust(self, burn_area):
-        self.current_mag_thrust_c = self.c_f * self.chamber_pressure * self.throat_area
+    def calc_thrust(self, noised_isp):
+        ratio = self.propellant.isp0 / self.c_f
+        new_cf = noised_isp / ratio
+        thr = new_cf * self.chamber_pressure * self.throat_area
+        self.current_mag_thrust_c = thr
 
     def calc_chamber_pressure(self, burn_area):
         area_ratio = burn_area / self.throat_area

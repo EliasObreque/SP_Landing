@@ -14,7 +14,7 @@ import datetime
 import multiprocessing
 
 from core.module.Module import Module
-from core.thrust.thrustProperties import default_thruster
+from core.thrust.thrustProperties import main_thruster, second_thruster
 from core.thrust.propellant.propellantProperties import default_propellant
 from tools.pso import PSOStandard
 from tools.Viewer import plot_orbit_solution, plot_state_solution, plot_pso_result
@@ -67,7 +67,7 @@ def get_energy(mu, r, v):
 def cost_function_descend(modules_setting_):
     state = [position, velocity, theta, omega]
     dt = 0.1
-    tf = 1210000
+    tf = 121000 / 2
 
     thruster_pos = np.array([[-0.06975, -0.0],
                              [-0.06975, -0.0887],
@@ -75,7 +75,7 @@ def cost_function_descend(modules_setting_):
                              [-0.06975, -0.0887],
                              [-0.06975, 0.0887]])
 
-    thruster_pos += np.random.normal(0, 1, size=np.shape(thruster_pos))
+    thruster_pos += np.random.normal(0, 0.0001, size=np.shape(thruster_pos))
 
     thruster_ang = np.array([0.0,
                              0.0,
@@ -83,14 +83,17 @@ def cost_function_descend(modules_setting_):
                              0.0,
                              0.0])
 
-    thruster_ang += np.random.normal(0, np.deg2rad(1), size=(len(thruster_ang)))
+    thruster_ang += np.random.normal(0, np.deg2rad(0.5), size=(len(thruster_ang)))
 
-    thruster_properties_ = [copy.deepcopy(default_thruster) for _ in range(len(thruster_pos))]
+    thruster_properties_ = [copy.deepcopy(main_thruster),
+                            copy.deepcopy(second_thruster),
+                            copy.deepcopy(second_thruster),
+                            copy.deepcopy(second_thruster),
+                            copy.deepcopy(second_thruster)]
     propellant_properties_ = [copy.deepcopy(default_propellant) for _ in range(len(thruster_pos))]
 
     for j in range(1, len(thruster_pos)):
-        thruster_properties_[j]['throat_diameter'] = 0.005
-        propellant_properties_[j]['geometry']['setting']['int_diameter'] = 0.005
+        propellant_properties_[j]['geometry']['setting']['int_diameter'] = 0.008
 
     state_ = [state[0] + np.random.normal(0, 1e3, size=2),
               state[1] + np.random.normal(0, 5, size=2),
@@ -102,16 +105,28 @@ def cost_function_descend(modules_setting_):
                     propellant_properties_, "2D", dt, training=True)
 
     # PSO solution
-    engine_diameter = modules_setting_[1::2]
-    control_set_ = modules_setting_[0::2]
+    engine_diameter = [modules_setting_[1::2][0],
+                       modules_setting_[1::2][1],
+                       modules_setting_[1::2][1],
+                       modules_setting_[1::2][2],
+                       modules_setting_[1::2][2]]
+
+    control_set_ = [modules_setting_[0::2][0],
+                    modules_setting_[0::2][1],
+                    modules_setting_[0::2][1],
+                    modules_setting_[0::2][2],
+                    modules_setting_[0::2][2]]
+
     module.set_thrust_design(engine_diameter, 0)
     module.set_control_function(control_set_)
     historical_state = module.simulate(tf, low_step=0.01, progress=False)
     r_state = np.array([np.linalg.norm(elem) for elem in historical_state[0]])
+    v_state = np.array([np.linalg.norm(elem) for elem in historical_state[1]])
     mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
     state_energy = historical_state[8]
-    error = np.abs(state_energy[-1] - energy_target) / mass_state[-1]
+    error = np.abs(state_energy[-1] - energy_target) / mass_state[-1] + v_state[-1] * 1e-3
 
+    # error = state_energy[-1]
     # for j, act in enumerate(module.thrusters_action_wind):
     #     if len(act) > 0:
     #         error += np.abs(state_energy[min(act[1] + 1, len(state_energy) - 5)] - energy_target[j]) / mass_state[-1]
@@ -120,7 +135,7 @@ def cost_function_descend(modules_setting_):
 
     error *= 1000 if module.dynamics.isTouchdown() else 1
     error *= 100 if module.dynamics.notMass() else 1
-    error *= 1000 if abs(min(r_state) - h_target) > 2e3 else 1
+    # error *= 1000 if abs(min(r_state) - h_target) > 2e3 else 1
 
     module.reset()
     return error, historical_state
@@ -128,10 +143,10 @@ def cost_function_descend(modules_setting_):
 
 if __name__ == '__main__':
     # python .\LandingSimulator.py -f regressive -n block1 -bs 10 -l 2 -s D -ps 0
-    n_step = 20
-    n_par = 30
+    n_step = 60
+    n_par = 60
     folder = "logs/"
-    name = "test"
+    name = "second_ignition"
     stage = "D"
     plot_flag = True
 
@@ -173,19 +188,19 @@ if __name__ == '__main__':
             if stage == "D":
                 # Optimal Design of the Control
                 # (First stage: Decrease the altitude, and the mass to decrease the rw mass/inertia)
-                range_variables = [(0.0, 2 * np.pi),  # First ignition position (angle)
-                                   (0.1, 0.16),  # Main engine diameter (meter)
-                                   (0.0, 2 * np.pi),  # Second ignition position (meter)
-                                   (0.001, 0.035),  # Secondary engine diameter (meter)
-                                   (0.0, 2 * np.pi),  # 3 ignition position (meter)
-                                   (0.001, 0.035)  # 3 engine diameter (meter)
+                range_variables = [(1.4, 2.2),  # First ignition position (angle)
+                                   (0.15, 0.15),  # Main engine diameter (meter)
+                                   (2.2, 2 * np.pi),  # Second ignition position (meter)
+                                   (0.03, 0.05),  # Secondary engine diameter (meter)
+                                   (2.2, 2 * np.pi),  # 3 ignition position (meter)
+                                   (0.03, 0.05)  # 3 engine diameter (meter)
                                    ]
 
                 pso_algorithm = PSOStandard(cost_function_descend, n_particles=n_par, n_steps=n_step)
                 pso_algorithm.initialize(range_variables)
 
                 init_time = time.time()
-                final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_algorithm.optimize()
+                final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_algorithm.optimize(clip=True)
                 end_time = time.time()
                 print("Optimization Time: {}".format((end_time - init_time) / 60))
                 modules_setting = pso_algorithm.gbest_position

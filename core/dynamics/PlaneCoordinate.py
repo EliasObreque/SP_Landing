@@ -83,12 +83,13 @@ class PlaneCoordinate(object):
         thrust = args[0]
         torque = args[1]
 
-        u_f_i = np.array([-np.sin(theta), np.cos(theta)])
+        # u_f_i = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]) @ thrust
+        u_f_i = -v / np.linalg.norm(v) * np.linalg.norm(thrust)
+
         rhs = np.zeros(8)
-        # u_f_i = -v / np.linalg.norm(v)
         rhs[0:2] = v
-        rhs[2:4] = thrust / m * u_f_i - self.mu * r / (np.linalg.norm(r) ** 3)
-        rhs[4] = - args[2] if thrust > 0 else 0
+        rhs[2:4] = u_f_i / m - self.mu * r / (np.linalg.norm(r) ** 3)
+        rhs[4] = - args[2] # if np.linalg.norm(thrust) > 0 else 0
         rhs[5] = omega
         rhs[6] = torque / inertia
         rhs[7] = self.inertia_0 * rhs[4] / self.mass_0
@@ -103,7 +104,7 @@ class PlaneCoordinate(object):
                             self.current_theta,
                             self.current_omega,
                             self.current_inertia])
-        self.current_thrust = thrust_i
+        self.current_thrust = np.linalg.norm(thrust_i)
         self.current_torque = torque_b
         if low_step is not None:
             new_var = x_state + runge_kutta_4(self.dynamic, x_state, low_step, self.current_time, thrust_i, torque_b, m_dot_p)
