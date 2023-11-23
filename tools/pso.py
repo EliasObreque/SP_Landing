@@ -7,7 +7,7 @@ import numpy as np
 import multiprocessing
 
 MAX_CORE = multiprocessing.cpu_count()
-NCORE = int(MAX_CORE)
+NCORE = int(MAX_CORE*0.8)
 fitness_function_ = None
 
 

@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     file_name = "thrust/StarGrain7.csv"
 
-    mixture_name = 'Nakka - KNSU'
+    mixture_name = 'TRX-H609'
     propellant_data_ = [pro_data for pro_data in propellant_data if pro_data['name'] == mixture_name][0]
     Isp = propellant_data_['data']['Isp']
     propellant_properties_ = second_propellant

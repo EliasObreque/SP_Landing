@@ -106,9 +106,9 @@ class Module(object):
                 else:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 1 else None
                     low_step_flag = sum([False, low_step_flag])
-                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 10e3:
+                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 100e3:
                     low_step_flag = sum([True, low_step_flag])
-                    low_step = 0.1
+                    low_step = 0.01
             low_step_ = low_step if low_step_flag else None
             subk += 1
             self.update(control, low_step_)
@@ -181,6 +181,12 @@ class Module(object):
             if value < 0:
                 value += 2 * np.pi
             if value >= self.th[n_e]:
+                return 1
+            else:
+                return 0
+        elif n_e > 4:
+            value = np.linalg.norm(value_vec[0]) - rm
+            if value < self.th[n_e]:
                 return 1
             else:
                 return 0

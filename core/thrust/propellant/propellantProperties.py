@@ -9,6 +9,7 @@ STAR = 'star'
 CUSTOM = 'custom'
 
 # inhibit: True 1, False 0
+name_prop = 'Nakka - KNSU'
 
 bates_geom = {'ext_diameter': 0.15,
               'int_diameter': 0.03,
@@ -22,7 +23,7 @@ star_geom = {'ext_diameter': 0.03,
              'large': 0.2,
              'inhibit': {'top': 1, 'bot': 1}}
 
-tubular_geom = {'ext_diameter': 0.061,
+tubular_geom = {'ext_diameter': 0.07,
                 'int_diameter': None,
                 'large': 0.2,
                 'inhibit': {'top': 0, 'bot': 1}}
@@ -32,20 +33,36 @@ custom_geom = {'ext_diameter': 0.1,
                'large': 0.2,
                'inhibit': {'top': 1, 'bot': 1}}
 
-default_propellant = {'mixture_name': 'Nakka - KNSU',
+default_propellant = {'mixture_name': name_prop,
                       'geometry': {'type': BATES,
                                    'setting': bates_geom},
                       'isp_noise_std': 3.25,
                       'isp_bias_std': 10.83}
 
-main_propellant = {'mixture_name': 'Nakka - KNSU',
+main_propellant = {'mixture_name': name_prop,
                    'geometry': {'type': BATES,
                                 'setting': bates_geom},
                    'isp_noise_std': 3.25,
                    'isp_bias_std': 10.83}
 
-second_propellant = {'mixture_name': 'Nakka - KNSU',
+second_propellant = {'mixture_name': name_prop,
                      'geometry': {'type': TUBULAR,
                                   'setting': tubular_geom},
                      'isp_noise_std': 3.25,
                      'isp_bias_std': 10.83}
+
+bates2_geom = {'ext_diameter': 0.03,
+               'int_diameter': 0.015,
+               'large': 0.2,
+               'inhibit': {'top': 1, 'bot': 1}}
+
+tubular2_geom = {'ext_diameter': 0.03,
+                 'int_diameter': None,
+                 'large': 0.2,
+                 'inhibit': {'top': 0, 'bot': 1}}
+
+third_propellant = {'mixture_name': 'Nakka - KNSU',
+                    'geometry': {'type': TUBULAR,
+                                 'setting': tubular2_geom},
+                    'isp_noise_std': 3.25,
+                    'isp_bias_std': 10.83}

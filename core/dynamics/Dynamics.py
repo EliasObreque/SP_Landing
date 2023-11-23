@@ -153,7 +153,7 @@ class Dynamics(object):
         return self.dynamic_model.historical_pos_i[:-n]
 
     def isTouchdown(self) -> bool:
-        return bool(np.linalg.norm(self.dynamic_model.current_pos_i) - 1000.0 - self.r_moon < 0.0)
+        return bool(np.linalg.norm(self.dynamic_model.current_pos_i) - self.r_moon < 10.0)
 
     def notMass(self):
         return self.dynamic_model.current_mass < 5.0

@@ -14,8 +14,8 @@ import datetime
 import multiprocessing
 
 from core.module.Module import Module
-from core.thrust.thrustProperties import main_thruster, second_thruster
-from core.thrust.propellant.propellantProperties import default_propellant
+from core.thrust.thrustProperties import main_thruster, second_thruster, third_thruster
+from core.thrust.propellant.propellantProperties import main_propellant, second_propellant, third_propellant
 from tools.pso import PSOStandard
 from tools.Viewer import plot_orbit_solution, plot_state_solution, plot_pso_result
 
@@ -24,7 +24,7 @@ inertia_0 = 1 / 12 * mass_0 * (0.2 ** 2 + 0.3 ** 2)
 
 mu = 4.9048695e12  # m3s-2
 rm = 1.738e6
-ra = 68e6
+ra = 20e6 # 68e6
 rp = 2e6
 a = 0.5 * (ra + rp)
 ecc = 1 - rp / a
@@ -67,33 +67,70 @@ def get_energy(mu, r, v):
 def cost_function_descend(modules_setting_):
     state = [position, velocity, theta, omega]
     dt = 0.1
-    tf = 121000 / 2
+    tf = 15000
 
-    thruster_pos = np.array([[-0.06975, -0.0],
-                             [-0.06975, -0.0887],
-                             [-0.06975, 0.0887],
-                             [-0.06975, -0.0887],
-                             [-0.06975, 0.0887]])
+    thruster_pos = np.array([[-0.06975, -0.0],  # Main Thruster
+                             [-0.06975, -0.0887],  # Second -1- Thruster
+                             [-0.06975, 0.0887],  # Second -2- Thruster
+                             [-0.06975, -0.0887],  # Second -3- Thruster
+                             [-0.06975, 0.0887],  # Second -4- Thruster
+                             # [-0.06975, 0.0887],  # Third -1- Thruster
+                             # [-0.06975, 0.0887],  # Third -2- Thruster
+                             # [-0.06975, 0.0887],  # Third -3- Thruster
+                             # [-0.06975, 0.0887],  # Third -4- Thruster
+                             # [-0.06975, 0.0887],  # Third -5- Thruster
+                             # [-0.06975, 0.0887],  # Third -6- Thruster
+                             # [-0.06975, 0.0887],  # Third -7- Thruster
+                             # [-0.06975, 0.0887],  # Third -8- Thruster
+                             # [-0.06975, 0.0887],  # Third -9- Thruster
+                             # [-0.06975, 0.0887],  # Third -10- Thruster
+                             # [-0.06975, 0.0887],  # Third -11- Thruster
+                             # [-0.06975, 0.0887],  # Third -12- Thruster
+                             ])
 
     thruster_pos += np.random.normal(0, 0.0001, size=np.shape(thruster_pos))
 
-    thruster_ang = np.array([0.0,
-                             0.0,
-                             0.0,
-                             0.0,
-                             0.0])
+    thruster_ang = np.zeros(len(thruster_pos))
 
     thruster_ang += np.random.normal(0, np.deg2rad(0.5), size=(len(thruster_ang)))
 
-    thruster_properties_ = [copy.deepcopy(main_thruster),
-                            copy.deepcopy(second_thruster),
-                            copy.deepcopy(second_thruster),
-                            copy.deepcopy(second_thruster),
-                            copy.deepcopy(second_thruster)]
-    propellant_properties_ = [copy.deepcopy(default_propellant) for _ in range(len(thruster_pos))]
+    thruster_properties_ = [copy.deepcopy(main_thruster),  # Main Thruster
+                            copy.deepcopy(second_thruster),  # Second -1- Thruster
+                            copy.deepcopy(second_thruster),  # Second -2- Thruster
+                            copy.deepcopy(second_thruster),  # Second -3- Thruster
+                            copy.deepcopy(second_thruster),  # Second -4- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -1- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -2- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -3- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -4- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -5- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -6- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -7- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -8- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -9- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -10- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -11- Thruster
+                            # copy.deepcopy(third_thruster),  # Third -12- Thruster
+                            ]
 
-    for j in range(1, len(thruster_pos)):
-        propellant_properties_[j]['geometry']['setting']['int_diameter'] = 0.008
+    propellant_properties_ = [copy.deepcopy(main_propellant),   # Main Thruster
+                              copy.deepcopy(second_propellant),  # Second -1- Thruster
+                              copy.deepcopy(second_propellant),  # Second -2- Thruster
+                              copy.deepcopy(second_propellant),  # Second -3- Thruster
+                              copy.deepcopy(second_propellant),  # Second -4- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -1- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -2- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -3- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -4- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -5- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -6- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -7- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -8- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -9- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -10- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -11- Thruster
+                              # copy.deepcopy(third_propellant),  # Third -12- Thruster
+                              ]
 
     state_ = [state[0] + np.random.normal(0, 1e3, size=2),
               state[1] + np.random.normal(0, 5, size=2),
@@ -111,11 +148,16 @@ def cost_function_descend(modules_setting_):
                        modules_setting_[1::2][2],
                        modules_setting_[1::2][2]]
 
-    control_set_ = [modules_setting_[0::2][0],
-                    modules_setting_[0::2][1],
-                    modules_setting_[0::2][1],
-                    modules_setting_[0::2][2],
-                    modules_setting_[0::2][2]]
+    control_set_ = [modules_setting_[0],
+                    modules_setting_[1], modules_setting_[1],
+                    modules_setting_[2], modules_setting_[2],
+                    # modules_setting_[3], modules_setting_[3],
+                    # modules_setting_[4], modules_setting_[4],
+                    # modules_setting_[5], modules_setting_[5],
+                    # modules_setting_[6], modules_setting_[6],
+                    # modules_setting_[7], modules_setting_[7],
+                    # modules_setting_[8], modules_setting_[8],
+                    ]
 
     module.set_thrust_design(engine_diameter, 0)
     module.set_control_function(control_set_)
@@ -124,8 +166,13 @@ def cost_function_descend(modules_setting_):
     v_state = np.array([np.linalg.norm(elem) for elem in historical_state[1]])
     mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
     state_energy = historical_state[8]
-    error = np.abs(state_energy[-1] - energy_target) / mass_state[-1] + v_state[-1] * 1e-3
+    # error = np.abs(state_energy[-1] - energy_target) + v_state[-1]
 
+    ang = np.arctan2(historical_state[0][-1][1], historical_state[0][-1][0])
+    v_t_n = np.array([[np.cos(ang - np.pi/2), -np.sin(ang - np.pi/2)],
+                      [np.sin(ang - np.pi/2), np.cos(ang - np.pi/2)]]).T @ historical_state[1][-1]
+
+    error = abs((r_state[-1] - rm)) + 100 * abs(v_t_n[0]) + abs(v_t_n[1])
     # error = state_energy[-1]
     # for j, act in enumerate(module.thrusters_action_wind):
     #     if len(act) > 0:
@@ -143,10 +190,10 @@ def cost_function_descend(modules_setting_):
 
 if __name__ == '__main__':
     # python .\LandingSimulator.py -f regressive -n block1 -bs 10 -l 2 -s D -ps 0
-    n_step = 60
-    n_par = 60
+    n_step = 50
+    n_par = 10
     folder = "logs/"
-    name = "second_ignition"
+    name = "second_ignition_2"
     stage = "D"
     plot_flag = True
 
@@ -189,18 +236,27 @@ if __name__ == '__main__':
                 # Optimal Design of the Control
                 # (First stage: Decrease the altitude, and the mass to decrease the rw mass/inertia)
                 range_variables = [(1.4, 2.2),  # First ignition position (angle)
-                                   (0.15, 0.15),  # Main engine diameter (meter)
+                                   (0.1, 0.15),  # Main engine diameter (meter)
                                    (2.2, 2 * np.pi),  # Second ignition position (meter)
-                                   (0.03, 0.05),  # Secondary engine diameter (meter)
+                                   (0.01, 0.06),  # Secondary engine diameter (meter)
                                    (2.2, 2 * np.pi),  # 3 ignition position (meter)
-                                   (0.03, 0.05)  # 3 engine diameter (meter)
+                                   (0.01, 0.06)  # 3 engine diameter (meter)
                                    ]
-
+                # range_variables = [(1.4, 3),  # First ignition angular (rad)
+                #                    (4, 1.7 * np.pi),  # Second -1- ignition angular (rad)
+                #                    (4, 1.7 * np.pi),  # Second -2- ignition angular (rad)
+                #                    # (0, 50e3),  # Third -1- ignition position (meter)
+                #                    # (0, 50e3),  # Third -2- ignition position (meter)
+                #                    # (0, 30e3),  # Third -3- ignition position (meter)
+                #                    # (0, 30e3),  # Third -4- ignition position (meter)
+                #                    # (0, 10e3),  # Third -5- ignition position (meter)
+                #                    # (0, 10e3),  # Third -6- ignition position (meter)
+                #                    ]
                 pso_algorithm = PSOStandard(cost_function_descend, n_particles=n_par, n_steps=n_step)
                 pso_algorithm.initialize(range_variables)
 
                 init_time = time.time()
-                final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_algorithm.optimize(clip=True)
+                final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_algorithm.optimize(clip=False)
                 end_time = time.time()
                 print("Optimization Time: {}".format((end_time - init_time) / 60))
                 modules_setting = pso_algorithm.gbest_position

@@ -113,12 +113,13 @@ def plot_orbit_solution(min_state_full, list_name, folder=None, name=None, h_tar
         y_pos = [elem[1] * 1e-3 for elem in min_state[0]]
 
         ang_rot = [np.arctan2(y_, x_) for x_, y_ in zip(x_pos, y_pos)]
-        v_t_n = [np.array([[np.cos(ang), -np.sin(ang)], [np.sin(ang), np.cos(ang)]]) @ v_
+        v_t_n = [np.array([[np.cos(ang - np.pi/2), -np.sin(ang - np.pi/2)],
+                           [np.sin(ang - np.pi/2), np.cos(ang - np.pi/2)]]).T @ v_
                  for ang, v_ in zip(ang_rot, min_state[1])]
 
-        ax_pso[0].plot(min_state[-1], np.array(v_t_n)[:, 0])
-        ax_pso[1].plot(min_state[-1], np.array(v_t_n)[:, 1])
-        ax_pso[2].plot(min_state[-1], np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3)
+        ax_pso[0].plot(min_state[-1], np.array(v_t_n)[:, 1])
+        ax_pso[1].plot(min_state[-1], np.array(v_t_n)[:, 0])
+        ax_pso[2].plot(min_state[-1], np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3, '-o')
         ax_pso[3].plot([elem[0] * 1e-3 for elem in min_state[0]], [elem[1] * 1e-3 for elem in min_state[0]])
         ax_pso[3].set_xlim([-4500, 4500])
         ax_pso[3].set_ylim([-4500, 4500])
