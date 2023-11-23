@@ -5,7 +5,6 @@ email: els.obrq@gmail.com
 """
 import numpy as np
 import datetime
-import numba
 
 twopi = 2.0 * np.pi
 deg2rad = np.pi / 180.0
@@ -250,3 +249,16 @@ def matrix_from_vector(d_vector):
     d_[1, 2] = d_vector[5]
     d_[2, 1] = d_vector[5]
     return d_
+
+
+def propagate_rv_by_ang(r_, v_, ang_, mu, ecc):
+    f_0 = -np.pi / 2
+    ang_ += ang_
+    h = np.cross(r_, v_)
+    h_norm = np.linalg.norm(h)
+    p_ = h_norm ** 2 / mu
+    r_p =  p_ / (1 + ecc * np.cos(ang_))
+    rot_90 = np.array([[0, -1], [1, 0]])
+    new_r = rot_90 @ np.array([np.cos(ang_), np.sin(ang_)]) * r_p
+    new_v = np.sqrt(mu / p_) * rot_90 @ np.array([-np.sin(ang_), (ecc + np.cos(ang_))])
+    return new_r, new_v

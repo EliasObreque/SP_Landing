@@ -18,13 +18,14 @@ from core.thrust.thrustProperties import main_thruster, second_thruster, third_t
 from core.thrust.propellant.propellantProperties import main_propellant, second_propellant, third_propellant
 from tools.pso import PSOStandard
 from tools.Viewer import plot_orbit_solution, plot_state_solution, plot_pso_result
+from tools.mathtools import propagate_rv_by_ang
 
 mass_0 = 24.0
 inertia_0 = 1 / 12 * mass_0 * (0.2 ** 2 + 0.3 ** 2)
 
 mu = 4.9048695e12  # m3s-2
 rm = 1.738e6
-ra = 20e6 # 68e6
+ra = 2e6 # 68e6
 rp = 2e6
 a = 0.5 * (ra + rp)
 ecc = 1 - rp / a
@@ -36,9 +37,9 @@ f_0 = -np.pi / 2
 r_0 = p_ / (1 + ecc * np.cos(f_0))
 
 rot_90 = np.array([[0, -1], [1, 0]])
-
 position = rot_90 @ np.array([np.cos(f_0), np.sin(f_0)]) * r_0
 velocity = np.sqrt(mu / p_) * rot_90 @ np.array([-np.sin(f_0), (ecc + np.cos(f_0))])
+
 theta = np.array(270.0 * np.deg2rad(1))
 omega = np.array(0.0)
 
@@ -67,7 +68,7 @@ def get_energy(mu, r, v):
 def cost_function_descend(modules_setting_):
     state = [position, velocity, theta, omega]
     dt = 0.1
-    tf = 15000
+    tf = min(50000, 2 * np.pi / np.sqrt(mu) * a ** (3/2))
 
     thruster_pos = np.array([[-0.06975, -0.0],  # Main Thruster
                              [-0.06975, -0.0887],  # Second -1- Thruster
@@ -137,6 +138,9 @@ def cost_function_descend(modules_setting_):
               state[2],
               state[3]]
 
+    # transform cartessian r and v into perifocal r and v
+    state_[0], state_[1] = propagate_rv_by_ang(state_[0], state_[1], modules_setting_[1::2][0], mu, ecc)
+
     module = Module(mass_0, inertia_0, state_,
                     thruster_pos, thruster_ang, thruster_properties_,
                     propellant_properties_, "2D", dt, training=True)
@@ -146,7 +150,8 @@ def cost_function_descend(modules_setting_):
                        modules_setting_[1::2][1],
                        modules_setting_[1::2][1],
                        modules_setting_[1::2][2],
-                       modules_setting_[1::2][2]]
+                       modules_setting_[1::2][2]
+                       ]
 
     control_set_ = [modules_setting_[0],
                     modules_setting_[1], modules_setting_[1],
@@ -166,13 +171,13 @@ def cost_function_descend(modules_setting_):
     v_state = np.array([np.linalg.norm(elem) for elem in historical_state[1]])
     mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
     state_energy = historical_state[8]
-    # error = np.abs(state_energy[-1] - energy_target) + v_state[-1]
+    error = (state_energy[-1] - energy_target) ** 2 / mass_state[-1]
 
-    ang = np.arctan2(historical_state[0][-1][1], historical_state[0][-1][0])
-    v_t_n = np.array([[np.cos(ang - np.pi/2), -np.sin(ang - np.pi/2)],
-                      [np.sin(ang - np.pi/2), np.cos(ang - np.pi/2)]]).T @ historical_state[1][-1]
-
-    error = abs((r_state[-1] - rm)) + 100 * abs(v_t_n[0]) + abs(v_t_n[1])
+    # ang = np.arctan2(historical_state[0][-1][1], historical_state[0][-1][0])
+    # v_t_n = np.array([[np.cos(ang - np.pi/2), -np.sin(ang - np.pi/2)],
+    #                   [np.sin(ang - np.pi/2), np.cos(ang - np.pi/2)]]).T @ historical_state[1][-1]
+    #
+    # error = abs((r_state[-1] - rm)) + 100 * abs(v_t_n[0]) + abs(v_t_n[1])
     # error = state_energy[-1]
     # for j, act in enumerate(module.thrusters_action_wind):
     #     if len(act) > 0:
@@ -190,10 +195,10 @@ def cost_function_descend(modules_setting_):
 
 if __name__ == '__main__':
     # python .\LandingSimulator.py -f regressive -n block1 -bs 10 -l 2 -s D -ps 0
-    n_step = 50
-    n_par = 10
+    n_step = 20
+    n_par = 20
     folder = "logs/"
-    name = "second_ignition_2"
+    name = "second_ignition_3"
     stage = "D"
     plot_flag = True
 
@@ -235,12 +240,12 @@ if __name__ == '__main__':
             if stage == "D":
                 # Optimal Design of the Control
                 # (First stage: Decrease the altitude, and the mass to decrease the rw mass/inertia)
-                range_variables = [(1.4, 2.2),  # First ignition position (angle)
+                range_variables = [(0.0, np.pi),  # First ignition position (angle)
                                    (0.1, 0.15),  # Main engine diameter (meter)
-                                   (2.2, 2 * np.pi),  # Second ignition position (meter)
-                                   (0.01, 0.06),  # Secondary engine diameter (meter)
-                                   (2.2, 2 * np.pi),  # 3 ignition position (meter)
-                                   (0.01, 0.06)  # 3 engine diameter (meter)
+                                   (np.pi/2, 2 * np.pi),  # Second ignition position (meter)
+                                   (0.03, 0.06),  # Secondary engine diameter (meter)
+                                   (np.pi/2, 2 * np.pi),  # 3 ignition position (meter)
+                                   (0.03, 0.06)  # 3 engine diameter (meter)
                                    ]
                 # range_variables = [(1.4, 3),  # First ignition angular (rad)
                 #                    (4, 1.7 * np.pi),  # Second -1- ignition angular (rad)
