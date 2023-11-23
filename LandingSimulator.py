@@ -261,7 +261,7 @@ if __name__ == '__main__':
                 pso_algorithm.initialize(range_variables)
 
                 init_time = time.time()
-                final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_algorithm.optimize(clip=False)
+                final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_algorithm.optimize(clip=True)
                 end_time = time.time()
                 print("Optimization Time: {}".format((end_time - init_time) / 60))
                 modules_setting = pso_algorithm.gbest_position
@@ -272,7 +272,7 @@ if __name__ == '__main__':
                     plot_pso_result(hist_pos, hist_g_pos, eval_pos, eval_g_pos, folder, name_temp, plot_flag=plot_flag)
                     plot_state_solution(best_state, list_name, folder, name_temp, aux={8: energy_target},
                                         plot_flag=plot_flag)
-                    plot_orbit_solution([best_state], ["orbit"], folder, name_temp,
+                    plot_orbit_solution([best_state], ["orbit"], a, b, rp, folder, name_temp,
                                         h_target=h_target, plot_flag=plot_flag)
                     plt.show(block=True)
             elif stage == "L":

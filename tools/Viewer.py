@@ -82,7 +82,7 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
             plt.close(fig)
 
 
-def plot_orbit_solution(min_state_full, list_name, folder=None, name=None, h_target=None, plot_flag=True):
+def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, name=None, h_target=None, plot_flag=True):
     fig_pso, ax_pso = plt.subplots(2, 2, figsize=(10, 8))
     ax_pso = ax_pso.flatten()
     ax_pso[0].set_ylabel("Radial Velocity [km/s]")
@@ -94,8 +94,8 @@ def plot_orbit_solution(min_state_full, list_name, folder=None, name=None, h_tar
     ax_pso[2].set_ylabel("Altitude [km]")
     ax_pso[2].set_xlabel("Time [sec]")
     ax_pso[2].grid()
-    ellipse = Ellipse(xy=(0, -(a - rp) * 1e-3), width=b * 2 * 1e-3,
-                      height=2 * a * 1e-3,
+    ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
+                      height=2 * a_ * 1e-3,
                       edgecolor='r', fc='None', lw=0.7)
     ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
                            edgecolor='black', fc='None', lw=0.4)
