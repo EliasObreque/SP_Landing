@@ -49,12 +49,12 @@ class Module(object):
                                            self.dynamics.dynamic_model.current_omega)
         tau_b = 0 * tau_b + 0 * tau_ctrl
         # rev
-        rev0 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
-                          self.dynamics.dynamic_model.current_pos_i[0])
+        # rev0 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
+        #                   self.dynamics.dynamic_model.current_pos_i[0])
         self.dynamics.dynamic_model.update(thr_vec, m_dot_p, tau_b, low_step)
-        rev1 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
-                          self.dynamics.dynamic_model.current_pos_i[0])
-        self.rev_count += ((rev1 - rev0) % 2 * np.pi)
+        # rev1 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
+        #                   self.dynamics.dynamic_model.current_pos_i[0])
+        # self.rev_count += ((rev1 - rev0) % 2 * np.pi)
 
     def calc_thrust_torques(self, thr_list):
         thr_vec = [thr_i * np.array([-np.sin(alpha_), np.cos(alpha_)])
@@ -89,7 +89,7 @@ class Module(object):
     def get_thrust(self):
         return np.sum(np.array([thr_i.current_mag_thrust_c for thr_i in self.thrusters]))
 
-    def simulate(self, tf, low_step: float = None, progress: bool = True):
+    def simulate(self, tf, low_step: float = None, progress: bool = True, only_thrust: bool = False):
         # save ignition time and stop time
         subk = 0
         k = 0
@@ -108,7 +108,7 @@ class Module(object):
                     low_step_flag = sum([False, low_step_flag])
                 if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 100e3:
                     low_step_flag = sum([True, low_step_flag])
-                    low_step = 0.01
+                    low_step = 0.1
             low_step_ = low_step if low_step_flag else None
             subk += 1
             self.update(control, low_step_)
@@ -120,6 +120,9 @@ class Module(object):
             self.save_log()
             if tf < self.dynamics.dynamic_model.current_time:
                 break
+            if only_thrust:
+                if left_engine:
+                    break
             if k > 29 and progress:
                 print('Progress {} % - Thrust: {}'.format(self.dynamics.dynamic_model.current_time / tf * 100,
                                                           self.get_thrust()))

@@ -121,8 +121,8 @@ def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, nam
         ax_pso[1].plot(min_state[-1], np.array(v_t_n)[:, 0])
         ax_pso[2].plot(min_state[-1], np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3, '-o')
         ax_pso[3].plot([elem[0] * 1e-3 for elem in min_state[0]], [elem[1] * 1e-3 for elem in min_state[0]])
-        ax_pso[3].set_xlim([-4500, 4500])
-        ax_pso[3].set_ylim([-4500, 4500])
+        # ax_pso[3].set_xlim([-4500, 4500])
+        # ax_pso[3].set_ylim([-4500, 4500])
     plt.tight_layout()
     if folder is not None and name is not None:
         fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
@@ -587,11 +587,11 @@ def isp_vacuum():
 if __name__ == '__main__':
     # plot_polynomial_function(3)
     # compare_performance()
-    # plot_dv_req()
+    plot_dv_req()
     # isp_vacuum()
-    data = open("../logs/plane/test", 'rb')
-    data_loaded = dict(pickle.load(data))
-
-    for key, item in data_loaded.items():
-        print(key)
+    # data = open("../logs/plane/test", 'rb')
+    # data_loaded = dict(pickle.load(data))
+    #
+    # for key, item in data_loaded.items():
+    #     print(key)
 

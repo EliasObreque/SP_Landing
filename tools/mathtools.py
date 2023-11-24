@@ -35,7 +35,7 @@ def runge_kutta_4(function, x, dt, ct, *args):
     return next_x
 
 
-def rkf45(ode_function, xi, h_old, t, tf, *args, tol=1e-9):
+def rkf45(ode_function, xi, h_old, t, tf, *args, tol=1e-12):
     hmin = 1e-3
     h = h_old
     k_i = np.zeros(len(xi))
@@ -251,14 +251,22 @@ def matrix_from_vector(d_vector):
     return d_
 
 
-def propagate_rv_by_ang(r_, v_, ang_, mu, ecc):
+def propagate_rv_by_ang(r_, v_, ang_, mu):
     f_0 = -np.pi / 2
-    ang_ += ang_
-    h = np.cross(r_, v_)
-    h_norm = np.linalg.norm(h)
+    ang_ += f_0
+    h_ = np.cross(r_, v_)
+    h_norm = np.linalg.norm(h_)
     p_ = h_norm ** 2 / mu
-    r_p =  p_ / (1 + ecc * np.cos(ang_))
+    r_norm = np.linalg.norm(r_)
+    v_norm = np.linalg.norm(v_)
+    energy = 0.5 * v_norm ** 2 - mu / r_norm
+    a_ = -mu / (2 * energy)
+    # eccentricity
+    ecc = (1 - p_ / a_) ** 0.5
+    r_t =  p_ / (1 + ecc * np.cos(ang_))
     rot_90 = np.array([[0, -1], [1, 0]])
-    new_r = rot_90 @ np.array([np.cos(ang_), np.sin(ang_)]) * r_p
+    new_r = rot_90 @ np.array([np.cos(ang_), np.sin(ang_)]) * r_t
     new_v = np.sqrt(mu / p_) * rot_90 @ np.array([-np.sin(ang_), (ecc + np.cos(ang_))])
     return new_r, new_v
+
+
