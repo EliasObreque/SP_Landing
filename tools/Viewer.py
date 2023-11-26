@@ -72,6 +72,13 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
             plt.ylabel(list_name[i])
         plt.xlabel("Time [s]")
         plt.plot(min_state_full[-1], min_state)
+        if "Thrust" in list_name[i]:
+            thr_wind = np.argwhere(np.array(min_state) > 0)
+            init = max(thr_wind.min() - 1, 0)
+            stop = min(thr_wind.max() + 5, len(min_state))
+            axes = fig.add_axes([0.55, 0.55, 0.3, 0.3]) # left, bottom, width, height - en porcentajes
+            axes.plot(min_state_full[-1][init:stop], min_state[init:stop])
+            axes.grid()
         if aux is not None:
             if i in list(aux.keys()):
                 plt.hlines(aux[i], xmin=min(min_state_full[-1]), xmax=max(min_state_full[-1]), colors='red')
@@ -99,11 +106,13 @@ def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, nam
                       edgecolor='r', fc='None', lw=0.7)
     ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
                            edgecolor='black', fc='None', lw=0.4)
-    ellipse_target = Ellipse(xy=(0, 0), width=2 * (h_target * 1e-3),
-                             height=2 * (h_target * 1e-3),
-                             edgecolor='green', fc='None', lw=0.7)
+    if h_target is not None:
+        ellipse_target = Ellipse(xy=(0, 0), width=2 * (h_target * 1e-3),
+                                 height=2 * (h_target * 1e-3),
+                                 edgecolor='green', fc='None', lw=0.7)
+        ax_pso[3].add_patch(ellipse_target)
+
     ax_pso[3].add_patch(ellipse)
-    ax_pso[3].add_patch(ellipse_target)
     ax_pso[3].add_patch(ellipse_moon)
     ax_pso[3].set_ylabel("Y-Position [km]")
     ax_pso[3].set_xlabel("X-Position [km]")
@@ -587,8 +596,8 @@ def isp_vacuum():
 if __name__ == '__main__':
     # plot_polynomial_function(3)
     # compare_performance()
-    plot_dv_req()
-    # isp_vacuum()
+    # plot_dv_req()
+    isp_vacuum()
     # data = open("../logs/plane/test", 'rb')
     # data_loaded = dict(pickle.load(data))
     #

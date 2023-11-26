@@ -4,6 +4,7 @@
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/.sp-venv" />
       <excludeFolder url="file://$MODULE_DIR$/logs" />
+      <excludeFolder url="file://$MODULE_DIR$/sandbox/logs" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.9 (SP_Landing)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

@@ -76,8 +76,8 @@ noise_state = [np.random.normal(0, 1e3, size=2), np.random.normal(0, 5, size=2)]
 
 def descent_optimization(modules_setting_):
     control_set_ = [modules_setting_[0],
-                    modules_setting_[1], modules_setting_[1],
-                    modules_setting_[2], modules_setting_[2],
+                    # modules_setting_[1], modules_setting_[1],
+                    # modules_setting_[2], modules_setting_[2],
                     ]
     state_ = [state[0] + noise_state[0],
               state[1] + noise_state[1],
@@ -146,23 +146,23 @@ def descent_optimization(modules_setting_):
     v_t_n = np.array([[np.cos(ang - np.pi / 2), -np.sin(ang - np.pi / 2)],
                       [np.sin(ang - np.pi / 2), np.cos(ang - np.pi / 2)]]).T @ historical_state[1][-1]
 
-    error = state_energy[-1] / mass_state[-1] + v_t_n[0] ** 2
+    error = state_energy[-1] + 100 * v_t_n[0] ** 2
     # error += 1000 if module.dynamics.isTouchdown() else 1
     return error, historical_state
 
 
 if __name__ == '__main__':
 
-    n_step = 100
-    n_par = 30
+    n_step = 200
+    n_par = 5
     folder = "logs/"
     name = "descent_ignition_3"
     stage = "D"
     plot_flag = True
 
     range_variables = [(0.0, 2 * np.pi),  # First ignition angular (rad)
-                       (0.0, 2 * np.pi),  # Second -1- ignition angular (rad)
-                       (0.0, 2 * np.pi),  # Second -2- ignition angular (rad)
+                       # (0.0, 2 * np.pi),  # Second -1- ignition angular (rad)
+                       # (0.0, 2 * np.pi),  # Second -2- ignition angular (rad)
                        ]
 
     pso_algorithm = PSOStandard(descent_optimization, n_particles=n_par, n_steps=n_step)
@@ -173,6 +173,7 @@ if __name__ == '__main__':
     end_time = time.time()
     print("Optimization Time: {}".format((end_time - init_time) / 60))
     modules_setting = pso_algorithm.gbest_position
+    sorted_ignition = sorted(modules_setting)
 
     state = [position, velocity, theta, omega]
     state_ = [state[0] + noise_state[0],
@@ -180,15 +181,14 @@ if __name__ == '__main__':
               state[2],
               state[3]]
 
-    state_[0], state_[1] = propagate_rv_by_ang(state_[0], state_[1], modules_setting[0], mu)
     module = Module(mass_0, inertia_0, state_,
                     thruster_pos, thruster_ang, thruster_properties_,
                     propellant_properties_, "2D", dt, training=True)
     control_set_ = [modules_setting[0],
-                    modules_setting[1], modules_setting[1],
-                    modules_setting[2], modules_setting[2],
+                    # modules_setting[1], modules_setting[1],
+                    # modules_setting[2], modules_setting[2],
                     ]
-    module.set_control_function(control_set_)
+    module.set_control_function([control_set_])
     historical_state = module.simulate(30000, low_step=0.01, progress=False)
     list_name = ["Position [m]", "Velocity [m/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
                  "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]"]

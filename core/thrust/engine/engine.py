@@ -264,3 +264,6 @@ class Engine(BasicThruster, ABC):
     def set_step_time(self, value):
         self.step_width = value
         self.propellant.dt = value
+
+    def set_bias_isp(self, bias):
+        self.propellant.add_bias_isp(bias)

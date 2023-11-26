@@ -43,11 +43,11 @@ class Module(object):
 
         tau_b, thr_vec = self.calc_thrust_torques(thr_mag)
 
-        tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
-                                           self.dynamics.dynamic_model.current_vel_i,
-                                           self.dynamics.dynamic_model.current_theta,
-                                           self.dynamics.dynamic_model.current_omega)
-        tau_b = 0 * tau_b + 0 * tau_ctrl
+        # tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
+        #                                    self.dynamics.dynamic_model.current_vel_i,
+        #                                    self.dynamics.dynamic_model.current_theta,
+        #                                    self.dynamics.dynamic_model.current_omega)
+        tau_b = 0 * tau_b #+ 0 * tau_ctrl
         # rev
         # rev0 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
         #                   self.dynamics.dynamic_model.current_pos_i[0])
@@ -109,6 +109,9 @@ class Module(object):
                 if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 100e3:
                     low_step_flag = sum([True, low_step_flag])
                     low_step = 0.1
+                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 5e3:
+                    low_step_flag = sum([True, low_step_flag])
+                    low_step = 0.01
             low_step_ = low_step if low_step_flag else None
             subk += 1
             self.update(control, low_step_)
@@ -204,7 +207,7 @@ class Module(object):
         self.th = control_parameter
         self.control_function = self.on_off_control
 
-    def set_thrust_design(self, thrust_design, orientation):
+    def set_thrust_design(self, thrust_design, orientation, bias_isp=None):
         self.thrusters = []
         for i, value in enumerate(thrust_design):
             self.propellant_properties[i]['geometry']['setting']['ext_diameter'] = value
@@ -212,6 +215,10 @@ class Module(object):
             self.thrusters.append(Thruster(self.dynamics.dynamic_model.dt,
                                            self.thruster_conf[i],
                                            self.propellant_properties[i])())
+
+    def set_thrust_bias(self, bias_isp: list):
+        for i, value in enumerate(bias_isp):
+            self.thrusters[i].set_bias_isp(value)
 
     def get_ignition_state(self, moment):
         values = []

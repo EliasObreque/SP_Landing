@@ -178,7 +178,7 @@ def cost_function_descend(modules_setting_):
     v_t_n = np.array([[np.cos(ang - np.pi/2), -np.sin(ang - np.pi/2)],
                       [np.sin(ang - np.pi/2), np.cos(ang - np.pi/2)]]).T @ historical_state[1][-1]
 
-    error = state_energy[-1]/mass_state[-1] + v_t_n[0] ** 2
+    error = state_energy[-1]/mass_state[-1] + 100 * v_t_n[0] ** 2
     # for j, act in enumerate(module.thrusters_action_wind):
     #     if len(act) > 0:
     #         error += np.abs(state_energy[min(act[1] + 1, len(state_energy) - 5)] - energy_target[j]) / mass_state[-1]

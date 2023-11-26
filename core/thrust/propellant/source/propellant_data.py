@@ -63,6 +63,28 @@ propellant_data.append({'name': 'Nakka - KNSU',
                                  'minPressure': 0.0,
                                  'maxPressure': 10342500}})
 
+propellant_data.append({'name': 'RCS - White Lightning',
+                        'data': {'density': 1.82023,  # g/cm^3
+                                 'Isp': 260,
+                                 'burn_rate_constant': 0.006,  # mm/(s*Pa^n)
+                                 'pressure_exponent': 0.45,
+                                 'small_gamma': 1.243000,
+                                 'molecular_weight': 27.12,
+                                 'temperature': 2339.000000, # K
+                                 'minPressure': 0.0,
+                                 'maxPressure': 10342500}})
+
+propellant_data.append({'name': 'RCS - Blue Thunder',
+                        'data': {'density': 1.625087,  # g/cm^3
+                                 'Isp': 240,
+                                 'burn_rate_constant': 0.070,  # mm/(s*Pa^n)
+                                 'pressure_exponent': 0.321000,
+                                 'small_gamma': 1.235000,
+                                 'molecular_weight': 22.959000,
+                                 'temperature': 2616.500000,  # K
+                                 'minPressure': 0.0,
+                                 'maxPressure': 10342500}})
+
 propellant_data.append({'name': 'HTPB 1912',
                         'data': {'density': 1.81,
                                  'Isp': 280,

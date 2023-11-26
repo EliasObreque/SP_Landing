@@ -34,10 +34,10 @@ class Thruster(ABC):
 
 
 if __name__ == '__main__':
-    from thrustProperties import default_thruster, second_thruster
+    from thrustProperties import default_thruster, second_thruster, main_thruster
     from tools.Viewer import plot_thrust, show_plot
     from core.thrust.propellant.source.propellant_data import propellant_data
-    from propellant.propellantProperties import default_propellant, BATES, bates_geom, second_propellant
+    from propellant.propellantProperties import default_propellant, BATES, bates_geom, main_propellant, second_propellant
     import matplotlib.pyplot as plt
 
     NEUTRAL = 'neutral'
@@ -49,10 +49,10 @@ if __name__ == '__main__':
 
     file_name = "thrust/StarGrain7.csv"
 
-    mixture_name = 'TRX-H609'
+    mixture_name = 'RCS - Blue Thunder'
     propellant_data_ = [pro_data for pro_data in propellant_data if pro_data['name'] == mixture_name][0]
     Isp = propellant_data_['data']['Isp']
-    propellant_properties_ = second_propellant
+    propellant_properties_ = main_propellant
     propellant_properties_['mixture_name'] = mixture_name
     # propellant_properties_['geometry']['type'] = BATES
     # if propellant_properties_['geometry']['type'] is not None:
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     upper_isp_bias = Isp * (1.0 + percentage_variation_b / 100.0)
     propellant_properties_['isp_bias_std'] = (upper_isp_bias - Isp) / 3
 
-    thruster_properties_ = second_thruster
+    thruster_properties_ = main_thruster
     thruster_properties_['thrust_profile'] = {'type': GRAIN}
     # thruster_properties_['thrust_profile']['type'] = MODEL
     thruster_properties_['max_ignition_dead_time'] = 0.2
