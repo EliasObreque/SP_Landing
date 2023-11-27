@@ -63,9 +63,9 @@ dead_time = [np.random.normal(0, thruster_properties_[0]['max_ignition_dead_time
 
 list_name = ["Position [m]", "Velocity [m/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
              "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]"]
-list_gain = [0, 1, 10, 100, 1e3, 1e4, -1]
-folder = "logs/"
-name_ = "descent_progressive_vf_"
+list_gain = [1]
+folder = "logs/progressive/"
+name_ = "descent_vf_"
 
 
 def descent_optimization(modules_setting_):
