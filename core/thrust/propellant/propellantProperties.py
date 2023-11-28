@@ -37,7 +37,7 @@ default_propellant = {'mixture_name': name_prop,
                       'geometry': {'type': BATES,
                                    'setting': bates_geom},
                       'isp_noise_std': 3.25,
-                      'isp_bias_std': 10.83}
+                      'isp_bias_std': 0.0}
 
 main_propellant = {'mixture_name': name_prop,
                    'geometry': {'type': BATES,
@@ -65,4 +65,4 @@ third_propellant = {'mixture_name': name_prop,
                     'geometry': {'type': TUBULAR,
                                  'setting': tubular2_geom},
                     'isp_noise_std': 3.25,
-                    'isp_bias_std': 10.83}
+                    'isp_bias_std': 0.0}

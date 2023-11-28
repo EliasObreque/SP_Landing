@@ -7,7 +7,7 @@ import numpy as np
 from core.dynamics.Dynamics import Dynamics
 from core.thrust.thruster import Thruster
 
-rm = 1.738e6
+rm = 1.738e6    # m
 
 
 class Module(object):
@@ -157,20 +157,20 @@ class Module(object):
         else:
             return ctf
 
-    @staticmethod
-    def __default_control(state, n_e=0):
-        if state[0][1] < 0.0:
-            control = 1
+    def __default_control(self, state, n_e=0):
+        alt = np.linalg.norm(state[0]) - rm
+        if alt * 1e-3 < self.th[n_e]:
+            return 1
         else:
-            control = 1
-        return control
+            return 0
 
     def on_off_control(self, value_vec, n_e=0):
         if n_e == 0:
-            value = np.arctan2(value_vec[0][1], value_vec[0][0])
-            if value < 0:
-                value += 2 * np.pi
-            if value >= self.th[n_e]:
+            # value = np.arctan2(value_vec[0][1], value_vec[0][0])
+            # if value < 0:
+            #     value += 2 * np.pi
+            value = np.linalg.norm(value_vec[0]) - rm
+            if value * 1e-3 <= self.th[n_e]:
                 return 1
             else:
                 return 0
@@ -203,22 +203,28 @@ class Module(object):
             else:
                 return 0
 
-    def set_control_function(self, control_parameter):
+    def set_control_function(self, control_parameter, default=False):
         self.th = control_parameter
-        self.control_function = self.on_off_control
+        if not default:
+            self.control_function = self.on_off_control
 
-    def set_thrust_design(self, thrust_design, orientation, bias_isp=None):
+    def set_thrust_design(self, thrust_diameter, thrust_large=None, bias_isp=None):
         self.thrusters = []
-        for i, value in enumerate(thrust_design):
+        for i, value in enumerate(thrust_diameter):
             self.propellant_properties[i]['geometry']['setting']['ext_diameter'] = value
             self.thruster_conf[i]['case_diameter'] = value
+            if thrust_large is not None:
+                self.propellant_properties[i]['geometry']['setting']['large'] = thrust_large[i]
+                self.thruster_conf[i]['case_large'] = thrust_large[i]
             self.thrusters.append(Thruster(self.dynamics.dynamic_model.dt,
                                            self.thruster_conf[i],
                                            self.propellant_properties[i])())
 
-    def set_thrust_bias(self, bias_isp: list):
+    def set_thrust_bias(self, bias_isp: list, dead_time: list = None):
         for i, value in enumerate(bias_isp):
             self.thrusters[i].set_bias_isp(value)
+            if dead_time is not None:
+                self.thrusters[i].set_dead_time(dead_time[i])
 
     def get_ignition_state(self, moment):
         values = []

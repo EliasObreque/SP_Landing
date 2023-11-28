@@ -59,6 +59,9 @@ class BasicThruster(ABC):
         self.ignition_dead_time = np.random.uniform(0, self.max_dead_time)
         self.current_dead_time = 0.0
 
+    def set_dead_time(self, value):
+        self.ignition_dead_time = value
+
     def set_thrust_on(self, value):
         """
         Change the state of thrust

@@ -4,7 +4,6 @@ Autor: Elias Obreque Sepulveda
 email: els.obrq@gmail.com
 
 """
-from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 import pickle
 import os
@@ -13,7 +12,6 @@ from matplotlib import patches
 from matplotlib.patches import Ellipse
 import numpy as np
 # plt.rcParams["font.family"] = "Times New Roman"
-plt.rcParams['font.size'] = 14
 
 ra = 68e6
 rp = 2e6
@@ -25,11 +23,13 @@ rm = 1.738e6
 
 def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
     fig = plt.figure()
+    # plt.rcParams['font.size'] = 13
     plt.plot(np.arange(1, len(evol_best_fitness) + 1), evol_best_fitness, 'red', lw=1)
     plt.plot(np.arange(1, len(evol_best_fitness) + 1), evol_p_fitness.T, '-.', color='blue', lw=0.5)
     plt.grid()
     plt.ylabel("Evaluation cost")
     plt.xlabel("Iteration")
+    plt.yscale('log')
     plt.gca().yaxis.set_label_coords(-0.12, 0.5)
     plt.subplots_adjust(left=0.16, right=0.95, top=0.9)  # Puedes ajustar este valor según tus necesidades
     if folder is not None and name is not None:
@@ -48,7 +48,7 @@ def plot_historical_position(historical_position, historical_g_position, folder=
         axes = [axes]
     max_iteration = len(historical_g_position)
     for i, ax in enumerate(axes):
-        ax.set_ylabel("Particle {}".format(i + 1))
+        ax.set_ylabel("P {}".format(i + 1))
         ax.yaxis.set_label_coords(-0.12, 0.5)
         ax.plot(np.arange(1, max_iteration + 1),
                 np.array(historical_position).T[i].T, '-.', lw=0.5, color='b')
@@ -72,22 +72,27 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
     for i, min_state in enumerate(min_state_full[:-1]):
         fig = plt.figure()
         plt.grid()
+        # plt.rcParams['font.size'] = 13
         plt.gca().yaxis.set_label_coords(-0.12, 0.5)
         plt.subplots_adjust(left=0.16, right=0.95, top=0.9)  # Puedes ajustar este valor según tus necesidades
         if list_name is not None:
             plt.ylabel(list_name[i])
-        plt.xlabel("Time [s]")
-        plt.plot(min_state_full[-1], min_state)
-        if "Thrust" in list_name[i]:
-            thr_wind = np.argwhere(np.array(min_state) > 0)
-            init = max(thr_wind.min() - 1, 0)
-            stop = min(thr_wind.max() + 5, len(min_state))
-            axes = fig.add_axes([0.55, 0.55, 0.3, 0.3]) # left, bottom, width, height - en porcentajes
-            axes.plot(min_state_full[-1][init:stop], min_state[init:stop])
-            axes.grid()
+        plt.xlabel("Time [min]")
+        wind_time = np.array(min_state_full[-1]) / 60
+        plt.plot(wind_time, min_state)
+        # if "Thrust" in list_name[i]:
+        #     thr_wind = np.argwhere(np.array(min_state) > 0)
+        #     init = np.max([thr_wind.min() - 1, 0])
+        #     stop = np.min([thr_wind.max() + 2, len(min_state)])
+        #     axes = fig.add_axes([0.63, 0.58, 0.3, 0.3]) # left, bottom, width, height - en porcentajes
+        #     axes.plot(wind_time[init:stop], min_state[init:stop])
+        #     axes.set_ylim(0, 1.2 * max(min_state))
+        #     plt.xticks(fontsize=8)
+        #     plt.yticks(fontsize=8)
+        #     axes.grid()
         if aux is not None:
             if i in list(aux.keys()):
-                plt.hlines(aux[i], xmin=min(min_state_full[-1]), xmax=max(min_state_full[-1]), colors='red')
+                plt.hlines(aux[i], xmin=min(wind_time), xmax=max(wind_time), colors='red')
 
         if folder is not None and name is not None:
             fig.savefig(folder + name + "_" + list_name[i].split(" ")[0] + '.pdf', format='pdf')
@@ -97,16 +102,18 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
 
 def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, name=None, h_target=None, plot_flag=True):
     fig_pso, ax_pso = plt.subplots(2, 2, figsize=(10, 8))
+    # plt.rcParams['font.size'] = 13
     ax_pso = ax_pso.flatten()
     ax_pso[0].set_ylabel("Radial Velocity [km/s]")
-    ax_pso[0].set_xlabel("Time [sec]")
+    ax_pso[0].set_xlabel("Time [min]")
     ax_pso[0].grid()
     ax_pso[1].set_ylabel("Normal Velocity [km/s]")
-    ax_pso[1].set_xlabel("Time [sec]")
+    ax_pso[1].set_xlabel("Time [min]")
     ax_pso[1].grid()
     ax_pso[2].set_ylabel("Altitude [km]")
-    ax_pso[2].set_xlabel("Time [sec]")
+    ax_pso[2].set_xlabel("Time [min]")
     ax_pso[2].grid()
+
     ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
                       height=2 * a_ * 1e-3,
                       edgecolor='r', fc='None', lw=0.7)
@@ -124,23 +131,24 @@ def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, nam
     ax_pso[3].set_xlabel("X-Position [km]")
     ax_pso[3].grid()
     for min_state in min_state_full:
-        x_pos = [elem[0] for elem in min_state[0]]
-        y_pos = [elem[1] for elem in min_state[0]]
+        wind_time = np.array(min_state[-1]) / 60
+        x_pos = [elem[0] * 1e-3 for elem in min_state[0]]
+        y_pos = [elem[1] * 1e-3 for elem in min_state[0]]
 
         ang_rot = [np.arctan2(y_, x_) for x_, y_ in zip(x_pos, y_pos)]
         v_t_n = [np.array([[np.cos(ang - np.pi/2), -np.sin(ang - np.pi/2)],
                            [np.sin(ang - np.pi/2), np.cos(ang - np.pi/2)]]).T @ v_
                  for ang, v_ in zip(ang_rot, min_state[1])]
 
-        ax_pso[0].plot(min_state[-1], np.array(v_t_n)[:, 1])
-        ax_pso[1].plot(min_state[-1], np.array(v_t_n)[:, 0])
-        ax_pso[2].plot(min_state[-1], np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3)
-        ax_pso[3].plot([elem[0] for elem in min_state[0]], [elem[1] for elem in min_state[0]])
+        ax_pso[0].plot(wind_time, np.array(v_t_n)[:, 1])
+        ax_pso[1].plot(wind_time, np.array(v_t_n)[:, 0])
+        ax_pso[2].plot(wind_time, np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3)
+        ax_pso[3].plot(x_pos, y_pos)
         plt.tight_layout()
         axes = zoomed_inset_axes(ax_pso[3], 7.5, loc='center', axes_kwargs={'aspect': 'equal'})
 
         # axes = fig_pso.add_axes([0.69, 0.18, 0.2, 0.2])  # left, bottom, width, height - en porcentajes
-        axes.plot([elem[0] for elem in min_state[0]], [elem[1] for elem in min_state[0]])
+        axes.plot(x_pos, y_pos)
         ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
                           height=2 * a_ * 1e-3,
                           edgecolor='r', fc='None', lw=0.7)
@@ -150,8 +158,9 @@ def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, nam
         axes.add_patch(ellipse_moon)
         axes.set_xlim(-2500, 2500)
         axes.set_ylim(-2500, 2500)
-        axes.set_yticks([])
-        axes.set_xticks([])
+        plt.xticks(fontsize=8)
+        plt.yticks(fontsize=8)
+        axes.grid()
         mark_inset(ax_pso[3], axes, loc1=2, loc2=1)
     if folder is not None and name is not None:
         fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
@@ -623,13 +632,14 @@ if __name__ == '__main__':
     rp_target = 2e6
     mu = 4.9048695e12  # m3s-2
     energy_target = -mu / h_target
-    folder = "../sandbox/logs/neutral/"
-    list_name = ["Position [km]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
+    folder = "../sandbox/logs/neutral/train/"
+    list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
                  "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]"]
     # open all file *.pkl with import os
     plot_flag = False
+    hist = []
     for file in os.listdir(folder):
-        if "pkl" in file:
+        if "pkl" in file and 'full' in file:
             print(file)
             data = open(folder + file, 'rb')
             name = file.split('.')[0]
@@ -637,14 +647,15 @@ if __name__ == '__main__':
             hist_pos, hist_g_pos = data_loaded['hist_part'], data_loaded['best_part']
             historical_state = data_loaded['state']
             eval_pos, eval_g_pos = data_loaded['p_cost'], data_loaded['best_cost']
-            historical_state[0] = np.array(historical_state[0]) * 1e-3
             historical_state[1] = np.array(historical_state[1]) * 1e-3
-            plot_pso_result(hist_pos, hist_g_pos, np.array(eval_pos), eval_g_pos, folder, name, plot_flag=plot_flag)
-            plot_state_solution(historical_state, list_name, folder, name, aux={8: energy_target},
-                                plot_flag=plot_flag)
-            plot_orbit_solution([historical_state], ["orbit"], a, b, rp, folder, name,
-                                h_target=h_target, plot_flag=plot_flag)
+            historical_state[0] = np.array(historical_state[0]) * 1e-3
+            hist.append(historical_state)
+            # plot_pso_result(hist_pos, hist_g_pos, np.array(eval_pos), eval_g_pos, folder, name, plot_flag=plot_flag)
+            # plot_state_solution(historical_state, list_name, folder, name, aux={8: energy_target},
+            #                     plot_flag=plot_flag)
+    plot_orbit_solution(hist, ["orbit"], a, b, rp, folder, "all_vf",
+                        h_target=h_target, plot_flag=plot_flag)
 
-            plt.close()
+    plt.show()
 
 
