@@ -132,7 +132,7 @@ if __name__ == '__main__':
     stage = "D"
     plot_flag = True
 
-    range_variables = [(1.2 * np.pi, 1.8 * np.pi),
+    range_variables = [(0, 1.8 * np.pi),
                        (0.05, 0.065),
                        (0.1, 0.2)
                        ]
@@ -143,7 +143,7 @@ if __name__ == '__main__':
         gain_file.close()
         gain_normal_vel = gain
         hist_list = []
-        for j in range(10):
+        for j in range(100):
             print(i, j)
             noise_state_ = [np.random.normal(0, (100, 100)), np.random.normal(0, (5, 5))]
             noise_isp_ = [np.random.normal(0, prop['isp_bias_std']) for prop in propellant_properties_]
