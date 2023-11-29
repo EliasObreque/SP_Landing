@@ -11,6 +11,8 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 from matplotlib import patches
 from matplotlib.patches import Ellipse
 import numpy as np
+from PIL import Image
+from matplotlib.transforms import Affine2D
 # plt.rcParams["font.family"] = "Times New Roman"
 
 ra = 68e6
@@ -19,6 +21,13 @@ a = 0.5 * (ra + rp)
 ecc = 1 - rp / a
 b = a * np.sqrt(1 - ecc ** 2)
 rm = 1.738e6
+data = Image.open("moon-58-1024x1024.png")
+data = np.asarray(data)[61:-75, 68:-68]
+data_ = Image.fromarray(data)
+data_ = data_.resize((int(2 * rm * 1e-3), int(2 * rm * 1e-3)))
+translacion_x = -int(rm * 1e-3)  # Ajusta este valor según sea necesario
+translacion_y = -int(rm * 1e-3)  # Ajusta este valor según sea necesario
+transformacion = Affine2D().translate(translacion_x, translacion_y)
 
 
 def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
@@ -101,7 +110,55 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
 
 
 def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, name=None, h_target=None, plot_flag=True):
-    fig_pso, ax_pso = plt.subplots(2, 2, figsize=(10, 8))
+    fig_pso, ax_pso = plt.subplots(1, 1)
+    ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
+                      height=2 * a_ * 1e-3,
+                      edgecolor='r', fc='None', lw=0.7)
+    ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
+                           edgecolor='black', fc='None', lw=0.4)
+    if h_target is not None:
+        ellipse_target = Ellipse(xy=(0, 0), width=2 * (h_target * 1e-3),
+                                 height=2 * (h_target * 1e-3),
+                                 edgecolor='green', fc='None', lw=0.7)
+        ax_pso.add_patch(ellipse_target)
+    ax_pso.add_patch(ellipse)
+    ax_pso.add_patch(ellipse_moon)
+    ax_pso.imshow(data_, transform=transformacion + ax_pso.transData)
+    ax_pso.set_ylabel("Y-Position [km]")
+    ax_pso.set_xlabel("X-Position [km]")
+    ax_pso.set_xlim((-rm * 1e-3 - 400, rm * 1e-3 + 400))
+    ax_pso.set_ylim((-rm * 1e-3 - 400, rm * 1e-3 + 400))
+    ax_pso.grid(linestyle='--', linewidth=0.5)
+    for min_state in min_state_full:
+        wind_time = np.array(min_state[-1]) / 60
+        x_pos = [elem[0] * 1e-3 for elem in min_state[0]]
+        y_pos = [elem[1] * 1e-3 for elem in min_state[0]]
+        ax_pso.plot(x_pos, y_pos, 'b', lw=0.7)
+    # axes = zoomed_inset_axes(ax_pso[3], 7.5, loc='center', axes_kwargs={'aspect': 'equal'})
+    #
+    # # axes = fig_pso.add_axes([0.69, 0.18, 0.2, 0.2])  # left, bottom, width, height - en porcentajes
+    # axes.plot(x_pos, y_pos)
+    # ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
+    #                   height=2 * a_ * 1e-3,
+    #                   edgecolor='r', fc='None', lw=0.7)
+    # ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
+    #                        edgecolor='black', fc='None', lw=0.4)
+    # axes.add_patch(ellipse)
+    # axes.add_patch(ellipse_moon)
+    # axes.set_xlim(-2500, 2500)
+    # axes.set_ylim(-2500, 2500)
+    # plt.xticks(fontsize=8)
+    # plt.yticks(fontsize=8)
+    # axes.grid()
+    # mark_inset(ax_pso[3], axes, loc1=2, loc2=1)
+    if folder is not None and name is not None:
+        fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
+    if not plot_flag:
+        plt.close(fig_pso)
+
+
+def plot_general_solution(min_state_full, list_name, a_, b_, rp_, folder=None, name=None, h_target=None, plot_flag=True):
+    fig_pso, ax_pso = plt.subplots(2, 2)
     # plt.rcParams['font.size'] = 13
     ax_pso = ax_pso.flatten()
     ax_pso[0].set_ylabel("Radial Velocity [km/s]")
@@ -113,23 +170,10 @@ def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, nam
     ax_pso[2].set_ylabel("Altitude [km]")
     ax_pso[2].set_xlabel("Time [min]")
     ax_pso[2].grid()
-
-    ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
-                      height=2 * a_ * 1e-3,
-                      edgecolor='r', fc='None', lw=0.7)
-    ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
-                           edgecolor='black', fc='None', lw=0.4)
-    if h_target is not None:
-        ellipse_target = Ellipse(xy=(0, 0), width=2 * (h_target * 1e-3),
-                                 height=2 * (h_target * 1e-3),
-                                 edgecolor='green', fc='None', lw=0.7)
-        ax_pso[3].add_patch(ellipse_target)
-
-    ax_pso[3].add_patch(ellipse)
-    ax_pso[3].add_patch(ellipse_moon)
-    ax_pso[3].set_ylabel("Y-Position [km]")
-    ax_pso[3].set_xlabel("X-Position [km]")
+    ax_pso[3].set_ylabel("Normalized velocity [km/s]")
+    ax_pso[3].set_xlabel("Time [min]")
     ax_pso[3].grid()
+
     for min_state in min_state_full:
         wind_time = np.array(min_state[-1]) / 60
         x_pos = [elem[0] * 1e-3 for elem in min_state[0]]
@@ -140,28 +184,11 @@ def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, nam
                            [np.sin(ang - np.pi/2), np.cos(ang - np.pi/2)]]).T @ v_
                  for ang, v_ in zip(ang_rot, min_state[1])]
 
-        ax_pso[0].plot(wind_time, np.array(v_t_n)[:, 1])
-        ax_pso[1].plot(wind_time, np.array(v_t_n)[:, 0])
-        ax_pso[2].plot(wind_time, np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3)
-        ax_pso[3].plot(x_pos, y_pos)
-        plt.tight_layout()
-        axes = zoomed_inset_axes(ax_pso[3], 7.5, loc='center', axes_kwargs={'aspect': 'equal'})
-
-        # axes = fig_pso.add_axes([0.69, 0.18, 0.2, 0.2])  # left, bottom, width, height - en porcentajes
-        axes.plot(x_pos, y_pos)
-        ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
-                          height=2 * a_ * 1e-3,
-                          edgecolor='r', fc='None', lw=0.7)
-        ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
-                               edgecolor='black', fc='None', lw=0.4)
-        axes.add_patch(ellipse)
-        axes.add_patch(ellipse_moon)
-        axes.set_xlim(-2500, 2500)
-        axes.set_ylim(-2500, 2500)
-        plt.xticks(fontsize=8)
-        plt.yticks(fontsize=8)
-        axes.grid()
-        mark_inset(ax_pso[3], axes, loc1=2, loc2=1)
+        ax_pso[0].plot(wind_time, np.array(v_t_n)[:, 1], 'b', lw=0.7)
+        ax_pso[1].plot(wind_time, np.array(v_t_n)[:, 0], 'b', lw=0.7)
+        ax_pso[2].plot(wind_time, np.sqrt(np.array(x_pos)**2 + np.array(y_pos)**2) - rm * 1e-3, 'b', lw=0.7)
+        ax_pso[3].plot(wind_time, [np.linalg.norm(v_) for v_ in min_state[1]], 'b', lw=0.7)
+    plt.tight_layout()
     if folder is not None and name is not None:
         fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
     if not plot_flag:
