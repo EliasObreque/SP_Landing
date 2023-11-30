@@ -85,10 +85,10 @@ propellant_data.append({'name': 'RCS - Blue Thunder',
                                  'minPressure': 0.0,
                                  'maxPressure': 10342500}})
 
-propellant_data.append({'name': 'HTPB 1912',
+propellant_data.append({'name': 'boron-AN-water',
                         'data': {'density': 1.81,
                                  'Isp': 280,
-                                 'burn_rate_constant': 0.101,  # mm/(s*Pa^n)
+                                 'burn_rate_constant': 0.11,  # mm/(s*Pa^n)
                                  'pressure_exponent': 0.5,
                                  'small_gamma': 1.133,
                                  'molecular_weight': 41.98,

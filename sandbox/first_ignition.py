@@ -25,7 +25,7 @@ inertia_0 = 1 / 12 * mass_0 * (0.2 ** 2 + 0.3 ** 2)
 
 mu = 4.9048695e12  # m3s-2
 rm = 1.738e6
-ra = 2e6
+ra = 68e6
 rp = 2e6
 a = 0.5 * (ra + rp)
 ecc = 1 - rp / a
@@ -52,9 +52,9 @@ rp_target = 2e6
 
 energy_target = -mu / h_target
 
-thruster_pos = np.array([[-0.06975, -0.0887], [-0.06975, 0.0887]])
+thruster_pos = np.array([[-0.06975, -0.0887], [0.06975, -0.0887]])
 thruster_pos += np.random.normal(0, 0.0001, size=np.shape(thruster_pos))
-thruster_ang = np.random.normal(0, np.deg2rad(0.5), size=(len(thruster_pos)))
+thruster_ang = np.random.normal(0, np.deg2rad(0.1), size=(len(thruster_pos)))
 
 thruster_properties_ = [copy.deepcopy(second_thruster), copy.deepcopy(second_thruster)]
 propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant)]
@@ -77,23 +77,20 @@ def descent_optimization(modules_setting_):
     gain_file.close()
 
     # read for pkl file
-    with open(folder + name_ + "uncertainties.pkl", "rb") as read_file:
-        uncertainties = dict(pickle.load(read_file))
-        read_file.close()
+    # with open(folder + name_ + "uncertainties.pkl", "rb") as read_file:
+    #     uncertainties = dict(pickle.load(read_file))
+    #     read_file.close()
 
     control_set_ = [modules_setting_[0], modules_setting_[0]]
 
-    pos_temp = state[0] + uncertainties["state"][0]
-
-
-    state_ = [state[0] + uncertainties["state"][0],
-              state[1] + uncertainties["state"][1],
+    r_, v_ = propagate_rv_by_ang(state[0], state[1], modules_setting_[0] - np.deg2rad(5), mu)
+    state_ = [r_,   # + uncertainties["state"][0],
+              v_,   # + uncertainties["state"][1],
               state[2],
               state[3]]
 
     mass_, inertia_ = mass_0, inertia_0
 
-    state_[0], state_[1] = propagate_rv_by_ang(state_[0], state_[1], modules_setting_[0], mu)
     module = Module(mass_, inertia_, state_,
                     thruster_pos, thruster_ang, thruster_properties_,
                     propellant_properties_, "2D", dt, training=True)
@@ -101,7 +98,7 @@ def descent_optimization(modules_setting_):
     module.set_thrust_design([modules_setting_[1], modules_setting_[1]],
                              [modules_setting_[2], modules_setting_[2]])
 
-    module.set_thrust_bias(list(uncertainties["isp"]), dead_time=list(uncertainties["dead"]))
+    # module.set_thrust_bias(list(uncertainties["isp"]), dead_time=list(uncertainties["dead"]))
 
     module.set_control_function(control_set_)
     historical_state = module.simulate(tf, low_step=0.1, progress=False, only_thrust=True)
@@ -121,20 +118,22 @@ def descent_optimization(modules_setting_):
         error = state_energy[-1] + gain_normal_vel * v_t_n[0] ** 2
     else:
         error = v_t_n[0] ** 2
-    error /= mass_state[-1]
+    error /= mass_state[-1] ** 2
+    # print("Mass: {} - Propellant: {} - Propellant final: {}".format(mass_state[-1], module.get_mass_used(),
+    #                                                                 module.get_mass_burned()))
     # error += 100000 if module.dynamics.isTouchdown() else 1
     return error, historical_state
 
 
 if __name__ == '__main__':
-    n_step = 100
+    n_step = 20
     n_par = 30
     stage = "D"
     plot_flag = True
 
-    range_variables = [(0, 1.8 * np.pi),
-                       (0.05, 0.065),
-                       (0.1, 0.2)
+    range_variables = [(np.pi, 2 * np.pi),
+                       (0.03, 0.065),
+                       (0.05, 0.1)
                        ]
 
     for i, gain in enumerate(list_gain):
@@ -143,11 +142,11 @@ if __name__ == '__main__':
         gain_file.close()
         gain_normal_vel = gain
         hist_list = []
-        for j in range(100):
+        for j in range(1):
             print(i, j)
-            noise_state_ = [np.random.normal(0, (100, 100)), np.random.normal(0, (5, 5))]
-            noise_isp_ = [np.random.normal(0, prop['isp_bias_std']) for prop in propellant_properties_]
-            dead_time_ = [np.random.uniform(0, thr['max_ignition_dead_time']) for thr in thruster_properties_]
+            # noise_state_ = [np.random.normal(0, (100, 100)), np.random.normal(0, (0, 0))]
+            # noise_isp_ = [np.random.normal(0, prop['isp_bias_std']) for prop in propellant_properties_]
+            # dead_time_ = [np.random.uniform(0, thr['max_ignition_dead_time']) for thr in thruster_properties_]
 
             # save in a pkl file
             # with open(folder + name_ + "uncertainties.pkl", "wb") as outfile:
@@ -158,19 +157,19 @@ if __name__ == '__main__':
 
             name = name_ + str(gain) if gain >= 0 else name_ + "full"
             name += "_{}".format(j)
-            # pso_algorithm = PSOStandard(descent_optimization, n_particles=n_par, n_steps=n_step)
-            # pso_algorithm.initialize(range_variables)
-            #
-            # init_time = time.time()
-            # final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_algorithm.optimize(clip=True)
-            # end_time = time.time()
-            # print("Optimization Time: {}".format((end_time - init_time) / 60))
-            # modules_setting = pso_algorithm.gbest_position
-            modules_setting = [2 * np.pi, 0.065, 0.2]
+            pso_algorithm = PSOStandard(descent_optimization, n_particles=n_par, n_steps=n_step)
+            pso_algorithm.initialize(range_variables)
+
+            init_time = time.time()
+            final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_algorithm.optimize(clip=True)
+            end_time = time.time()
+            print("Optimization Time: {}".format((end_time - init_time) / 60))
+            modules_setting = pso_algorithm.gbest_position
+            modules_setting = [4.63826384, 0.065, 0.2]
 
             state = [position, velocity, theta, omega]
-            state_ = [state[0] + noise_state_[0],
-                      state[1] + noise_state_[1],
+            state_ = [state[0],
+                      state[1],
                       state[2],
                       state[3]]
 
@@ -178,32 +177,32 @@ if __name__ == '__main__':
                             thruster_pos, thruster_ang, thruster_properties_,
                             propellant_properties_, "2D", dt, training=True)
             control_set_ = [modules_setting[0], modules_setting[0]]
-            module.set_thrust_bias(noise_isp_, dead_time=dead_time_)
+            # module.set_thrust_bias(noise_isp_, dead_time=dead_time_)
             module.set_control_function(control_set_)
             module.set_thrust_design([modules_setting[1], modules_setting[1]],
                                      [modules_setting[2], modules_setting[2]])
-            historical_state = module.simulate(15000, low_step=0.1, progress=False)
-            # data = {'state': historical_state,
-            #         'state_name': list_name,
-            #         'best_cost': pso_algorithm.evol_best_fitness,
-            #         'p_cost': pso_algorithm.evol_p_fitness,
-            #         'best_part': pso_algorithm.historical_g_position,
-            #         'hist_part': pso_algorithm.historical_position}
+            historical_state = module.simulate(700000, low_step=0.1, progress=False)
+            data = {'state': historical_state,
+                    'state_name': list_name,
+                    'best_cost': pso_algorithm.evol_best_fitness,
+                    'p_cost': pso_algorithm.evol_p_fitness,
+                    'best_part': pso_algorithm.historical_g_position,
+                    'hist_part': pso_algorithm.historical_position}
 
-            # with open(folder + name + ".pkl", "wb") as data_handle:
-            #     pickle.dump(data, data_handle)
-            #     data_handle.close()
+            with open(folder + name + ".pkl", "wb") as data_handle:
+                pickle.dump(data, data_handle)
+                data_handle.close()
 
             historical_state[1] = np.array(historical_state[1]) / 1000
             hist_list.append(historical_state)
 
-            # if plot_flag:
-            #     # plot_pso_result(hist_pos, hist_g_pos, eval_pos, eval_g_pos, folder, name, plot_flag=plot_flag)
-            #     plot_state_solution(historical_state, list_name, folder, name, aux={8: energy_target},
-            #                         plot_flag=plot_flag)
+            if plot_flag:
+                plot_pso_result(hist_pos, hist_g_pos, eval_pos, eval_g_pos, folder, name, plot_flag=plot_flag)
+                plot_state_solution(historical_state, list_name, folder, name, aux={8: energy_target},
+                                    plot_flag=plot_flag)
 
         if plot_flag:
             plot_orbit_solution(hist_list, ["orbit"], a, b, rp, folder, name_,
                                 plot_flag=plot_flag)
             plot_general_solution(hist_list, ["general"], a, b, rp, folder, name_, plot_flag=plot_flag)
-            plt.show()
+            plt.show(block=True)

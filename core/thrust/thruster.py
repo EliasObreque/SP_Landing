@@ -73,7 +73,7 @@ if __name__ == '__main__':
     ctrl_a = [1.0]
     ctrl_b = [6.91036]
     max_mass_flow = 1 / Isp / ge
-    t_burn = 10
+    t_burn = 20
     json_list = {'1': {'Best_individual': [max_mass_flow, t_burn, ctrl_a, ctrl_b]}}
 
     if thruster_properties_['thrust_profile']['type'] == MODEL:

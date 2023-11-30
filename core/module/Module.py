@@ -47,7 +47,7 @@ class Module(object):
         #                                    self.dynamics.dynamic_model.current_vel_i,
         #                                    self.dynamics.dynamic_model.current_theta,
         #                                    self.dynamics.dynamic_model.current_omega)
-        tau_b = 0 * tau_b #+ 0 * tau_ctrl
+        tau_b = tau_b #+ 0 * tau_ctrl
         # rev
         # rev0 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
         #                   self.dynamics.dynamic_model.current_pos_i[0])
@@ -96,8 +96,9 @@ class Module(object):
         control = [0.0 for _ in range(len(self.thrusters))]
         while self.dynamics.dynamic_model.current_time <= tf and not self.dynamics.isTouchdown() and not self.dynamics.notMass():
             low_step_flag = False
+            pos_ = self.dynamics.get_current_state()[0] + np.random.normal(0, (100, 100))
             for i, thr in enumerate(self.thrusters):
-                control[i] = self.control_function(self.dynamics.get_current_state(), n_e=i)
+                control[i] = self.control_function(pos_, n_e=i)
                 if control[i] == 1 and not self.thrusters[i].thr_is_burned:
                     low_step_flag = sum([True, low_step_flag])
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 0 else None
@@ -106,10 +107,10 @@ class Module(object):
                 else:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 1 else None
                     low_step_flag = sum([False, low_step_flag])
-                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 100e3:
+                if (np.linalg.norm(pos_) - 1.738e6) < 100e3:
                     low_step_flag = sum([True, low_step_flag])
                     low_step = 0.1
-                if (np.linalg.norm(self.dynamics.dynamic_model.current_pos_i) - 1.738e6) < 5e3:
+                if (np.linalg.norm(pos_) - 1.738e6) < 5e3:
                     low_step_flag = sum([True, low_step_flag])
                     low_step = 0.01
             low_step_ = low_step if low_step_flag else None
@@ -165,17 +166,17 @@ class Module(object):
             return 0
 
     def on_off_control(self, value_vec, n_e=0):
+        pos = value_vec
         if n_e == 0:
-            # value = np.arctan2(value_vec[0][1], value_vec[0][0])
-            # if value < 0:
-            #     value += 2 * np.pi
-            value = np.linalg.norm(value_vec[0]) - rm
-            if value * 1e-3 <= self.th[n_e]:
+            value = np.arctan2(pos[1], pos[0])
+            if value < 0:
+                value += 2 * np.pi
+            if value >= self.th[n_e]:
                 return 1
             else:
                 return 0
         elif n_e == 1 or n_e == 2:
-            value = np.arctan2(value_vec[0][1], value_vec[0][0])
+            value = np.arctan2(pos[1], pos[0])
             if value < 0:
                 value += 2 * np.pi
             if value >= self.th[n_e]:
@@ -183,7 +184,7 @@ class Module(object):
             else:
                 return 0
         elif n_e == 3 or n_e == 4:
-            value = np.arctan2(value_vec[0][1], value_vec[0][0])
+            value = np.arctan2(pos[1], pos[0])
             if value < 0:
                 value += 2 * np.pi
             if value >= self.th[n_e]:
@@ -191,7 +192,7 @@ class Module(object):
             else:
                 return 0
         elif n_e > 4:
-            value = np.linalg.norm(value_vec[0]) - rm
+            value = np.linalg.norm(pos) - rm
             if value < self.th[n_e]:
                 return 1
             else:
@@ -209,6 +210,7 @@ class Module(object):
             self.control_function = self.on_off_control
 
     def set_thrust_design(self, thrust_diameter, thrust_large=None, bias_isp=None):
+        kn = 2
         self.thrusters = []
         for i, value in enumerate(thrust_diameter):
             self.propellant_properties[i]['geometry']['setting']['ext_diameter'] = value
@@ -241,3 +243,7 @@ class Module(object):
 
     def get_mass_used(self):
         return np.sum(np.array([thr_i.channels['mass'].getPoint(0) for thr_i in self.thrusters]))
+
+    def get_mass_burned(self):
+        return np.sum(np.array([thr_i.channels['mass'].getLast() for thr_i in self.thrusters]))
+

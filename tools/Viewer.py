@@ -21,13 +21,6 @@ a = 0.5 * (ra + rp)
 ecc = 1 - rp / a
 b = a * np.sqrt(1 - ecc ** 2)
 rm = 1.738e6
-data = Image.open("moon-58-1024x1024.png")
-data = np.asarray(data)[61:-75, 68:-68]
-data_ = Image.fromarray(data)
-data_ = data_.resize((int(2 * rm * 1e-3), int(2 * rm * 1e-3)))
-translacion_x = -int(rm * 1e-3)  # Ajusta este valor según sea necesario
-translacion_y = -int(rm * 1e-3)  # Ajusta este valor según sea necesario
-transformacion = Affine2D().translate(translacion_x, translacion_y)
 
 
 def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
@@ -110,7 +103,11 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
 
 
 def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, name=None, h_target=None, plot_flag=True):
-    fig_pso, ax_pso = plt.subplots(1, 1)
+    fig_pso, ax_ = plt.subplots(1, 2, figsize=(12, 7))
+    plt.yticks(fontsize=14)
+    plt.xticks(fontsize=14)
+    ax_pos = ax_[0]
+    axes = ax_[1]
     ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
                       height=2 * a_ * 1e-3,
                       edgecolor='r', fc='None', lw=0.7)
@@ -120,37 +117,43 @@ def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, nam
         ellipse_target = Ellipse(xy=(0, 0), width=2 * (h_target * 1e-3),
                                  height=2 * (h_target * 1e-3),
                                  edgecolor='green', fc='None', lw=0.7)
-        ax_pso.add_patch(ellipse_target)
-    ax_pso.add_patch(ellipse)
-    ax_pso.add_patch(ellipse_moon)
-    ax_pso.imshow(data_, transform=transformacion + ax_pso.transData)
-    ax_pso.set_ylabel("Y-Position [km]")
-    ax_pso.set_xlabel("X-Position [km]")
-    ax_pso.set_xlim((-rm * 1e-3 - 400, rm * 1e-3 + 400))
-    ax_pso.set_ylim((-rm * 1e-3 - 400, rm * 1e-3 + 400))
-    ax_pso.grid(linestyle='--', linewidth=0.5)
+        ax_pos.add_patch(ellipse_target)
+
+    data = Image.open("moon-58-1024x1024.png")
+    data = np.asarray(data)[61:-75, 68:-68]
+    data_ = Image.fromarray(data)
+    data_ = data_.resize((int(2 * rm * 1e-3), int(2 * rm * 1e-3)))
+    translacion_x = -int(rm * 1e-3)  # Ajusta este valor según sea necesario
+    translacion_y = -int(rm * 1e-3)  # Ajusta este valor según sea necesario
+    transformacion = Affine2D().translate(translacion_x, translacion_y)
+    ax_pos.imshow(data_, transform=transformacion + ax_pos.transData)
+    # ax_pso.add_patch(ellipse)
+    ax_pos.add_patch(ellipse_moon)
+    ax_pos.set_ylabel("Y Position [km]", fontsize=14)
+    ax_pos.set_xlabel("X Position [km]", fontsize=14)
+    ax_pos.set_xlim((-rm * 1e-3 - 15000, rm * 1e-3 + 15000))
+    ax_pos.set_ylim((-rm * 1e-3 - 70000, rm * 1e-3 + 1000))
+    ax_pos.grid(linestyle='--', linewidth=0.5)
+
     for min_state in min_state_full:
         wind_time = np.array(min_state[-1]) / 60
         x_pos = [elem[0] * 1e-3 for elem in min_state[0]]
         y_pos = [elem[1] * 1e-3 for elem in min_state[0]]
-        ax_pso.plot(x_pos, y_pos, 'b', lw=0.7)
-    # axes = zoomed_inset_axes(ax_pso[3], 7.5, loc='center', axes_kwargs={'aspect': 'equal'})
-    #
-    # # axes = fig_pso.add_axes([0.69, 0.18, 0.2, 0.2])  # left, bottom, width, height - en porcentajes
-    # axes.plot(x_pos, y_pos)
-    # ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
-    #                   height=2 * a_ * 1e-3,
-    #                   edgecolor='r', fc='None', lw=0.7)
-    # ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
-    #                        edgecolor='black', fc='None', lw=0.4)
-    # axes.add_patch(ellipse)
-    # axes.add_patch(ellipse_moon)
-    # axes.set_xlim(-2500, 2500)
-    # axes.set_ylim(-2500, 2500)
-    # plt.xticks(fontsize=8)
-    # plt.yticks(fontsize=8)
-    # axes.grid()
-    # mark_inset(ax_pso[3], axes, loc1=2, loc2=1)
+        ax_pos.plot(x_pos, y_pos, 'b', lw=0.7)
+        axes.plot(x_pos, y_pos, 'b', lw=1)
+
+    ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
+                           edgecolor='black', fc='None', lw=0.4)
+    axes.add_patch(ellipse_moon)
+    axes.imshow(data_, transform=transformacion + axes.transData, aspect='auto')
+    axes.set_xlim(-2500, 2500)
+    axes.set_ylim(-2500, 2500)
+    axes.grid()
+    axes.set_ylabel("Y Position [km]", fontsize=14)
+    axes.set_xlabel("X Position [km]", fontsize=14)
+    ax_pos.indicate_inset_zoom(axes)
+    ax_pos.set_position([0.1, 0.1, 0.6, 0.8])
+    plt.tight_layout()
     if folder is not None and name is not None:
         fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
     if not plot_flag:
@@ -663,7 +666,7 @@ if __name__ == '__main__':
     list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
                  "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]"]
     # open all file *.pkl with import os
-    plot_flag = False
+    plot_flag = True
     hist = []
     for file in os.listdir(folder):
         if "pkl" in file and 'full' in file:
@@ -675,11 +678,10 @@ if __name__ == '__main__':
             historical_state = data_loaded['state']
             eval_pos, eval_g_pos = data_loaded['p_cost'], data_loaded['best_cost']
             historical_state[1] = np.array(historical_state[1]) * 1e-3
-            historical_state[0] = np.array(historical_state[0]) * 1e-3
             hist.append(historical_state)
-            # plot_pso_result(hist_pos, hist_g_pos, np.array(eval_pos), eval_g_pos, folder, name, plot_flag=plot_flag)
-            # plot_state_solution(historical_state, list_name, folder, name, aux={8: energy_target},
-            #                     plot_flag=plot_flag)
+            plot_pso_result(hist_pos, hist_g_pos, np.array(eval_pos), eval_g_pos, folder, name, plot_flag=plot_flag)
+            plot_state_solution(historical_state, list_name, folder, name, aux={8: energy_target},
+                                plot_flag=plot_flag)
     plot_orbit_solution(hist, ["orbit"], a, b, rp, folder, "all_vf",
                         h_target=h_target, plot_flag=plot_flag)
 

@@ -61,6 +61,7 @@ class Propellant(GeometryGrain):
             print("Error defining grain geometry")
 
         # Noise
+        self.mass_0 = self.mass
         self.isp0 = self.selected_propellant['Isp']
         self.std_noise = propellant_properties['isp_noise_std']
         self.std_bias = propellant_properties['isp_bias_std']
