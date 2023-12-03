@@ -10,12 +10,14 @@ from abc import abstractmethod
 from .BATES import BATES
 from .STAR import STAR
 from .EndBurning import EndBurning
+from .regressive_tubular import RegTubular
 import numpy as np
 
 end_burning = 'tubular'
 bates = 'bates'
 star = 'star'
 CUSTOM = 'custom'
+tub_reg = 'tub_reg'
 
 
 class GeometryGrain(object):
@@ -33,11 +35,10 @@ class GeometryGrain(object):
             self.selected_geometry = BATES(self.diameter_int, self.diameter_ext, self.large)
         elif selected_geometry == star:
             self.selected_geometry = STAR(self.diameter_int, self.diameter_ext, self.large, grain_properties)
-        elif selected_geometry == CUSTOM:
-            pass
+        elif selected_geometry == tub_reg:
+            self.selected_geometry = RegTubular(self.diameter_int, self.diameter_ext, self.large)
         else:
             print('No geometry selected')
-        return
 
     def isGrain(self):
         return True if self.selected_geometry else False

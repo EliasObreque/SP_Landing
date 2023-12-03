@@ -15,7 +15,7 @@ class Module(object):
     propellant_properties = None
     th = 0.0
 
-    def __init__(self, mass, inertia, init_state, thruster_pos, thruster_ang, thruster_conf,
+    def __init__(self, mass, inertia, init_state, sigma_r, sigma_v, thruster_pos, thruster_ang, thruster_conf,
                  propellant_properties, reference_frame, dt, training=False):
         self.training = training
         self.thruster_conf = thruster_conf
@@ -26,6 +26,7 @@ class Module(object):
         self.thruster_ang = thruster_ang
         self.thrusters_action_wind = [[] for _ in range(len(self.thrusters))]
         self.control_function = self.__default_control
+        self.sigma_r, self.sigma_v = sigma_r, sigma_v
         self.rev_count = 0.0
 
     def update(self, control, low_step):
@@ -43,11 +44,11 @@ class Module(object):
 
         tau_b, thr_vec = self.calc_thrust_torques(thr_mag)
 
-        # tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
-        #                                    self.dynamics.dynamic_model.current_vel_i,
-        #                                    self.dynamics.dynamic_model.current_theta,
-        #                                    self.dynamics.dynamic_model.current_omega)
-        tau_b = tau_b #+ 0 * tau_ctrl
+        tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
+                                           self.dynamics.dynamic_model.current_vel_i,
+                                           self.dynamics.dynamic_model.current_theta,
+                                           self.dynamics.dynamic_model.current_omega)
+        tau_b = tau_b + tau_ctrl
         # rev
         # rev0 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
         #                   self.dynamics.dynamic_model.current_pos_i[0])
@@ -96,7 +97,7 @@ class Module(object):
         control = [0.0 for _ in range(len(self.thrusters))]
         while self.dynamics.dynamic_model.current_time <= tf and not self.dynamics.isTouchdown() and not self.dynamics.notMass():
             low_step_flag = False
-            pos_ = self.dynamics.get_current_state()[0] + np.random.normal(0, (100, 100))
+            pos_ = self.dynamics.get_current_state()[0] + np.random.normal(0, (self.sigma_r, self.sigma_r))
             for i, thr in enumerate(self.thrusters):
                 control[i] = self.control_function(pos_, n_e=i)
                 if control[i] == 1 and not self.thrusters[i].thr_is_burned:
@@ -209,11 +210,12 @@ class Module(object):
         if not default:
             self.control_function = self.on_off_control
 
-    def set_thrust_design(self, thrust_diameter, thrust_large=None, bias_isp=None):
-        kn = 2
+    def set_thrust_design(self, thrust_diameter, thrust_large=None, bias_isp=None, **kwargs):
         self.thrusters = []
         for i, value in enumerate(thrust_diameter):
             self.propellant_properties[i]['geometry']['setting']['ext_diameter'] = value
+            if 'int_diameter' in list(kwargs.keys()):
+                self.propellant_properties[i]['geometry']['setting']['int_diameter'] = kwargs['int_diameter'][i]
             self.thruster_conf[i]['case_diameter'] = value
             if thrust_large is not None:
                 self.propellant_properties[i]['geometry']['setting']['large'] = thrust_large[i]

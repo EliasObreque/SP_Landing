@@ -6,6 +6,7 @@ Date: 24-08-2022
 TUBULAR = 'tubular'
 BATES = 'bates'
 STAR = 'star'
+TUBREG = 'tub_reg'
 CUSTOM = 'custom'
 
 # inhibit: True 1, False 0
@@ -25,6 +26,11 @@ star_geom = {'ext_diameter': 0.03,
 
 tubular_geom = {'ext_diameter': 0.15,
                 'int_diameter': None,
+                'large': 0.2,
+                'inhibit': {'top': 0, 'bot': 1}}
+
+tubreg_geom = {'ext_diameter': 0.15,
+                'int_diameter': 0.05,
                 'large': 0.2,
                 'inhibit': {'top': 0, 'bot': 1}}
 
@@ -48,8 +54,8 @@ main_propellant = {'mixture_name': name_prop,
 second_propellant = {'mixture_name': name_prop,
                      'geometry': {'type': TUBULAR,
                                   'setting': tubular_geom},
-                     'isp_noise_std': 3.25,
-                     'isp_bias_std': 10.83}
+                     'isp_noise_std': 0.0,
+                     'isp_bias_std': 0.0}
 
 bates2_geom = {'ext_diameter': 0.03,
                'int_diameter': 0.015,
