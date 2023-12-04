@@ -90,7 +90,8 @@ class Module(object):
     def get_thrust(self):
         return np.sum(np.array([thr_i.current_mag_thrust_c for thr_i in self.thrusters]))
 
-    def simulate(self, tf, low_step: float = None, progress: bool = True, only_thrust: bool = False):
+    def simulate(self, tf, low_step: float = None, progress: bool = True, only_thrust: bool = False,
+                 force_step: bool = False):
         # save ignition time and stop time
         subk = 0
         k = 0
@@ -114,7 +115,7 @@ class Module(object):
                 if (np.linalg.norm(pos_) - 1.738e6) < 5e3:
                     low_step_flag = sum([True, low_step_flag])
                     low_step = 0.01
-            low_step_ = low_step if low_step_flag else None
+            low_step_ = low_step if (low_step_flag or force_step) else None
             subk += 1
             self.update(control, low_step_)
             left_engine = np.all(np.array([thr.thr_is_burned for thr in self.thrusters]))

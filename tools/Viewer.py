@@ -32,7 +32,7 @@ def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
     plt.grid()
     plt.ylabel("Evaluation cost", fontsize=14)
     plt.xlabel("Iteration", fontsize=14)
-    # plt.yscale('log')
+    plt.yscale('log')
     plt.gca().yaxis.set_label_coords(-0.12, 0.5)
     plt.subplots_adjust(left=0.16, right=0.95, top=0.9)  # Puedes ajustar este valor según tus necesidades
     if folder is not None and name is not None:
@@ -86,7 +86,7 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
             wind_time = np.array(state[-1]) / 60
             if max_value < max(wind_time):
                 max_value = max(wind_time)
-            plt.plot(wind_time, state[i])
+            plt.plot(wind_time, state[i], 'b', lw=0.7)
         # if "Thrust" in list_name[i]:
         #     thr_wind = np.argwhere(np.array(min_state) > 0)
         #     init = np.max([thr_wind.min() - 1, 0])
@@ -110,13 +110,8 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
 
 def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, name=None, h_target=None, plot_flag=True):
     fig_pso, ax_ = plt.subplots(1, 2, figsize=(12, 7))
-    plt.yticks(fontsize=14)
-    plt.xticks(fontsize=14)
     ax_pos = ax_[0]
     axes = ax_[1]
-    ellipse = Ellipse(xy=(0, -(a_ - rp_) * 1e-3), width=b_ * 2 * 1e-3,
-                      height=2 * a_ * 1e-3,
-                      edgecolor='r', fc='None', lw=0.7)
     ellipse_moon = Ellipse(xy=(0, 0), width=2 * rm * 1e-3, height=2 * rm * 1e-3, fill=True,
                            edgecolor='black', fc='None', lw=0.4)
     if h_target is not None:
@@ -164,6 +159,46 @@ def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, nam
         fig_pso.savefig(folder + name + "_" + list_name[0].split(" ")[0] + '.pdf', format='pdf')
     if not plot_flag:
         plt.close(fig_pso)
+
+
+def plot_normal_tangent_velocity(min_state_full, folder=None, name=None, plot_flag=True):
+    fig_radial, ax_radial = plt.subplots(1, 1)
+    plt.subplots_adjust(left=0.16, right=0.95, top=0.9)
+    fig_tan, ax_tang = plt.subplots(1, 1)
+    plt.subplots_adjust(left=0.16, right=0.95, top=0.9)
+    fig_alt, ax_alt = plt.subplots(1, 1)
+    plt.subplots_adjust(left=0.16, right=0.95, top=0.9)
+    ax_radial.set_ylabel("Radial Velocity [km/s]", fontsize=14)
+    ax_radial.set_xlabel("Time [min]", fontsize=14)
+    ax_radial.grid()
+    ax_alt.set_ylabel("Altitude [km]", fontsize=14)
+    ax_alt.set_xlabel("Time [min]", fontsize=14)
+    ax_alt.grid()
+    ax_tang.set_ylabel("Tangential Velocity [km/s]", fontsize=14)
+    ax_tang.set_xlabel("Time [min]", fontsize=14)
+    ax_tang.grid()
+    for min_state in min_state_full:
+        wind_time = np.array(min_state[-1]) / 60
+        x_pos = [elem[0] * 1e-3 for elem in min_state[0]]
+        y_pos = [elem[1] * 1e-3 for elem in min_state[0]]
+
+        ang_rot = [np.arctan2(y_, x_) for x_, y_ in zip(x_pos, y_pos)]
+        v_t_n = [np.array([[np.cos(ang - np.pi / 2), -np.sin(ang - np.pi / 2)],
+                           [np.sin(ang - np.pi / 2), np.cos(ang - np.pi / 2)]]).T @ v_
+                 for ang, v_ in zip(ang_rot, min_state[1])]
+        ax_radial.plot(wind_time, np.array(v_t_n)[:, 1], 'b', lw=0.7)
+        ax_tang.plot(wind_time, np.array(v_t_n)[:, 0], 'b', lw=0.7)
+        ax_alt.plot(wind_time, np.sqrt(np.array(x_pos) ** 2 + np.array(y_pos) ** 2) - rm * 1e-3, 'b', lw=0.7)
+    plt.tight_layout()
+    if folder is not None and name is not None:
+        fig_radial.savefig(folder + name + "_radial.pdf", format='pdf')
+        fig_tan.savefig(folder + name + "_tangent.pdf", format='pdf')
+        fig_alt.savefig(folder + name + "_alt.pdf", format='pdf')
+
+    if not plot_flag:
+        plt.close(fig_radial)
+        plt.close(fig_tan)
+        plt.close(fig_alt)
 
 
 def plot_general_solution(min_state_full, list_name, a_, b_, rp_, folder=None, name=None, h_target=None,
@@ -690,6 +725,7 @@ if __name__ == '__main__':
                 # plot_pso_result(hist_pos, hist_g_pos, np.array(eval_pos), eval_g_pos, folder, name, plot_flag=plot_flag)
             plot_state_solution(hist, list_name, folder, name, aux={8: energy_target},
                                 plot_flag=plot_flag)
+            plot_normal_tangent_velocity(hist, folder, name, plot_flag=plot_flag)
     # plot_orbit_solution(hist, ["orbit"], a, b, rp, folder, "all_vf",
     #                     h_target=h_target, plot_flag=plot_flag)
 

@@ -14,7 +14,7 @@ from core.thrust.thrustProperties import second_thruster
 from core.thrust.propellant.propellantProperties import second_propellant
 from tools.mathtools import propagate_rv_by_ang
 from tools.pso import PSOStandard
-from tools.Viewer import plot_orbit_solution, plot_state_solution, plot_pso_result, plot_general_solution
+from tools.Viewer import plot_orbit_solution, plot_state_solution, plot_pso_result, plot_general_solution, plot_normal_tangent_velocity
 
 import json
 
@@ -62,10 +62,10 @@ propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second
 list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
              "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]"]
 list_gain = [-1]
-folder = "logs/neutral/train"
-name_ = "mass_opt_vf_"
-sigma_r = 0
-sigma_v = 0
+folder = "logs/neutral/train/"
+name_ = "mass_opt_2_vf_"
+sigma_r = 100
+sigma_v = 10
 
 
 def descent_optimization(modules_setting_):
@@ -76,7 +76,7 @@ def descent_optimization(modules_setting_):
 
     control_set_ = [modules_setting_[0], modules_setting_[0]]
 
-    r_, v_ = propagate_rv_by_ang(state[0], state[1], modules_setting_[0] - np.deg2rad(5), mu)
+    r_, v_ = propagate_rv_by_ang(state[0], state[1], modules_setting_[0] - np.deg2rad(0.001), mu)
     state_ = [r_,
               v_,
               state[2],
@@ -94,7 +94,7 @@ def descent_optimization(modules_setting_):
     # module.set_thrust_bias(list(uncertainties["isp"]), dead_time=list(uncertainties["dead"]))
 
     module.set_control_function(control_set_)
-    historical_state = module.simulate(tf, low_step=0.1, progress=False, only_thrust=True)
+    historical_state = module.simulate(tf, low_step=0.1, progress=False, only_thrust=True, force_step=True)
 
     # COST
     r_state = np.array([np.linalg.norm(elem) for elem in historical_state[0]])
@@ -119,14 +119,14 @@ def descent_optimization(modules_setting_):
 
 
 if __name__ == '__main__':
-    n_step = 3
-    n_par = 3
+    n_step = 60
+    n_par = 15
     stage = "D"
     plot_flag = False
 
-    range_variables = [(0, 2 * np.pi),
-                       (0.03, 0.065),
-                       (0.05, 0.1)
+    range_variables = [(4.5, 4.8),
+                       (0.035, 0.035),
+                       (0.2, 0.2)
                        ]
     dataset = {}
     for i, gain in enumerate(list_gain):
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         hist_list = []
         name = name_ + str(gain) if gain >= 0 else name_ + "full"
         dataset[name] = []
-        for j in range(10):
+        for j in range(20):
             print(i, j)
             name_int = name + "_{}".format(j)
             pso_algorithm = PSOStandard(descent_optimization, n_particles=n_par, n_steps=n_step)
@@ -182,7 +182,7 @@ if __name__ == '__main__':
             pickle.dump(dataset, data_handle)
             data_handle.close()
         plot_state_solution(hist_list, list_name, folder, name, aux={8: energy_target}, plot_flag=plot_flag)
-
+        plot_normal_tangent_velocity(hist_list, folder, name, plot_flag=plot_flag)
         plot_orbit_solution(hist_list, ["Orbit"], a, b, rp, folder, name, plot_flag=plot_flag)
         plot_general_solution(hist_list, ["General"], a, b, rp, folder, name, plot_flag=plot_flag)
         plt.show()

@@ -7,12 +7,12 @@ import numpy as np
 import multiprocessing
 
 MAX_CORE = multiprocessing.cpu_count()
-NCORE = int(MAX_CORE)
+NCORE = int(MAX_CORE * 0.8)
 fitness_function_ = None
 
 
 class PSO:
-    def __init__(self, func, n_particles=100, n_steps=200, parameters=(1.0, 0.05, 0.2, .5)):
+    def __init__(self, func, n_particles=100, n_steps=200, parameters=(1.0, 0.005, 0.2, .5)):
         self.fitness_function = func
         self.dim = None
         self.position = np.zeros(0)
