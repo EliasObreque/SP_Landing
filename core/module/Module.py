@@ -6,6 +6,8 @@ Date: 24-08-2022
 import numpy as np
 from core.dynamics.Dynamics import Dynamics
 from core.thrust.thruster import Thruster
+from .pid import PID
+from .rw_model import RWModel
 
 rm = 1.738e6    # m
 
@@ -28,11 +30,20 @@ class Module(object):
         self.control_function = self.__default_control
         self.sigma_r, self.sigma_v = sigma_r, sigma_v
         self.rev_count = 0.0
+        self.historical_theta_error = []
+        self.historical_omega_error = []
+        self.control_pid = PID(1, 1, 1, dt)
+        self.rw_model = RWModel(0.0009625, dt)
+        self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
+                                self.dynamics.dynamic_model.current_vel_i,
+                                self.dynamics.dynamic_model.current_theta,
+                                self.dynamics.dynamic_model.current_omega)
 
     def update(self, control, low_step):
         if low_step is not None:
             self.dynamics.dynamic_model.dt = low_step
             self.dynamics.dynamic_model.h_old = low_step
+            self.control_pid.set_step_time(low_step)
         for thr_i in self.thrusters:
             thr_i.set_step_time(self.dynamics.dynamic_model.dt)
         [thr_i.set_ignition(control[i]) for i, thr_i in enumerate(self.thrusters)]
@@ -48,14 +59,10 @@ class Module(object):
                                            self.dynamics.dynamic_model.current_vel_i,
                                            self.dynamics.dynamic_model.current_theta,
                                            self.dynamics.dynamic_model.current_omega)
-        tau_b = tau_b + tau_ctrl
-        # rev
-        # rev0 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
-        #                   self.dynamics.dynamic_model.current_pos_i[0])
+        self.rw_model.set_torque(tau_ctrl)
+        new_tau = self.rw_model.propagate_rw()
+        tau_b = tau_b + new_tau
         self.dynamics.dynamic_model.update(thr_vec, m_dot_p, tau_b, low_step)
-        # rev1 = np.arctan2(self.dynamics.dynamic_model.current_pos_i[1],
-        #                   self.dynamics.dynamic_model.current_pos_i[0])
-        # self.rev_count += ((rev1 - rev0) % 2 * np.pi)
 
     def calc_thrust_torques(self, thr_list):
         thr_vec = [thr_i * np.array([-np.sin(alpha_), np.cos(alpha_)])
@@ -73,15 +80,21 @@ class Module(object):
                                   np.cos(theta)])
             ang_error = np.arccos(np.dot(u_target, u_current)) * np.sign(np.cross(u_current, u_target))
             omega_target = np.linalg.norm(v) / np.linalg.norm(r)
-            p_gain = 1e-5
-            d_gain = 1e-5
-            return p_gain * ang_error + d_gain * (omega_target - omega)
+            p_gain = 1e-2
+            d_gain = 0.0
+            i_gain = 1e-1
         else:
             ang_error = np.arctan2(r[0], r[1])
             p_gain = 0.00001
             d_gain = 0.00001
+            i_gain = 1e-5
             omega_target = 0
-        return p_gain * ang_error + d_gain * (omega_target - omega)
+
+        self.historical_theta_error.append(ang_error)
+        self.historical_omega_error.append(omega_target - omega)
+        self.control_pid.set_gain(p_gain, d_gain, i_gain)
+        ctrl = self.control_pid.calc_control(ang_error, omega_target - omega, 2)
+        return ctrl
 
     def save_log(self):
         self.dynamics.dynamic_model.save_data()

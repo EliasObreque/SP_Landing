@@ -23,6 +23,8 @@ ecc = 1 - rp / a
 b = a * np.sqrt(1 - ecc ** 2)
 rm = 1.738e6
 
+moon_file = "./tools/moon-58-1024x1024.png"
+
 
 def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
     fig = plt.figure()
@@ -76,8 +78,8 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
         fig = plt.figure()
         plt.grid()
         # plt.rcParams['font.size'] = 13
-        plt.gca().yaxis.set_label_coords(-0.11, 0.5)
-        plt.subplots_adjust(left=0.16, right=0.95, top=0.9)  # Puedes ajustar este valor según tus necesidades
+        plt.gca().yaxis.set_label_coords(-0.14, 0.5)
+        plt.subplots_adjust(left=0.18, right=0.95, top=0.9)  # Puedes ajustar este valor según tus necesidades
         if list_name is not None:
             plt.ylabel(list_name[i], fontsize=14)
         plt.xlabel("Time [min]", fontsize=14)
@@ -120,7 +122,7 @@ def plot_orbit_solution(min_state_full, list_name, a_, b_, rp_, folder=None, nam
                                  edgecolor='green', fc='None', lw=0.7)
         ax_pos.add_patch(ellipse_target)
 
-    data = Image.open("moon-58-1024x1024.png")
+    data = Image.open(moon_file)
     data = np.asarray(data)[61:-75, 68:-68]
     data_ = Image.fromarray(data)
     data_ = data_.resize((int(2 * rm * 1e-3), int(2 * rm * 1e-3)))
@@ -704,11 +706,12 @@ if __name__ == '__main__':
     rp_target = 2e6
     mu = 4.9048695e12  # m3s-2
     energy_target = -mu / h_target
-    folder = "../sandbox/logs/regressive/"
+    folder = "../sandbox/logs/neutral/attitude/"
     list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
-                 "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]"]
+                 "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]", "Angle Error [rad]",
+                 "Angular velocity Error [rad/s]"]
     # open all file *.pkl with import os
-    plot_flag = False
+    plot_flag = True
     for file in os.listdir(folder):
         hist = []
         if "pkl" in file:

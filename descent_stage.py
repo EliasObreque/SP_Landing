@@ -9,8 +9,8 @@ import time
 import matplotlib.pyplot as plt
 import random
 from core.module.Module import Module
-from core.thrust.thrustProperties import main_thruster, second_thruster, third_thruster
-from core.thrust.propellant.propellantProperties import main_propellant, second_propellant, third_propellant
+from core.thrust.thrustProperties import main_thruster
+from core.thrust.propellant.propellantProperties import main_propellant
 from tools.mathtools import propagate_rv_by_ang
 from tools.pso import PSOStandard
 from tools.Viewer import plot_orbit_solution, plot_state_solution, plot_pso_result
@@ -50,44 +50,34 @@ rp_target = 2e6
 energy_target = -mu / h_target
 
 thruster_pos = np.array([[-0.06975, -0.0],  # Main Thruster
-                         [-0.06975, -0.0887],  # Second -1- Thruster
-                         [-0.06975, 0.0887],  # Second -2- Thruster
-                         [-0.06975, -0.0887],  # Second -3- Thruster
-                         [-0.06975, 0.0887],  # Second -4- Thruster
                          ])
-thruster_pos += np.random.normal(0, 0.0002, size=np.shape(thruster_pos))
-thruster_ang = np.random.normal(0, np.deg2rad(1.0), size=(len(thruster_pos)))
+thruster_pos += np.random.normal(0, 0.0001, size=np.shape(thruster_pos))
+thruster_ang = np.random.normal(0, np.deg2rad(0.1), size=(len(thruster_pos)))
 
 thruster_properties_ = [copy.deepcopy(main_thruster),  # Main Thruster
-                        copy.deepcopy(second_thruster),  # Second -1- Thruster
-                        copy.deepcopy(second_thruster),  # Second -2- Thruster
-                        copy.deepcopy(second_thruster),  # Second -3- Thruster
-                        copy.deepcopy(second_thruster),  # Second -4- Thruster
                         ]
 propellant_properties_ = [copy.deepcopy(main_propellant),  # Main Thruster
-                          copy.deepcopy(second_propellant),  # Second -1- Thruster
-                          copy.deepcopy(second_propellant),  # Second -2- Thruster
-                          copy.deepcopy(second_propellant),  # Second -3- Thruster
-                          copy.deepcopy(second_propellant),  # Second -4- Thruster
                           ]
 
-noise_state = [np.random.normal(0, 0.0, size=2), np.random.normal(0, 5, size=2)]
+list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
+             "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]"]
+list_gain = [-1]
+folder = "logs/progressive/train/"
+name_ = "mass_opt_vf_"
+sigma_r = 50
+sigma_v = 5
 
 
 def descent_optimization(modules_setting_):
     control_set_ = modules_setting_[:3]
 
-    state_ = [state[0] + noise_state[0],
-              state[1] + noise_state[1],
+    state_ = [state[0],
+              state[1],
               state[2],
               state[3]]
     mass_, inertia_ = mass_0, inertia_0
-    error = 0
 
-    # transform cartesian r and v into perifocal r and v
-    min_ang = min(control_set_[1:])
-    state_[0], state_[1] = propagate_rv_by_ang(state_[0], state_[1], min_ang, mu)
-    module = Module(mass_, inertia_, state_,
+    module = Module(mass_, inertia_, state_, sigma_r, sigma_v,
                     thruster_pos, thruster_ang, thruster_properties_,
                     propellant_properties_, "2D", dt, training=True)
 
@@ -106,7 +96,7 @@ def descent_optimization(modules_setting_):
     # COST
     r_state = np.array([np.linalg.norm(elem) for elem in historical_state[0]])
     # v_state = np.array([np.linalg.norm(elem) for elem in historical_state[1]])
-    # mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
+    mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
     # state_energy = historical_state[8]
 
     ang = np.arctan2(historical_state[0][-1][1], historical_state[0][-1][0])
@@ -114,6 +104,7 @@ def descent_optimization(modules_setting_):
                       [np.sin(ang - np.pi / 2), np.cos(ang - np.pi / 2)]]).T @ historical_state[1][-1]
 
     error = r_state[-1] * 1e-3 + np.sqrt(10000 * v_t_n[0] ** 2 + v_t_n[1] ** 2)
+
     return error, historical_state
 
 
@@ -148,8 +139,8 @@ if __name__ == '__main__':
     sorted_ignition = sorted(modules_setting)
 
     state = [position, velocity, theta, omega]
-    state_ = [state[0] + noise_state[0],
-              state[1] + noise_state[1],
+    state_ = [state[0],
+              state[1],
               state[2],
               state[3]]
 

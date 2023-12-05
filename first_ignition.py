@@ -53,16 +53,17 @@ rp_target = 2e6
 energy_target = -mu / rm
 
 thruster_pos = np.array([[-0.06975, -0.0887], [0.06975, -0.0887]])
-thruster_pos += np.random.normal(0, 0.0001, size=np.shape(thruster_pos))
-thruster_ang = np.random.normal(0, np.deg2rad(0.1), size=(len(thruster_pos)))
+thruster_pos += np.random.normal(0, 0.0000, size=np.shape(thruster_pos))
+thruster_ang = np.random.normal(0, np.deg2rad(0.0), size=(len(thruster_pos)))
 
 thruster_properties_ = [copy.deepcopy(second_thruster), copy.deepcopy(second_thruster)]
 propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant)]
 
 list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
-             "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]"]
+             "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]", "Angle Error [rad]",
+                 "Angular velocity Error [rad/s]"]
 list_gain = [-1]
-folder = "logs/neutral/train/"
+folder = "logs/neutral/attitude/"
 name_ = "mass_opt_2_vf_"
 sigma_r = 100
 sigma_v = 10
@@ -76,14 +77,13 @@ def descent_optimization(modules_setting_):
 
     control_set_ = [modules_setting_[0], modules_setting_[0]]
 
-    r_, v_ = propagate_rv_by_ang(state[0], state[1], modules_setting_[0] - np.deg2rad(0.001), mu)
+    r_, v_ = propagate_rv_by_ang(state[0], state[1], modules_setting_[0] - np.deg2rad(0.01), mu)
     state_ = [r_,
               v_,
               state[2],
               state[3]]
 
     mass_, inertia_ = mass_0, inertia_0
-
     module = Module(mass_, inertia_, state_, sigma_r, sigma_v,
                     thruster_pos, thruster_ang, thruster_properties_,
                     propellant_properties_, "2D", dt, training=True)
@@ -119,10 +119,10 @@ def descent_optimization(modules_setting_):
 
 
 if __name__ == '__main__':
-    n_step = 60
-    n_par = 15
+    n_step = 2
+    n_par = 5
     stage = "D"
-    plot_flag = False
+    plot_flag = True
 
     range_variables = [(4.5, 4.8),
                        (0.035, 0.035),
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         hist_list = []
         name = name_ + str(gain) if gain >= 0 else name_ + "full"
         dataset[name] = []
-        for j in range(20):
+        for j in range(1):
             print(i, j)
             name_int = name + "_{}".format(j)
             pso_algorithm = PSOStandard(descent_optimization, n_particles=n_par, n_steps=n_step)
@@ -149,9 +149,11 @@ if __name__ == '__main__':
             print("Optimization Time: {}".format((end_time - init_time) / 60))
             modules_setting = pso_algorithm.gbest_position
 
+
             state = [position, velocity, theta, omega]
-            state_ = [state[0],
-                      state[1],
+            r_, v_ = propagate_rv_by_ang(state[0], state[1], modules_setting[0] - np.deg2rad(0.01), mu)
+            state_ = [r_,
+                      v_,
                       state[2],
                       state[3]]
 
@@ -163,7 +165,10 @@ if __name__ == '__main__':
             module.set_control_function(control_set_)
             module.set_thrust_design([modules_setting[1], modules_setting[1]],
                                      [modules_setting[2], modules_setting[2]])
-            historical_state = module.simulate(700000, low_step=0.1, progress=False)
+            historical_state = module.simulate(700, low_step=0.1, progress=False, force_step=True)
+            historical_state.insert(-1, module.historical_theta_error)
+            historical_state.insert(-1, module.historical_omega_error)
+
             data = {'state': historical_state,
                     'state_name': list_name,
                     'best_cost': pso_algorithm.evol_best_fitness,
