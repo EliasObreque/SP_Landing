@@ -56,7 +56,6 @@ class Engine(BasicThruster, ABC):
         self.count = 0
         self.t_ig = 0.0
         self.thr_is_on = False
-        self.thr_is_burned = False
         self.current_time = 0.0
         self.current_burn_time = 0.0
         self.historical_mag_thrust = [0.0]
@@ -125,7 +124,7 @@ class Engine(BasicThruster, ABC):
 
     def propagate_thrust(self):
         # print(self.propellant.get_web_left(self.propellant.current_reg_web))
-        if self.thr_is_on and self.thr_is_burned is False:
+        if self.thr_is_on and not self.thr_was_burned:
             if self.propellant.get_web_left(self.propellant.current_reg_web) > 1e-4:
                 p_c = self.channels['pressure'].getLast()
                 # calc reg, and burn area
@@ -144,7 +143,7 @@ class Engine(BasicThruster, ABC):
                 self.exit_pressure = self.amb_pressure
                 self.chamber_pressure = self.exit_pressure
                 self.propellant.reset_var()
-                self.thr_is_burned = True
+                self.thr_was_burned = True
             # time
         self.current_time += self.step_width
 
@@ -239,8 +238,8 @@ class Engine(BasicThruster, ABC):
         self.current_mag_thrust_c = 0
         self.exit_pressure = self.amb_pressure
         self.chamber_pressure = self.exit_pressure
-        self.thr_is_burned = False
         self.propellant.reset_var(force=True)
+        super().reset_variables()
 
     def set_thrust_on(self, value):
         self.thr_is_on = value

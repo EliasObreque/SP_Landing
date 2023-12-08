@@ -18,7 +18,7 @@ b = a * np.sqrt(1 - ecc ** 2)
 rm = 1.738e6
 MAX_CORE = multiprocessing.cpu_count()
 NCORE = int(MAX_CORE * 0.8)
-matplotlib.rcParams.update({'font.size': 12})
+matplotlib.rcParams.propagate({'font.size': 12})
 
 
 class PSO:

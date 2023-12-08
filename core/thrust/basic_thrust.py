@@ -21,12 +21,6 @@ class BasicThruster(ABC):
     current_time: Global current time
     t_ig: Ignition time @ global current time
     """
-    thr_is_burned = False
-    current_beta = 0
-    current_dead_time = 0
-    thr_is_on = False
-    current_time = 0
-    t_ig = 0
 
     def __init__(self, dt, thruster_properties, propellant_properties=None):
         """
@@ -35,6 +29,13 @@ class BasicThruster(ABC):
         :param thruster_properties: General and geometrical thrust properties
         :param propellant_properties: Grain geometry and mixture properties
         """
+        self.thr_was_burned = False
+        self.current_beta = 0
+        self.current_dead_time = 0
+        self.thr_is_on = False
+        self.current_time = 0
+        self.t_ig = 0
+        self.thr_is_burning = False
         self.step_width = dt
         self.thrust_profile_type = thruster_properties['thrust_profile']['type']
         self.max_dead_time = thruster_properties['max_ignition_dead_time']
@@ -44,10 +45,11 @@ class BasicThruster(ABC):
         """
         Reset all variables to create a new burning process
         """
-        self.thr_is_burned = False
+        self.thr_was_burned = False
         self.current_beta = 0
         self.current_dead_time = 0
         self.thr_is_on = False
+        self.thr_is_burning = False
         self.current_time = 0
         self.reset_dead_time()
         self.t_ig = 0
@@ -76,22 +78,23 @@ class BasicThruster(ABC):
         :param beta:
         :return:
         """
-        if self.thr_is_burned:
+        if self.thr_was_burned:
+            self.current_beta = 0
             self.set_thrust_on(False)
         else:
             if beta == 1 and self.current_beta == 0:
+                self.current_beta = beta
+                self.thr_is_burning = 1
+
+            if self.current_beta == 1:
                 if self.current_dead_time >= self.ignition_dead_time:
-                    self.current_beta = beta
                     self.t_ig = self.current_time
                     self.set_thrust_on(True)
                 else:
                     self.update_dead_time()
-            elif beta == 1 and self.current_beta == 1:
-                self.current_beta = beta
-            elif self.thr_is_on:
-                self.current_beta = 1
             else:
                 self.current_beta = 0
+                self.thr_is_burning = 0
                 self.set_thrust_on(False)
 
     def update_dead_time(self):

@@ -67,7 +67,7 @@ class Propellant(GeometryGrain):
         self.std_bias = propellant_properties['isp_bias_std']
 
         self.v_exhaust = self.isp0 * ge     # average exhaust speed along the axis of the engine
-        # self.add_bias_isp()
+        self.add_bias_isp()
 
     def propagate_grain(self, p_c: float):
         reg = self.dt * self.get_burn_rate(p_c)

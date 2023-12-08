@@ -50,17 +50,17 @@ main_thruster = {'throat_diameter': 0.01,
                  'max_ignition_dead_time': 0.0}
 
 second_thruster = {'throat_diameter': 0.004,
-                   'case_diameter': 0.07,
-                   'case_large': height,
-                   'exit_nozzle_diameter': 0.01,
+                   'case_diameter': 0.035,
+                   'case_large': 0.1,
+                   'exit_nozzle_diameter': 0.02,
                    'convergent_angle_deg': 60,
                    'divergent_angle_deg': 15,
                    'thrust_profile': by_grain,
-                   'max_ignition_dead_time': 0.0}
+                   'max_ignition_dead_time': 0.5}
 
 third_thruster = {'throat_diameter': 0.002,
-                  'case_diameter': 0.03,
-                  'case_large': height,
+                  'case_diameter': 0.02,
+                  'case_large': 0.2,
                   'exit_nozzle_diameter': 0.02,
                   'convergent_angle_deg': 60,
                   'divergent_angle_deg': 15,

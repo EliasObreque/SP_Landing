@@ -23,7 +23,7 @@ ecc = 1 - rp / a
 b = a * np.sqrt(1 - ecc ** 2)
 rm = 1.738e6
 
-moon_file = "./tools/moon-58-1024x1024.png"
+moon_file = "./moon-58-1024x1024.png"
 
 
 def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
@@ -34,7 +34,7 @@ def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
     plt.grid()
     plt.ylabel("Evaluation cost", fontsize=14)
     plt.xlabel("Iteration", fontsize=14)
-    plt.yscale('log')
+    # plt.yscale('log')
     plt.gca().yaxis.set_label_coords(-0.12, 0.5)
     plt.subplots_adjust(left=0.16, right=0.95, top=0.9)  # Puedes ajustar este valor según tus necesidades
     if folder is not None and name is not None:
@@ -54,7 +54,7 @@ def plot_historical_position(historical_position, historical_g_position, folder=
     max_iteration = len(historical_g_position)
     for i, ax in enumerate(axes):
         ax.set_ylabel("P {}".format(i + 1), fontsize=14)
-        ax.yaxis.set_label_coords(-0.12, 0.5)
+        ax.yaxis.set_label_coords(-0.115, 0.5)
         ax.plot(np.arange(1, max_iteration + 1),
                 np.array(historical_position).T[i].T, '-.', lw=0.5, color='b')
         ax.plot(np.arange(1, max_iteration + 1),
@@ -706,12 +706,12 @@ if __name__ == '__main__':
     rp_target = 2e6
     mu = 4.9048695e12  # m3s-2
     energy_target = -mu / h_target
-    folder = "../sandbox/logs/neutral/attitude/"
+    folder = "../sandbox/logs/regressive/"
     list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
                  "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]", "Angle Error [rad]",
                  "Angular velocity Error [rad/s]"]
     # open all file *.pkl with import os
-    plot_flag = True
+    plot_flag = False
     for file in os.listdir(folder):
         hist = []
         if "pkl" in file:
@@ -725,11 +725,11 @@ if __name__ == '__main__':
                 eval_pos, eval_g_pos = data_loaded['p_cost'], data_loaded['best_cost']
                 historical_state[1] = np.array(historical_state[1]) * 1e-3
                 hist.append(historical_state)
-                # plot_pso_result(hist_pos, hist_g_pos, np.array(eval_pos), eval_g_pos, folder, name, plot_flag=plot_flag)
+                plot_pso_result(hist_pos, hist_g_pos, np.array(eval_pos), eval_g_pos, folder, name, plot_flag=plot_flag)
             plot_state_solution(hist, list_name, folder, name, aux={8: energy_target},
                                 plot_flag=plot_flag)
             plot_normal_tangent_velocity(hist, folder, name, plot_flag=plot_flag)
-    # plot_orbit_solution(hist, ["orbit"], a, b, rp, folder, "all_vf",
-    #                     h_target=h_target, plot_flag=plot_flag)
+        # plot_orbit_solution(hist, ["orbit"], a, b, rp, folder, "all_vf",
+        #                     h_target=h_target, plot_flag=plot_flag)
 
     plt.show()

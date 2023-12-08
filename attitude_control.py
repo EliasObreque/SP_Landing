@@ -107,10 +107,10 @@ if __name__ == '__main__':
     historical_state.insert(-1, module.historical_theta_error)
     historical_state.insert(-1, module.historical_omega_error)
     historical_state.insert(-1, module.rw_model.historical_rw_velocity)
-    historical_state.insert(-1, np.array(module.rw_model.historical_rw_torque) * 1e-3)
+    historical_state.insert(-1, np.array(module.rw_model.historical_rw_torque) * 1e3)
 
     historical_state[1] = np.array(historical_state[1]) / 1000
-    historical_state[7] = np.array(historical_state[7]) / 1000
+    historical_state[7] = np.array(historical_state[7]) * 1000
     data = {'state': historical_state,
             'state_name': list_name
             }

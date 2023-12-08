@@ -59,9 +59,10 @@ thruster_ang = np.random.normal(0, np.deg2rad(0.0), size=(len(thruster_pos)))
 thruster_properties_ = [copy.deepcopy(second_thruster), copy.deepcopy(second_thruster)]
 propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant)]
 
-list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
-             "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]", "Angle Error [rad]",
-                 "Angular velocity Error [rad/s]"]
+list_name = ["Position [m]", "Velocity [m/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
+                 "Inertia [kgm2]", "Thrust [N]", "Torque [mNm]", "Energy [J]", "Angle Error [rad]",
+                 "Angular velocity Error [rad/s]", "RW velocity [rad/s]",
+                 "RW Torque [mNm]"]
 list_gain = [-1]
 folder = "logs/neutral/attitude/"
 name_ = "mass_opt_2_vf_"
@@ -120,12 +121,12 @@ def descent_optimization(modules_setting_):
 
 if __name__ == '__main__':
     n_step = 2
-    n_par = 5
+    n_par = 1
     stage = "D"
     plot_flag = True
 
-    range_variables = [(4.5, 4.8),
-                       (0.035, 0.035),
+    range_variables = [(4, 6),
+                       (0.03, 0.03),
                        (0.2, 0.2)
                        ]
     dataset = {}
@@ -149,9 +150,8 @@ if __name__ == '__main__':
             print("Optimization Time: {}".format((end_time - init_time) / 60))
             modules_setting = pso_algorithm.gbest_position
 
-
             state = [position, velocity, theta, omega]
-            r_, v_ = propagate_rv_by_ang(state[0], state[1], modules_setting[0] - np.deg2rad(0.01), mu)
+            r_, v_ = propagate_rv_by_ang(state[0], state[1], modules_setting[0] - np.deg2rad(0.02), mu)
             state_ = [r_,
                       v_,
                       state[2],
@@ -165,9 +165,12 @@ if __name__ == '__main__':
             module.set_control_function(control_set_)
             module.set_thrust_design([modules_setting[1], modules_setting[1]],
                                      [modules_setting[2], modules_setting[2]])
-            historical_state = module.simulate(700, low_step=0.1, progress=False, force_step=True)
+            historical_state = module.simulate(20000, low_step=0.1, progress=False)
+
             historical_state.insert(-1, module.historical_theta_error)
             historical_state.insert(-1, module.historical_omega_error)
+            historical_state.insert(-1, module.rw_model.historical_rw_velocity)
+            historical_state.insert(-1, np.array(module.rw_model.historical_rw_torque) * 1e3)
 
             data = {'state': historical_state,
                     'state_name': list_name,
@@ -177,17 +180,18 @@ if __name__ == '__main__':
                     'hist_part': pso_algorithm.historical_position}
             dataset[name].append(data)
             historical_state[1] = np.array(historical_state[1]) / 1000
+            historical_state[7] = np.array(historical_state[7]) * 1000
             hist_list.append(historical_state)
             # new Agg
             if not plot_flag:
                 plt.switch_backend('Agg')
-            plot_pso_result(hist_pos, hist_g_pos, eval_pos, eval_g_pos, folder, name_int, plot_flag=plot_flag)
+            # plot_pso_result(hist_pos, hist_g_pos, eval_pos, eval_g_pos, folder, name_int, plot_flag=plot_flag)
 
         with open(folder + name + ".pkl", "wb") as data_handle:
             pickle.dump(dataset, data_handle)
             data_handle.close()
         plot_state_solution(hist_list, list_name, folder, name, aux={8: energy_target}, plot_flag=plot_flag)
         plot_normal_tangent_velocity(hist_list, folder, name, plot_flag=plot_flag)
-        plot_orbit_solution(hist_list, ["Orbit"], a, b, rp, folder, name, plot_flag=plot_flag)
-        plot_general_solution(hist_list, ["General"], a, b, rp, folder, name, plot_flag=plot_flag)
+        # plot_orbit_solution(hist_list, ["Orbit"], a, b, rp, folder, name, plot_flag=plot_flag)
+        # plot_general_solution(hist_list, ["General"], a, b, rp, folder, name, plot_flag=plot_flag)
         plt.show()

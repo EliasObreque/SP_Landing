@@ -24,9 +24,9 @@ star_geom = {'ext_diameter': 0.03,
              'large': 0.2,
              'inhibit': {'top': 1, 'bot': 1}}
 
-tubular_geom = {'ext_diameter': 0.15,
+tubular_geom = {'ext_diameter': 0.035,
                 'int_diameter': None,
-                'large': 0.2,
+                'large': 0.1,
                 'inhibit': {'top': 0, 'bot': 1}}
 
 tubreg_geom = {'ext_diameter': 0.15,

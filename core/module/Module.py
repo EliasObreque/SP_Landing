@@ -5,20 +5,26 @@ Date: 24-08-2022
 """
 import numpy as np
 from core.dynamics.Dynamics import Dynamics
+from tools.mathtools import propagate_rv_by_ang
 from core.thrust.thruster import Thruster
 from .pid import PID
 from .rw_model import RWModel
 
 rm = 1.738e6    # m
+# EDL
+ENTRY_MODE = 0
+DESCENT_MODE = 1
+LANDING_MODE = 2
 
 
 class Module(object):
     thruster_conf = None
     propellant_properties = None
-    th = 0.0
 
     def __init__(self, mass, inertia, init_state, sigma_r, sigma_v, thruster_pos, thruster_ang, thruster_conf,
                  propellant_properties, reference_frame, dt, training=False):
+        self.mode = ENTRY_MODE
+        self.thr_ignition_control = None
         self.training = training
         self.thruster_conf = thruster_conf
         self.propellant_properties = propellant_properties
@@ -29,6 +35,7 @@ class Module(object):
         self.thrusters_action_wind = [[] for _ in range(len(self.thrusters))]
         self.control_function = self.__default_control
         self.sigma_r, self.sigma_v = sigma_r, sigma_v
+        self.sigma_theta = 0.0
         self.rev_count = 0.0
         self.historical_theta_error = []
         self.historical_omega_error = []
@@ -39,11 +46,12 @@ class Module(object):
                                 self.dynamics.dynamic_model.current_theta,
                                 self.dynamics.dynamic_model.current_omega)
 
-    def update(self, control, low_step):
+    def propagate(self, tau_ctrl, control, low_step):
         if low_step is not None:
             self.dynamics.dynamic_model.dt = low_step
             self.dynamics.dynamic_model.h_old = low_step
             self.control_pid.set_step_time(low_step)
+            self.rw_model.set_step_time(low_step)
         for thr_i in self.thrusters:
             thr_i.set_step_time(self.dynamics.dynamic_model.dt)
         [thr_i.set_ignition(control[i]) for i, thr_i in enumerate(self.thrusters)]
@@ -54,15 +62,10 @@ class Module(object):
         m_dot_p = np.sum(np.array([thr_i.get_current_m_flow() for thr_i in self.thrusters]))
 
         tau_b, thr_vec = self.calc_thrust_torques(thr_mag)
-
-        tau_ctrl = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
-                                           self.dynamics.dynamic_model.current_vel_i,
-                                           self.dynamics.dynamic_model.current_theta,
-                                           self.dynamics.dynamic_model.current_omega)
         self.rw_model.set_torque(tau_ctrl)
         new_tau = self.rw_model.propagate_rw()
         tau_b = tau_b + new_tau
-        self.dynamics.dynamic_model.update(thr_vec, m_dot_p, tau_b, low_step)
+        self.dynamics.dynamic_model.propagate(thr_vec, m_dot_p, tau_b, low_step)
 
     def calc_thrust_torques(self, thr_list):
         thr_vec = [thr_i * np.array([-np.sin(alpha_), np.cos(alpha_)])
@@ -103,35 +106,88 @@ class Module(object):
     def get_thrust(self):
         return np.sum(np.array([thr_i.current_mag_thrust_c for thr_i in self.thrusters]))
 
+    def get_control(self, pos_, n_e=0):
+        if self.mode == ENTRY_MODE:
+            ctrl = self.on_off_control_by_ang(pos_, n_e)
+        elif self.mode == DESCENT_MODE or self.mode == LANDING_MODE:
+            ctrl = self.on_off_control_by_alt(pos_, n_e)
+        else:
+            ctrl = 0
+        return ctrl
+
+    def is_contact_at_ignition(self):
+        if self.mode == ENTRY_MODE:
+            pos = self.dynamics.dynamic_model.current_pos_i
+            value = np.arctan2(pos[1], pos[0])
+            if value < 0:
+                value += 2 * np.pi
+            return abs(self.thr_ignition_control[0] - value) < 1e-3
+        elif self.mode == DESCENT_MODE or self.mode == LANDING_MODE:
+            ctrl = False
+        else:
+            ctrl = False
+        return ctrl
+
     def simulate(self, tf, low_step: float = None, progress: bool = True, only_thrust: bool = False,
                  force_step: bool = False):
         # save ignition time and stop time
         subk = 0
         k = 0
-        control = [0.0 for _ in range(len(self.thrusters))]
+        ignition_control = [0.0 for _ in range(len(self.thrusters))]
         while self.dynamics.dynamic_model.current_time <= tf and not self.dynamics.isTouchdown() and not self.dynamics.notMass():
             low_step_flag = False
+
+            # Estimation
             pos_ = self.dynamics.get_current_state()[0] + np.random.normal(0, (self.sigma_r, self.sigma_r))
+            vel_ = self.dynamics.get_current_state()[1] + np.random.normal(0, (self.sigma_v, self.sigma_v))
+            theta = self.dynamics.get_current_state()[2] + np.random.normal(0, (self.sigma_theta,
+                                                                                self.sigma_theta))
+            alt = np.linalg.norm(pos_) - rm
+            if alt > 2e6:
+                self.mode = ENTRY_MODE
+            elif alt > 1000:
+                self.mode = DESCENT_MODE
+            else:
+                self.mode = LANDING_MODE
+
+            # control
+            # low step by time
+            is_contact = self.is_contact_at_ignition()
+            ignition_control = [self.get_control(pos_, n_e=i) for i in range(len(self.thrusters))]
+
+            # low step by burning
+            is_burning = np.any(np.array([thr.current_beta for thr in self.thrusters]))
+            tau_control = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
+                                                  self.dynamics.dynamic_model.current_vel_i,
+                                                  self.dynamics.dynamic_model.current_theta,
+                                                  self.dynamics.dynamic_model.current_omega)
+            # low step  by altitude
+            is_low_altitude = False
+            if (np.linalg.norm(pos_) - 1.738e6) < 100e3:
+                is_low_altitude = True
+                low_step = 0.1
+            if (np.linalg.norm(pos_) - 1.738e6) < 5e3:
+                is_low_altitude = True
+                low_step = 0.01
+
+            low_step_flag = is_contact or force_step or is_burning or is_low_altitude
+
+            if not low_step_flag:
+                tau_control = 0.0
+            else:
+                tau_control = tau_control
+            low_step_ = low_step if low_step_flag else None
+            subk += 1
+            # saving activation points
             for i, thr in enumerate(self.thrusters):
-                control[i] = self.control_function(pos_, n_e=i)
-                if control[i] == 1 and not self.thrusters[i].thr_is_burned:
-                    low_step_flag = sum([True, low_step_flag])
+                if ignition_control[i] == 1 and not self.thrusters[i].thr_was_burned:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 0 else None
-                elif self.thrusters[i].current_beta == 1 and self.thrusters[i].thr_is_burned is False:
-                    low_step_flag = sum([True, low_step_flag])
                 else:
                     self.thrusters_action_wind[i].append(subk) if len(self.thrusters_action_wind[i]) == 1 else None
-                    low_step_flag = sum([False, low_step_flag])
-                if (np.linalg.norm(pos_) - 1.738e6) < 100e3:
-                    low_step_flag = sum([True, low_step_flag])
-                    low_step = 0.1
-                if (np.linalg.norm(pos_) - 1.738e6) < 5e3:
-                    low_step_flag = sum([True, low_step_flag])
-                    low_step = 0.01
-            low_step_ = low_step if (low_step_flag or force_step) else None
-            subk += 1
-            self.update(control, low_step_)
-            left_engine = np.all(np.array([thr.thr_is_burned for thr in self.thrusters]))
+
+            # propagation
+            self.propagate(tau_control, ignition_control, low_step_)
+            left_engine = np.all(np.array([thr.thr_was_burned for thr in self.thrusters]))
             if left_engine:
                 tf_update = self.get_orbit_period(tf)
                 if tf_update + self.dynamics.dynamic_model.current_time < tf:
@@ -175,26 +231,33 @@ class Module(object):
 
     def __default_control(self, state, n_e=0):
         alt = np.linalg.norm(state[0]) - rm
-        if alt * 1e-3 < self.th[n_e]:
+        if alt * 1e-3 < self.thr_ignition_control[n_e]:
             return 1
         else:
             return 0
 
-    def on_off_control(self, value_vec, n_e=0):
+    def on_off_control_by_alt(self, state, n_e=0):
+        alt = np.linalg.norm(state[0]) - rm
+        if alt * 1e-3 < self.thr_ignition_control[n_e]:
+            return 1
+        else:
+            return 0
+
+    def on_off_control_by_ang(self, value_vec, n_e=0):
         pos = value_vec
-        if n_e == 0:
+        if n_e == 0 or n_e == 1:
             value = np.arctan2(pos[1], pos[0])
             if value < 0:
                 value += 2 * np.pi
-            if value >= self.th[n_e]:
+            if value >= self.thr_ignition_control[n_e]:
                 return 1
             else:
                 return 0
-        elif n_e == 1 or n_e == 2:
+        elif n_e == 2:
             value = np.arctan2(pos[1], pos[0])
             if value < 0:
                 value += 2 * np.pi
-            if value >= self.th[n_e]:
+            if value >= self.thr_ignition_control[n_e]:
                 return 1
             else:
                 return 0
@@ -202,27 +265,27 @@ class Module(object):
             value = np.arctan2(pos[1], pos[0])
             if value < 0:
                 value += 2 * np.pi
-            if value >= self.th[n_e]:
+            if value >= self.thr_ignition_control[n_e]:
                 return 1
             else:
                 return 0
         elif n_e > 4:
             value = np.linalg.norm(pos) - rm
-            if value < self.th[n_e]:
+            if value < self.thr_ignition_control[n_e]:
                 return 1
             else:
                 return 0
         else:
             value = np.linalg.norm(value_vec[0])
-            if value < self.th[n_e]:
+            if value < self.thr_ignition_control[n_e]:
                 return 1
             else:
                 return 0
 
     def set_control_function(self, control_parameter, default=False):
-        self.th = control_parameter
+        self.thr_ignition_control = control_parameter
         if not default:
-            self.control_function = self.on_off_control
+            self.control_function = self.on_off_control_by_ang
 
     def set_thrust_design(self, thrust_diameter, thrust_large=None, bias_isp=None, **kwargs):
         self.thrusters = []

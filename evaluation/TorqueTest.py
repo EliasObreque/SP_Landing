@@ -4,7 +4,7 @@ els.obrq@gmail.com
 Date: 04-08-2022
 """
 from core.thrust.propellant.propellant import propellant_data
-from core.thrust import Thruster
+from core.thrust.thruster import Thruster
 import numpy as np
 import matplotlib.pyplot as plt
 

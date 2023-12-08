@@ -18,6 +18,7 @@ class RWModel(object):
         self.lag_coef = 0.5
         self.current_velocity = 0.0
         self.max_torque = 0.1
+        self.min_torque = 1e-3
         self.target_angular_accl_before = 0
 
     def dynamic_rw(self, state, t):
@@ -37,11 +38,15 @@ class RWModel(object):
         self.historical_rw_velocity.append(angular_velocity)
         return rw_torque
 
+    def set_step_time(self, value):
+        self.dt = value
+
     def set_torque(self, torque):
         ctrl_cycle = self.dt
         sign = 1
         if torque < 0:
             sign = -1
+
         if abs(torque) < self.max_torque:
             angular_acc = torque / self.inertia
         else:

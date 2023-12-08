@@ -35,7 +35,7 @@ def runge_kutta_4(function, x, dt, ct, *args):
     return next_x
 
 
-def rkf45(ode_function, xi, h_old, t, tf, *args, tol=1e-12):
+def rkf45(ode_function, xi, h_old, t, tf, *args, tol=1e-15):
     hmin = 1e-3
     h = h_old
     k_i = np.zeros(len(xi))
