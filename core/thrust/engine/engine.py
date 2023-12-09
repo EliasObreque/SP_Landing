@@ -60,6 +60,7 @@ class Engine(BasicThruster, ABC):
         self.current_burn_time = 0.0
         self.historical_mag_thrust = [0.0]
         self.current_mag_thrust_c = 0.0
+        self.historical_beta = [self.current_beta]
 
         # Engine properties
         self.throat_diameter = thruster_properties['throat_diameter']
@@ -115,7 +116,7 @@ class Engine(BasicThruster, ABC):
         self.channels['dThroat'].addData(0)
 
         a_b = self.propellant.get_burning_area(0)
-        kn = 200
+        kn = 100
         a_t = a_b / kn
         r_e = np.sqrt(a_t / np.pi)
         self.throat_diameter = r_e * 2
@@ -245,6 +246,7 @@ class Engine(BasicThruster, ABC):
         self.thr_is_on = value
 
     def log_value(self):
+        self.historical_beta.append(self.current_beta)
         self.historical_mag_thrust.append(self.current_mag_thrust_c)
         if self.propellant.isGrain():
             self.channels['time'].addData(self.current_time)

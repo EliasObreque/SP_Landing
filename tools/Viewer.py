@@ -23,7 +23,7 @@ ecc = 1 - rp / a
 b = a * np.sqrt(1 - ecc ** 2)
 rm = 1.738e6
 
-moon_file = "./moon-58-1024x1024.png"
+moon_file = "./tools/moon-58-1024x1024.png"
 
 
 def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
@@ -81,7 +81,11 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
         plt.gca().yaxis.set_label_coords(-0.14, 0.5)
         plt.subplots_adjust(left=0.18, right=0.95, top=0.9)  # Puedes ajustar este valor según tus necesidades
         if list_name is not None:
-            plt.ylabel(list_name[i], fontsize=14)
+            if "beta" in list_name[i]:
+                name_temp = r"$\beta$"
+            else:
+                name_temp = list_name[i]
+            plt.ylabel(name_temp, fontsize=14)
         plt.xlabel("Time [min]", fontsize=14)
         max_value = 0
         for state in min_state_full:
@@ -101,11 +105,15 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
         #     axes.grid()
         if aux is not None:
             if i in list(aux.keys()):
-                plt.hlines(aux[i], xmin=min(wind_time), xmax=max_value, colors='red', label='Surface Energy')
-                # legend center right
-                plt.legend(loc='center right', fontsize=14)
+                plt.ylim([-0.4e3, 0.0])
+                # plt.hlines(aux[i], xmin=min(wind_time), xmax=max_value, colors='red', label='Surface Energy')
+                # # legend center right
+                # plt.legend(loc='center right', fontsize=14)
         if folder is not None and name is not None:
-            fig.savefig(folder + name + "_" + list_name[i].split(" ")[0] + '.pdf', format='pdf')
+            name_temp = list_name[i].split(" ")
+            temp = name_temp[-1]
+            name_temp = list_name[i].replace(" " + temp, "")
+            fig.savefig(folder + name + "_" + name_temp + '.pdf', format='pdf')
         if not plot_flag:
             plt.close(fig)
 
@@ -707,8 +715,9 @@ if __name__ == '__main__':
     mu = 4.9048695e12  # m3s-2
     energy_target = -mu / h_target
     folder = "../sandbox/logs/regressive/"
+    # folder = "../logs/neutral/attitude/"
     list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
-                 "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [J]", "Angle Error [rad]",
+                 "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [kJ]", "Angle Error [rad]",
                  "Angular velocity Error [rad/s]"]
     # open all file *.pkl with import os
     plot_flag = False
@@ -724,6 +733,8 @@ if __name__ == '__main__':
                 historical_state = data_loaded['state']
                 eval_pos, eval_g_pos = data_loaded['p_cost'], data_loaded['best_cost']
                 historical_state[1] = np.array(historical_state[1]) * 1e-3
+                historical_state[8] = np.array(historical_state[8]) * 1e-3
+
                 hist.append(historical_state)
                 plot_pso_result(hist_pos, hist_g_pos, np.array(eval_pos), eval_g_pos, folder, name, plot_flag=plot_flag)
             plot_state_solution(hist, list_name, folder, name, aux={8: energy_target},

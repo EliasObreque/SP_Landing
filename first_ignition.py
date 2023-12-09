@@ -60,9 +60,9 @@ thruster_properties_ = [copy.deepcopy(second_thruster), copy.deepcopy(second_thr
 propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant)]
 
 list_name = ["Position [m]", "Velocity [m/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
-                 "Inertia [kgm2]", "Thrust [N]", "Torque [mNm]", "Energy [J]", "Angle Error [rad]",
+                 "Inertia [kgm2]", "Thrust [N]", "Torque [mNm]", "Energy [kJ]", "Angle Error [rad]",
                  "Angular velocity Error [rad/s]", "RW velocity [rad/s]",
-                 "RW Torque [mNm]"]
+                 "RW Torque [mNm]", "beta [-]"]
 list_gain = [-1]
 folder = "logs/neutral/attitude/"
 name_ = "mass_opt_2_vf_"
@@ -98,11 +98,8 @@ def descent_optimization(modules_setting_):
     historical_state = module.simulate(tf, low_step=0.1, progress=False, only_thrust=True, force_step=True)
 
     # COST
-    r_state = np.array([np.linalg.norm(elem) for elem in historical_state[0]])
-    v_state = np.array([np.linalg.norm(elem) for elem in historical_state[1]])
     mass_state = np.array([np.linalg.norm(elem) for elem in historical_state[2]])
     state_energy = historical_state[8]
-    # error = (state_energy[-1] - energy_target) ** 2 / mass_state[-1]
 
     ang = np.arctan2(historical_state[0][-1][1], historical_state[0][-1][0])
     v_t_n = np.array([[np.cos(ang - np.pi / 2), -np.sin(ang - np.pi / 2)],
@@ -113,21 +110,18 @@ def descent_optimization(modules_setting_):
     else:
         error = v_t_n[0] ** 2
     error /= mass_state[-1] ** 2
-    # print("Mass: {} - Propellant: {} - Propellant final: {}".format(mass_state[-1], module.get_mass_used(),
-    #                                                                 module.get_mass_burned()))
-    # error += 100000 if module.dynamics.isTouchdown() else 1
     return error, historical_state
 
 
 if __name__ == '__main__':
-    n_step = 2
-    n_par = 1
+    n_step = 5
+    n_par = 5
     stage = "D"
     plot_flag = True
 
     range_variables = [(4, 6),
-                       (0.03, 0.03),
-                       (0.2, 0.2)
+                       (0.03, 0.04),
+                       (0.15, 0.2)
                        ]
     dataset = {}
     for i, gain in enumerate(list_gain):
@@ -165,12 +159,13 @@ if __name__ == '__main__':
             module.set_control_function(control_set_)
             module.set_thrust_design([modules_setting[1], modules_setting[1]],
                                      [modules_setting[2], modules_setting[2]])
-            historical_state = module.simulate(20000, low_step=0.1, progress=False)
+            historical_state = module.simulate(800000, low_step=0.1, progress=False)
 
             historical_state.insert(-1, module.historical_theta_error)
             historical_state.insert(-1, module.historical_omega_error)
             historical_state.insert(-1, module.rw_model.historical_rw_velocity)
             historical_state.insert(-1, np.array(module.rw_model.historical_rw_torque) * 1e3)
+            historical_state.insert(-1, module.get_betas_control())
 
             data = {'state': historical_state,
                     'state_name': list_name,
@@ -181,6 +176,8 @@ if __name__ == '__main__':
             dataset[name].append(data)
             historical_state[1] = np.array(historical_state[1]) / 1000
             historical_state[7] = np.array(historical_state[7]) * 1000
+            historical_state[8] = np.array(historical_state[8]) * 1000
+
             hist_list.append(historical_state)
             # new Agg
             if not plot_flag:
@@ -192,6 +189,6 @@ if __name__ == '__main__':
             data_handle.close()
         plot_state_solution(hist_list, list_name, folder, name, aux={8: energy_target}, plot_flag=plot_flag)
         plot_normal_tangent_velocity(hist_list, folder, name, plot_flag=plot_flag)
-        # plot_orbit_solution(hist_list, ["Orbit"], a, b, rp, folder, name, plot_flag=plot_flag)
-        # plot_general_solution(hist_list, ["General"], a, b, rp, folder, name, plot_flag=plot_flag)
+        plot_orbit_solution(hist_list, ["Orbit"], a, b, rp, folder, name, plot_flag=plot_flag)
+        plot_general_solution(hist_list, ["General"], a, b, rp, folder, name, plot_flag=plot_flag)
         plt.show()

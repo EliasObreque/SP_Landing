@@ -58,18 +58,18 @@ if __name__ == '__main__':
     # if propellant_properties_['geometry']['type'] is not None:
     #   propellant_properties_['geometry']['setting'] = bates_geom
 
-    percentage_variation_n = 3
+    percentage_variation_n = 0
     upper_isp_noise = Isp * (1.0 + percentage_variation_n / 100.0)
     propellant_properties_['isp_noise_std'] = (upper_isp_noise - Isp) / 3
 
-    percentage_variation_b = 10
+    percentage_variation_b = 0
     upper_isp_bias = Isp * (1.0 + percentage_variation_b / 100.0)
     propellant_properties_['isp_bias_std'] = (upper_isp_bias - Isp) / 3
 
     thruster_properties_ = main_thruster
     thruster_properties_['thrust_profile'] = {'type': GRAIN}
     # thruster_properties_['thrust_profile']['type'] = MODEL
-    thruster_properties_['max_ignition_dead_time'] = 0.2
+    thruster_properties_['max_ignition_dead_time'] = 0.0
     ctrl_a = [1.0]
     ctrl_b = [6.91036]
     max_mass_flow = 1 / Isp / ge

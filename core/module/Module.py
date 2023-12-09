@@ -56,7 +56,6 @@ class Module(object):
             thr_i.set_step_time(self.dynamics.dynamic_model.dt)
         [thr_i.set_ignition(control[i]) for i, thr_i in enumerate(self.thrusters)]
         [thr_i.propagate_thrust() for thr_i in self.thrusters]
-        [thr_i.log_value() for thr_i in self.thrusters]
 
         thr_mag = np.array([thr_i.get_current_thrust() for thr_i in self.thrusters])
         m_dot_p = np.sum(np.array([thr_i.get_current_m_flow() for thr_i in self.thrusters]))
@@ -77,20 +76,29 @@ class Module(object):
     def get_control_torque(self, r, v, theta, omega):
         u_target = - v / np.linalg.norm(v)
         altitude = np.linalg.norm(r) - rm
-
-        if altitude > 2000:
-            u_current = np.array([-np.sin(theta),
-                                  np.cos(theta)])
-            ang_error = np.arccos(np.dot(u_target, u_current)) * np.sign(np.cross(u_current, u_target))
+        u_current = np.array([-np.sin(theta),
+                              np.cos(theta)])
+        dot_vec = np.dot(u_target, u_current)
+        if abs(dot_vec) > 1:
+            dot_vec = 1 * np.sign(dot_vec)
+        ang_error = np.arccos(dot_vec) * np.sign(np.cross(u_current, u_target))
+        if self.mode == ENTRY_MODE:
             omega_target = np.linalg.norm(v) / np.linalg.norm(r)
             p_gain = 1e-2
             d_gain = 0.0
             i_gain = 1e-1
+            self.control_pid.set_mode(ENTRY_MODE)
+        elif self.mode == DESCENT_MODE:
+            self.control_pid.set_mode(DESCENT_MODE)
+            p_gain = 1e-2
+            d_gain = 0.0
+            i_gain = 1e-1
+            omega_target = 0
         else:
-            ang_error = np.arctan2(r[0], r[1])
-            p_gain = 0.00001
-            d_gain = 0.00001
-            i_gain = 1e-5
+            self.control_pid.set_mode(LANDING_MODE)
+            p_gain = 1e-2
+            d_gain = 0.0
+            i_gain = 1e-1
             omega_target = 0
 
         self.historical_theta_error.append(ang_error)
@@ -143,7 +151,9 @@ class Module(object):
             theta = self.dynamics.get_current_state()[2] + np.random.normal(0, (self.sigma_theta,
                                                                                 self.sigma_theta))
             alt = np.linalg.norm(pos_) - rm
-            if alt > 2e6:
+            # engines states
+            array_state = np.array([thr.thr_was_burned for thr in self.thrusters])
+            if not np.all(array_state[:2]):
                 self.mode = ENTRY_MODE
             elif alt > 1000:
                 self.mode = DESCENT_MODE
@@ -163,7 +173,7 @@ class Module(object):
                                                   self.dynamics.dynamic_model.current_omega)
             # low step  by altitude
             is_low_altitude = False
-            if (np.linalg.norm(pos_) - 1.738e6) < 100e3:
+            if (np.linalg.norm(pos_) - 1.738e6) < 200e3:
                 is_low_altitude = True
                 low_step = 0.1
             if (np.linalg.norm(pos_) - 1.738e6) < 5e3:
@@ -174,8 +184,6 @@ class Module(object):
 
             if not low_step_flag:
                 tau_control = 0.0
-            else:
-                tau_control = tau_control
             low_step_ = low_step if low_step_flag else None
             subk += 1
             # saving activation points
@@ -187,7 +195,7 @@ class Module(object):
 
             # propagation
             self.propagate(tau_control, ignition_control, low_step_)
-            left_engine = np.all(np.array([thr.thr_was_burned for thr in self.thrusters]))
+            left_engine = np.all(array_state)
             if left_engine:
                 tf_update = self.get_orbit_period(tf)
                 if tf_update + self.dynamics.dynamic_model.current_time < tf:
@@ -325,4 +333,8 @@ class Module(object):
 
     def get_mass_burned(self):
         return np.sum(np.array([thr_i.channels['mass'].getLast() for thr_i in self.thrusters]))
+
+    def get_betas_control(self):
+        betas = [thr.historical_beta for thr in self.thrusters]
+        return np.array(betas).T
 

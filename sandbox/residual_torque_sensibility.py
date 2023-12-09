@@ -14,13 +14,13 @@ from core.thrust.thrustProperties import second_thruster
 from core.thrust.propellant.propellantProperties import second_propellant
 
 # Thruster
-second_thruster['max_ignition_dead_time'] = 2
+second_thruster['max_ignition_dead_time'] = 0
 
 # Propellant
 second_propellant['isp_noise_std'] = 0
 second_propellant['isp_bias_std'] = 0
 
-thruster_pos = np.array([[-0.06975, -0.0887], [0.06975, -0.0887]]) + np.random.normal(0, 0.0001, size=2)
+thruster_pos = np.array([[-0.06975, -0.0887], [0.06975, -0.0887]]) + np.random.normal(0, 0.0000, size=2)
 
 thruster_ang = np.random.normal(0, np.deg2rad(0.0), size=(len(thruster_pos)))
 
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     inertia_0 = 1 / 12 * mass_0 * (0.2 ** 2 + 0.3 ** 2)
     dt = 0.01
     n_thruster = 2
-    t_end = 12
+    t_end = 20
     dataset = []
     for i in range(1):
         thrusters = [Thruster(dt, thruster_properties_[0], propellant_properties_[0])(),

@@ -1,5 +1,10 @@
 
+
 import numpy as np
+
+ENTRY_MODE = 0
+DESCENT_MODE = 1
+LANDING_MODE = 2
 REF_POINT = 2
 NAD_POINT = 1
 DETUMBLING = 0
@@ -24,6 +29,7 @@ class PID(object):
         self.last_error = 0
         self.ctrl_min = ctrl_min
         self.ctrl_max = ctrl_max
+        self.mode = ENTRY_MODE
 
     def set_step_time(self, dt):
         self.step_width = dt
@@ -74,3 +80,11 @@ class PID(object):
 
         ctrl = self.P * error + self.I * self.error_int + self.D * error_diff
         return ctrl
+
+    def set_mode(self, mode):
+        if self.mode == mode:
+            return
+        else:
+            self.mode = mode
+            self.error_int = 0.0
+            self.last_error = 0
