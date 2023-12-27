@@ -34,7 +34,7 @@ def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
     plt.grid()
     plt.ylabel("Evaluation cost", fontsize=14)
     plt.xlabel("Iteration", fontsize=14)
-    # plt.yscale('log')
+    plt.yscale('log')
     plt.gca().yaxis.set_label_coords(-0.12, 0.5)
     plt.subplots_adjust(left=0.16, right=0.95, top=0.9)  # Puedes ajustar este valor según tus necesidades
     if folder is not None and name is not None:
@@ -714,10 +714,10 @@ if __name__ == '__main__':
     rp_target = 2e6
     mu = 4.9048695e12  # m3s-2
     energy_target = -mu / h_target
-    folder = "../sandbox/logs/regressive/"
+    folder = "../logs/neutral/"
     # folder = "../logs/neutral/attitude/"
     list_name = ["Position [m]", "Velocity [km/s]", "Mass [kg]", "Angle [rad]", "Angular velocity [rad/s]",
-                 "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [kJ]", "Angle Error [rad]",
+                 "Inertia [kgm2]", "Thrust [N]", "Torque [Nm]", "Energy [kJ]", "beta [-]", "Angle Error [rad]",
                  "Angular velocity Error [rad/s]"]
     # open all file *.pkl with import os
     plot_flag = False

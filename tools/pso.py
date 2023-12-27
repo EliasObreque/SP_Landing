@@ -7,7 +7,7 @@ import numpy as np
 import multiprocessing
 
 MAX_CORE = multiprocessing.cpu_count()
-NCORE = int(MAX_CORE * 0.8)
+NCORE = int(MAX_CORE*0.8)
 fitness_function_ = None
 
 
@@ -64,14 +64,15 @@ class PSOStandard(PSO):
     def __init__(self, func, n_particles=100, n_steps=200, parameters=(0.8, 0.01, 1.2, 1.5)):
         super().__init__(func, n_particles, n_steps, parameters)
 
-    def optimize(self, clip=True):
+    def optimize(self, clip=True, tol=np.inf, noise=None, args=None):
         iteration = 0
         W = self.w1
         min_state = None
-        while iteration < self.max_iteration:
+        while iteration < self.max_iteration and self.gbest_fitness_value > tol:
             self.historical_position.append(self.position.copy())
             pool = multiprocessing.Pool(processes=NCORE)
-            result = pool.map(self.fitness_function, self.position)
+            zip_var = [[pos, args, noise] for pos in self.position]
+            result = pool.map(self.fitness_function, zip_var)
             pool.close()
             # result = self.iterative_evaluation()
             fitness = np.array([elem[0] for elem in result])
@@ -106,7 +107,7 @@ class PSOStandard(PSO):
             iteration += 1
         print("Finished")
         return (self.historical_g_position[-1], min_state, self.historical_position, self.historical_g_position,
-                self.evol_p_fitness, self.evol_best_fitness)
+                self.evol_p_fitness[:, :iteration], self.evol_best_fitness[:iteration])
 
     def get_gains(self):
         return self.gbest_position

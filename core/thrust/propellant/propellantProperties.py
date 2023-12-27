@@ -24,9 +24,9 @@ star_geom = {'ext_diameter': 0.03,
              'large': 0.2,
              'inhibit': {'top': 1, 'bot': 1}}
 
-tubular_geom = {'ext_diameter': 0.035,
+tubular_geom = {'ext_diameter': 0.03,
                 'int_diameter': None,
-                'large': 0.1,
+                'large': 0.2,
                 'inhibit': {'top': 0, 'bot': 1}}
 
 tubreg_geom = {'ext_diameter': 0.15,
@@ -46,16 +46,16 @@ default_propellant = {'mixture_name': name_prop,
                       'isp_bias_std': 0.0}
 
 main_propellant = {'mixture_name': name_prop,
-                   'geometry': {'type': TUBULAR,
-                                'setting': tubular_geom},
-                   'isp_noise_std': 0,
-                   'isp_bias_std': 0.0}
+                   'geometry': {'type': BATES,
+                                'setting': bates_geom},
+                   'isp_noise_std': 3.25,
+                   'isp_bias_std': 10.83}
 
 second_propellant = {'mixture_name': name_prop,
                      'geometry': {'type': TUBULAR,
                                   'setting': tubular_geom},
-                     'isp_noise_std': 0.0,
-                     'isp_bias_std': 0.0}
+                     'isp_noise_std': 3.25,
+                     'isp_bias_std': 10.83}
 
 bates2_geom = {'ext_diameter': 0.03,
                'int_diameter': 0.015,

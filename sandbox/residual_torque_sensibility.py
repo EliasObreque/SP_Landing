@@ -14,15 +14,16 @@ from core.thrust.thrustProperties import second_thruster
 from core.thrust.propellant.propellantProperties import second_propellant
 
 # Thruster
-second_thruster['max_ignition_dead_time'] = 0
+second_thruster['max_ignition_dead_time'] = 0.5
 
 # Propellant
-second_propellant['isp_noise_std'] = 0
-second_propellant['isp_bias_std'] = 0
+second_propellant['isp_noise_std'] = 3.25
+second_propellant['isp_bias_std'] = 10.83
 
 thruster_pos = np.array([[-0.06975, -0.0887], [0.06975, -0.0887]]) + np.random.normal(0, 0.0000, size=2)
 
 thruster_ang = np.random.normal(0, np.deg2rad(0.0), size=(len(thruster_pos)))
+thruster_ang += np.array([-25 * np.pi / 180, 25 * np.pi / 180])
 
 thruster_properties_ = [copy.deepcopy(second_thruster), copy.deepcopy(second_thruster)]
 propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant)]
@@ -33,12 +34,12 @@ if __name__ == '__main__':
     inertia_0 = 1 / 12 * mass_0 * (0.2 ** 2 + 0.3 ** 2)
     dt = 0.01
     n_thruster = 2
-    t_end = 20
+    t_end = 30
     dataset = []
-    for i in range(1):
+    for i in range(10):
         thrusters = [Thruster(dt, thruster_properties_[0], propellant_properties_[0])(),
                      Thruster(dt, thruster_properties_[1], propellant_properties_[1])()]
-        print(thrusters[0].throat_diameter, thrusters[0].chamber_pressure)
+        print(thrusters[0].throat_diameter, thrusters[0].chamber_pressure * 1e-6)
         time_array = [0]
         hist_torque = [0]
         k = 1

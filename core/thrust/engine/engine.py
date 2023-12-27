@@ -115,13 +115,15 @@ class Engine(BasicThruster, ABC):
         self.channels['exitPressure'].addData(0)
         self.channels['dThroat'].addData(0)
 
+        self.set_kn(150)
+        # self.check_geometric_cond()
+
+    def set_kn(self, kn):
         a_b = self.propellant.get_burning_area(0)
-        kn = 100
         a_t = a_b / kn
         r_e = np.sqrt(a_t / np.pi)
         self.throat_diameter = r_e * 2
         self.throat_area = np.pi * self.throat_diameter ** 2 / 4
-        # self.check_geometric_cond()
 
     def propagate_thrust(self):
         # print(self.propellant.get_web_left(self.propellant.current_reg_web))
