@@ -68,7 +68,7 @@ class PSOStandard(PSO):
         iteration = 0
         W = self.w1
         min_state = None
-        while iteration < self.max_iteration and self.gbest_fitness_value > tol:
+        while iteration < self.max_iteration and self.gbest_fitness_value >= tol:
             self.historical_position.append(self.position.copy())
             pool = multiprocessing.Pool(processes=NCORE)
             zip_var = [[pos, args, noise] for pos in self.position]
@@ -106,6 +106,7 @@ class PSOStandard(PSO):
                   "Best:", self.gbest_position)
             iteration += 1
         print("Finished")
+        iteration = np.min([iteration, self.max_iteration])
         return (self.historical_g_position[-1], min_state, self.historical_position, self.historical_g_position,
                 self.evol_p_fitness[:, :iteration], self.evol_best_fitness[:iteration])
 

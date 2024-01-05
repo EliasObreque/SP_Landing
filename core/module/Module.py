@@ -75,25 +75,42 @@ class Module(object):
         return np.sum(np.array(tau_b)), np.sum(np.array(thr_vec), axis=0)
 
     def get_control_torque(self, r, v, theta, omega):
-        u_target = - v / np.linalg.norm(v)
-        altitude = np.linalg.norm(r) - rm
-        u_current = np.array([-np.sin(theta),
-                              np.cos(theta)])
-        dot_vec = np.dot(u_target, u_current)
-        if abs(dot_vec) > 1:
-            dot_vec = 1 * np.sign(dot_vec)
-        ang_error = np.arccos(dot_vec) * np.sign(np.cross(u_current, u_target))
         if self.mode == ENTRY_MODE:
-            omega_target = np.linalg.norm(v) / np.linalg.norm(r)
-            p_gain = 1e-2
+            div_norm = np.linalg.norm(v)
+            if div_norm < 1e-20:
+                div_norm = 1
+            u_target = - v / div_norm
+            u_current = np.array([-np.sin(theta),
+                                  np.cos(theta)])
+            dot_vec = np.dot(u_target, u_current)
+            if abs(dot_vec) > 1:
+                dot_vec = 1 * np.sign(dot_vec)
+            ang_error = np.arccos(dot_vec) * np.sign(np.cross(u_current, u_target))
+            div_norm = np.linalg.norm(r)
+            if div_norm < 1e-20:
+                omega_target = 0
+            else:
+                omega_target = np.linalg.norm(v) / div_norm
+            p_gain = 30e-0
             d_gain = 0.0
-            i_gain = 1e-1
+            i_gain = 7e-2
             self.control_pid.set_mode(ENTRY_MODE)
         elif self.mode == DESCENT_MODE:
+            div_norm = np.linalg.norm(r)
+            if div_norm < 1e-20:
+                div_norm = 1
+            u_target = r / div_norm
+            u_current = np.array([-np.sin(theta),
+                                  np.cos(theta)])
+            dot_vec = np.dot(u_target, u_current)
+            if abs(dot_vec) > 1:
+                dot_vec = 1 * np.sign(dot_vec)
+            ang_error = np.arccos(dot_vec) * np.sign(np.cross(u_current, u_target))
+
             self.control_pid.set_mode(DESCENT_MODE)
-            p_gain = 1e-2
+            p_gain = 1e-0
             d_gain = 0.0
-            i_gain = 1e-1
+            i_gain = 7e-1
             omega_target = 0
         else:
             self.control_pid.set_mode(LANDING_MODE)
@@ -104,7 +121,7 @@ class Module(object):
 
         self.historical_theta_error.append(ang_error)
         self.historical_omega_error.append(omega_target - omega)
-        self.control_pid.set_gain(p_gain, d_gain, i_gain)
+        # self.control_pid.set_gain(p_gain, d_gain, i_gain)
         ctrl = self.control_pid.calc_control(ang_error, omega_target - omega, 2)
         return ctrl
 
@@ -153,8 +170,7 @@ class Module(object):
                 self.sigma_v = 0.5
             pos_ = self.dynamics.get_current_state()[0] + np.random.normal(0, (self.sigma_r, self.sigma_r))
             vel_ = self.dynamics.get_current_state()[1] + np.random.normal(0, (self.sigma_v, self.sigma_v))
-            theta = self.dynamics.get_current_state()[2] + np.random.normal(0, (self.sigma_theta,
-                                                                                self.sigma_theta))
+            theta = self.dynamics.get_current_state()[2] + np.random.normal(0, self.sigma_theta)
             alt = np.linalg.norm(pos_) - rm
             # engines states
             array_state = np.array([thr.thr_was_burned for thr in self.thrusters])
@@ -172,9 +188,9 @@ class Module(object):
 
             # low step by burning
             is_burning = np.any(np.array([thr.current_beta for thr in self.thrusters]))
-            tau_control = self.get_control_torque(self.dynamics.dynamic_model.current_pos_i,
-                                                  self.dynamics.dynamic_model.current_vel_i,
-                                                  self.dynamics.dynamic_model.current_theta,
+            tau_control = self.get_control_torque(pos_,
+                                                  vel_,
+                                                  theta,
                                                   self.dynamics.dynamic_model.current_omega)
             # low step  by altitude
             is_low_altitude = False
@@ -325,7 +341,7 @@ class Module(object):
             if "kn" in list(kwargs.keys()):
                 self.thrusters[i].set_kn(kwargs["kn"])
 
-    def set_thrust_bias(self, bias_isp: list, dead_time: list = None):
+    def set_thrust_bias(self, bias_isp, dead_time=None):
         for i, value in enumerate(bias_isp):
             self.thrusters[i].set_bias_isp(value)
             if dead_time is not None:

@@ -13,9 +13,10 @@ class RWModel(object):
         self.inertia = rw_inertia
         self.dt = dt
         self.historical_rw_torque = [0]
+        self.historical_rw_ctrl_torque = [0]
         self.historical_rw_velocity = [0]
         self.target_angular_velocity = 0.0
-        self.lag_coef = 0.2
+        self.lag_coef = 0.5
         self.current_velocity = 0.0
         self.max_torque = 10
         self.min_torque = 0
@@ -42,6 +43,7 @@ class RWModel(object):
         self.dt = value
 
     def set_torque(self, torque):
+        self.historical_rw_ctrl_torque.append(torque)
         ctrl_cycle = self.dt
         sign = 1
         if torque < 0:

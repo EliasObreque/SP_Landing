@@ -73,9 +73,11 @@ def entry_optimization(modules_setting_):
     modules_setting_ = modules_setting_[0]
 
     thruster_pos = np.array([[-0.06975, -0.0887], [0.06975, -0.0887]])
-    thruster_pos += noise_[0]
-    thruster_ang = noise_[1] * np.deg2rad(1)
-    thruster_ang += np.array([-25 * np.pi / 180, 25 * np.pi / 180])
+    thruster_ang = np.random.normal(0, 0.5, size=2) * np.deg2rad(1)
+    if noise_ is not None:
+        thruster_pos += noise_[0]
+        thruster_ang = noise_[1] * np.deg2rad(1)
+    thruster_ang += np.array([-30 * np.pi / 180, 30 * np.pi / 180])
 
     thruster_properties_ = [copy.deepcopy(second_thruster), copy.deepcopy(second_thruster)]
     propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant)]
@@ -83,8 +85,16 @@ def entry_optimization(modules_setting_):
     control_set_ = [modules_setting_[0], modules_setting_[0]]
 
     r_, v_ = propagate_rv_by_ang(state[0], state[1], modules_setting_[0] - np.deg2rad(0.00), mu)
-    state_ = [r_ + noise_[2],
-              v_ + noise_[3],
+
+    if noise_ is not None:
+        r_n = r_ + noise_[2]
+        v_n = v_ + noise_[3]
+    else:
+        r_n = r_ + np.random.normal(0, sigma_r, size=2)
+        v_n = v_ + np.random.normal(0, sigma_v, size=2)
+
+    state_ = [r_n,
+              v_n,
               state[2],
               state[3]]
     mass_, inertia_ = mass_0, inertia_0
@@ -97,7 +107,12 @@ def entry_optimization(modules_setting_):
     module.set_thrust_design([modules_setting_[1], modules_setting_[1]],
                              [modules_setting_[2], modules_setting_[2]])
 
-    module.set_thrust_bias(noise_[5], noise_[4])
+    if noise_ is not None:
+        module.set_thrust_bias(noise_[5], noise_[4])
+    else:
+        module.set_thrust_bias(np.random.normal(0, 10.83, size=2),
+                               np.random.uniform(0, 0.5, size=2))
+
     module.set_control_function(control_set_)
     historical_state_ = module.simulate(5000 * 60, low_step=0.1, progress=False, only_thrust=True, force_step=True,
                                         force_mode=ENTRY_MODE)
@@ -198,7 +213,7 @@ if __name__ == '__main__':
     name = name_
     hist_list = []
     dataset = {name: []}
-    for j in range(20):
+    for j in range(1):
         print(j)
         name_int = name + "_{}".format(j)
 
@@ -209,8 +224,8 @@ if __name__ == '__main__':
         range_variables = [(4.5, 5.0),
                            (0.04, 0.04),
                            (0.2, 0.2)]
-        n_step = 100
-        n_par = 10
+        n_step = 50
+        n_par = 20
 
         pso_entry = PSOStandard(entry_optimization, n_particles=n_par, n_steps=n_step)
         pso_entry.initialize(range_variables)
@@ -218,167 +233,41 @@ if __name__ == '__main__':
         noise_args = (np.random.normal(0, 0.0001, size=(2, 2)), np.random.normal(0, 0.5, size=2),
                       np.random.normal(0, sigma_r, size=2), np.random.normal(0, sigma_v, size=2),
                       np.random.uniform(0, 0.5, size=2), np.random.normal(0, 10.83, size=2))
+
         final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_entry.optimize(clip=True, tol=1e-12,
                                                                                                 noise=noise_args)
         end_time = time.time()
         print("Optimization Time: {}".format((end_time - init_time) / 60))
         modules_setting_entry = pso_entry.gbest_position
 
-        thruster_pos = np.array([[-0.06975, -0.0887], [0.06975, -0.0887]])
-        thruster_pos += noise_args[0]
-        thruster_ang = noise_args[1] * np.deg2rad(1)
-        thruster_ang += np.array([-25 * np.pi / 180, 25 * np.pi / 180])
+        thruster_pos_entry = np.array([[-0.06975, -0.0887], [0.06975, -0.0887]])
+        thruster_pos_entry += noise_args[0]
+        thruster_ang_entry = noise_args[1] * np.deg2rad(1)
+        thruster_ang_entry += np.array([-30 * np.pi / 180, 30 * np.pi / 180])
 
-        thruster_properties_ = [copy.deepcopy(second_thruster), copy.deepcopy(second_thruster)]
-        propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant)]
+        thruster_properties_entry = [copy.deepcopy(second_thruster), copy.deepcopy(second_thruster)]
+        propellant_properties_entry = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant)]
 
         r_, v_ = propagate_rv_by_ang(state[0], state[1],
                                      modules_setting_entry[0] - np.deg2rad(0.00),
                                      mu)
-        state_ = [r_ + noise_args[2],
-                  v_ + noise_args[3],
-                  state[2],
-                  state[3]]
+        state_entry = [r_ + noise_args[2],
+                       v_ + noise_args[3],
+                       state[2],
+                       state[3]]
 
-        module = Module(mass_0, inertia_0, state_, sigma_r, sigma_v,
-                        thruster_pos, thruster_ang, thruster_properties_,
-                        propellant_properties_, "2D", dt, training=True)
-
-        control_set_ = [modules_setting_entry[0], modules_setting_entry[0]
-                        ]
-        module.set_control_function(control_set_)
-
-        module.set_thrust_design([modules_setting_entry[1], modules_setting_entry[1]],
-                                 [modules_setting_entry[2], modules_setting_entry[2]])
-        module.set_thrust_bias(noise_args[5], noise_args[4])
-        historical_state = module.simulate(150000 * 60, low_step=0.1, progress=False)
-
-        historical_state.insert(-1, module.historical_theta_error)
-        historical_state.insert(-1, module.historical_omega_error)
-        historical_state.insert(-1, module.rw_model.historical_rw_velocity)
-        historical_state.insert(-1, np.array(module.rw_model.historical_rw_torque) * 1e3)
-        hist_list.append(historical_state)
-
-        data = {'state': historical_state,
-                'state_name': list_name,
-                'best_cost': pso_entry.evol_best_fitness,
-                'p_cost': pso_entry.evol_p_fitness,
-                'best_part': pso_entry.historical_g_position,
-                'hist_part': pso_entry.historical_position
-                }
-        historical_state[1] = np.array(historical_state[1]) / 1000
-        historical_state[7] = np.array(historical_state[7]) * 1000
-        historical_state[8] = np.array(historical_state[8]) / 1000
-        dataset[name].append(data)
-        # ============================================================================================================#
-        # DESCENT
-        # ============================================================================================================#
-
-        # range_variables = [(3000, 500e3)  # altitude
-        #                    # (0, 100e3),
-        #                    # (0, 100e3),
-        #                    # (0, 100e3),
-        #                    # (0, 100e3),
-        #                    # (0, 100e3)
-        #                    ]
-        # n_step = 50
-        # n_par = 20
-        # pso_descent = PSOStandard(decent_optimization, n_particles=n_par, n_steps=n_step)
-        # pso_descent.initialize(range_variables)
-        # init_time = time.time()
-        # args = [elem[-1] for elem in best_state]
-        # final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_descent.optimize(clip=True,
-        #                                                                                           args=args)
-        # end_time = time.time()
-        # print("Optimization Time: {}".format((end_time - init_time) / 60))
-        # modules_setting_decent = pso_descent.gbest_position
-        #
-        # data = {'state': best_state,
-        #         'state_name': list_name,
-        #         'best_cost': pso_descent.evol_best_fitness,
-        #         'p_cost': pso_descent.evol_p_fitness,
-        #         'best_part': pso_descent.historical_g_position,
-        #         'hist_part': pso_descent.historical_position
-        #         }
-        #
-        # with open(folder + name + "_descent_" + ".pkl", "wb") as data_handle:
-        #     pickle.dump(data, data_handle)
-        #     data_handle.close()
-        #
-        #
-        # # ============================================================================================================#
-        # # FULL SIMULATION
-        # # ============================================================================================================#
-        #
-        # array_thruster_pos = np.array([[-0.11, -0.0887], [0.11, -0.0887],
-        #                                [0.0, -0.0887]
-        #                                # [-0.11, -0.0887], [0.11, -0.0887],
-        #                                # [-0.09, -0.0887], [0.09, -0.0887],
-        #                                # [-0.09, -0.0887], [0.09, -0.0887],
-        #                                # [-0.09, -0.0887], [0.09, -0.0887],
-        #                                # [-0.09, -0.0887], [0.09, -0.0887]
-        #                                ])
-        #
-        # array_thruster_pos += np.random.normal(0, 0.0001, size=np.shape(array_thruster_pos))
-        # array_thruster_ang = np.random.normal(0, np.deg2rad(0.5), size=(len(array_thruster_pos)))
-        #
-        # array_thruster_properties_ = [copy.deepcopy(second_thruster), copy.deepcopy(second_thruster),
-        #                               copy.deepcopy(main_thruster),
-        #                               # copy.deepcopy(third_thruster), copy.deepcopy(third_thruster),
-        #                               # copy.deepcopy(third_thruster), copy.deepcopy(third_thruster),
-        #                               # copy.deepcopy(third_thruster), copy.deepcopy(third_thruster),
-        #                               # copy.deepcopy(third_thruster), copy.deepcopy(third_thruster),
-        #                               # copy.deepcopy(third_thruster), copy.deepcopy(third_thruster)
-        #                               ]
-        #
-        # array_propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant),
-        #                                 copy.deepcopy(main_propellant)
-        #                                 # copy.deepcopy(third_propellant), copy.deepcopy(third_propellant),
-        #                                 # copy.deepcopy(third_propellant), copy.deepcopy(third_propellant),
-        #                                 # copy.deepcopy(third_propellant), copy.deepcopy(third_propellant),
-        #                                 # copy.deepcopy(third_propellant), copy.deepcopy(third_propellant),
-        #                                 # copy.deepcopy(third_propellant), copy.deepcopy(third_propellant)
-        #                                 ]
-        #
-        # state_ = [state[0],
-        #           state[1],
-        #           state[2],
-        #           state[3]]
-        #
         # module = Module(mass_0, inertia_0, state_, sigma_r, sigma_v,
-        #                 array_thruster_pos, array_thruster_ang, array_thruster_properties_,
-        #                 array_propellant_properties_, "2D", dt, training=True)
+        #                 thruster_pos, thruster_ang, thruster_properties_,
+        #                 propellant_properties_, "2D", dt, training=True)
         #
-        # control_set_ = [modules_setting_entry[0], modules_setting_entry[0],
-        #                 modules_setting_decent[0],
-        #                 # modules_setting_decent[1], modules_setting_decent[1],
-        #                 # modules_setting_decent[1], modules_setting_decent[1],
-        #                 # modules_setting_decent[1], modules_setting_decent[1],
-        #                 # modules_setting_decent[1], modules_setting_decent[1],
-        #                 # modules_setting_decent[1], modules_setting_decent[1]
+        # control_set_ = [modules_setting_entry[0], modules_setting_entry[0]
         #                 ]
         # module.set_control_function(control_set_)
         #
-        # module.set_thrust_design([0.04, 0.04,
-        #                           0.15
-        #                           # 0.065, 0.065,
-        #                           # 0.035, 0.035,
-        #                           # 0.035, 0.035,
-        #                           # 0.035, 0.035,
-        #                           # 0.035, 0.035
-        #                           ],
-        #                          [0.2, 0.2,
-        #                           0.2
-        #                           # 0.2, 0.2,
-        #                           # 0.2, 0.2,
-        #                           # 0.2, 0.2,
-        #                           # 0.2, 0.2,
-        #                           # 0.2, 0.2
-        #                           ])
-        #
+        # module.set_thrust_design([modules_setting_entry[1], modules_setting_entry[1]],
+        #                          [modules_setting_entry[2], modules_setting_entry[2]])
+        # module.set_thrust_bias(noise_args[5], noise_args[4])
         # historical_state = module.simulate(150000 * 60, low_step=0.1, progress=False)
-        # state_ = [historical_state[0], historical_state[1]]
-        # mass_, inertia_ = historical_state[2][-1], historical_state[5][-1]
         #
         # historical_state.insert(-1, module.historical_theta_error)
         # historical_state.insert(-1, module.historical_omega_error)
@@ -386,9 +275,117 @@ if __name__ == '__main__':
         # historical_state.insert(-1, np.array(module.rw_model.historical_rw_torque) * 1e3)
         # hist_list.append(historical_state)
         #
+        # data = {'state': historical_state,
+        #         'state_name': list_name,
+        #         'best_cost': pso_entry.evol_best_fitness,
+        #         'p_cost': pso_entry.evol_p_fitness,
+        #         'best_part': pso_entry.historical_g_position,
+        #         'hist_part': pso_entry.historical_position
+        #         }
         # historical_state[1] = np.array(historical_state[1]) / 1000
         # historical_state[7] = np.array(historical_state[7]) * 1000
         # historical_state[8] = np.array(historical_state[8]) / 1000
+        # dataset[name].append(data)
+        # ============================================================================================================#
+        # DESCENT
+        # ============================================================================================================#
+
+        range_variables = [(3000, 2000e3)  # altitude
+                           # (0, 100e3),
+                           # (0, 100e3),
+                           # (0, 100e3),
+                           # (0, 100e3),
+                           # (0, 100e3)
+                           ]
+        n_step = 50
+        n_par = 30
+        pso_descent = PSOStandard(decent_optimization, n_particles=n_par, n_steps=n_step)
+        pso_descent.initialize(range_variables)
+        init_time = time.time()
+        args = [elem[-1] for elem in best_state]
+        final_eval, best_state, hist_pos, hist_g_pos, eval_pos, eval_g_pos = pso_descent.optimize(clip=True, tol=1e-12,
+                                                                                                  args=args)
+        end_time = time.time()
+        print("Optimization Time: {}".format((end_time - init_time) / 60))
+        modules_setting_decent = pso_descent.gbest_position
+
+        data = {'state': best_state,
+                'state_name': list_name,
+                'best_cost': eval_g_pos,
+                'p_cost': eval_pos,
+                'best_part': hist_g_pos,
+                'hist_part': hist_pos
+                }
+
+        dataset[name].append(data)
+        #
+        #
+        # # ============================================================================================================#
+        # # FULL SIMULATION
+        # # ============================================================================================================#
+        #
+        array_thruster_pos = np.array([[-0.06975, -0.0887], [0.06975, -0.0887],
+                                       [0.0, -0.0887]
+                                       ])
+        array_thruster_pos += np.random.normal(0, 0.0001, size=np.shape(array_thruster_pos))
+
+        array_thruster_ang = np.random.normal(0, np.deg2rad(0.5), size=(len(array_thruster_pos)))
+        array_thruster_ang += np.array([-30 * np.pi / 180, 30 * np.pi / 180, 0.0])
+
+        array_thruster_properties_ = [copy.deepcopy(second_thruster), copy.deepcopy(second_thruster),
+                                      copy.deepcopy(main_thruster)
+                                      ]
+
+        array_propellant_properties_ = [copy.deepcopy(second_propellant), copy.deepcopy(second_propellant),
+                                        copy.deepcopy(main_propellant)
+                                        ]
+
+        state_ = state_entry
+
+        module = Module(mass_0, inertia_0, state_, sigma_r, sigma_v,
+                        array_thruster_pos, array_thruster_ang, array_thruster_properties_,
+                        array_propellant_properties_, "2D", dt, training=True)
+
+        control_set_ = [modules_setting_entry[0], modules_setting_entry[0],
+                        modules_setting_decent[0],
+                        # modules_setting_decent[1], modules_setting_decent[1],
+                        # modules_setting_decent[1], modules_setting_decent[1],
+                        # modules_setting_decent[1], modules_setting_decent[1],
+                        # modules_setting_decent[1], modules_setting_decent[1],
+                        # modules_setting_decent[1], modules_setting_decent[1]
+                        ]
+        module.set_control_function(control_set_)
+
+        module.set_thrust_design([0.04, 0.04,
+                                  0.15
+                                  # 0.065, 0.065,
+                                  # 0.035, 0.035,
+                                  # 0.035, 0.035,
+                                  # 0.035, 0.035,
+                                  # 0.035, 0.035
+                                  ],
+                                 [0.2, 0.2,
+                                  0.2
+                                  # 0.2, 0.2,
+                                  # 0.2, 0.2,
+                                  # 0.2, 0.2,
+                                  # 0.2, 0.2,
+                                  # 0.2, 0.2
+                                  ])
+
+        historical_state = module.simulate(150000 * 60, low_step=0.1, progress=False)
+        state_ = [historical_state[0], historical_state[1]]
+        mass_, inertia_ = historical_state[2][-1], historical_state[5][-1]
+
+        historical_state.insert(-1, module.historical_theta_error)
+        historical_state.insert(-1, module.historical_omega_error)
+        historical_state.insert(-1, module.rw_model.historical_rw_velocity)
+        historical_state.insert(-1, np.array(module.rw_model.historical_rw_torque) * 1e3)
+        hist_list.append(historical_state)
+
+        historical_state[1] = np.array(historical_state[1]) / 1000
+        historical_state[7] = np.array(historical_state[7]) * 1000
+        historical_state[8] = np.array(historical_state[8]) / 1000
 
         # new Agg
         if not plot_flag:

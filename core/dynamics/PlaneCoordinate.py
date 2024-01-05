@@ -83,10 +83,12 @@ class PlaneCoordinate(object):
         thrust = args[0]
         torque = args[1]
 
-        # u_f_i = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]) @ thrust
-        ang_rot = np.arctan2(r[1], r[0])
-
-        u_f_i = -v / np.linalg.norm(v) * np.linalg.norm(thrust)
+        u_f_i = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]) @ thrust
+        # ang_rot = np.arctan2(r[1], r[0])
+        # div_norm = np.linalg.norm(v)
+        # if div_norm < 1e-20:
+        #     div_norm = 1
+        # u_f_i = -v / div_norm * np.linalg.norm(thrust)
 
         rhs = np.zeros(8)
         rhs[0:2] = v

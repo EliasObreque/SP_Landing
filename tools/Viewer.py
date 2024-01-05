@@ -26,6 +26,16 @@ rm = 1.738e6
 moon_file = "./tools/moon-58-1024x1024.png"
 
 
+def align_yaxis(ax1, v1, ax2, v2):
+    """adjust ax2 ylimit so that v2 in ax2 is aligned to v1 in ax1"""
+    _, y1 = ax1.transData.transform((0, v1))
+    _, y2 = ax2.transData.transform((0, v2))
+    inv = ax2.transData.inverted()
+    _, dy = inv.transform((0, 0)) - inv.transform((0, y1-y2))
+    miny, maxy = ax2.get_ylim()
+    ax2.set_ylim(miny+dy, maxy+dy)
+
+
 def plot_best_cost(evol_p_fitness, evol_best_fitness, folder=None, name=None):
     fig = plt.figure()
     # plt.rcParams['font.size'] = 13
@@ -76,10 +86,11 @@ def plot_pso_result(hist_pos, hist_g_pos, eval_pos, eval_g_pos, folder="", name=
 def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: dict = None, plot_flag=True):
     for i, min_state in enumerate(min_state_full[0][:-1]):
         fig = plt.figure()
-        plt.grid()
         # plt.rcParams['font.size'] = 13
         plt.gca().yaxis.set_label_coords(-0.14, 0.5)
         plt.subplots_adjust(left=0.18, right=0.95, top=0.9)  # Puedes ajustar este valor según tus necesidades
+        plt.grid()
+        ax2 = None
         if list_name is not None:
             if "beta" in list_name[i]:
                 name_temp = r"$\beta$"
@@ -92,7 +103,28 @@ def plot_state_solution(min_state_full, list_name, folder=None, name=None, aux: 
             wind_time = np.array(state[-1]) / 60
             if max_value < max(wind_time):
                 max_value = max(wind_time)
-            plt.plot(wind_time, state[i], 'b', lw=0.7)
+            if min(np.shape(state[i])) != 2 or "beta" in list_name[i]:
+                plt.plot(wind_time, state[i], 'b', lw=0.7)
+            else:
+                if 'Torque' in list_name[i]:
+                    plt.close()
+                    fig = plt.figure()
+                    plt.subplots_adjust(left=0.18, right=0.82,
+                                        top=0.9)  # Puedes ajustar este valor según tus necesidades
+                    ax1 = fig.add_subplot(111)
+                    ax1.set_ylabel(name_temp, fontsize=14)
+                    ax1.set_xlabel("Time [min]", fontsize=14)
+                    ax1.grid()
+                    # ax2 = ax1.twinx() if ax2 is None else ax2
+                    ax1.plot(wind_time, np.array(state[i])[:, 0], 'b', lw=0.7)
+                    # ax2.plot(wind_time, np.array(state[i])[:, 1], 'r', lw=0.7)
+                    # ax2.set_ylabel("Applied Torque [mNm]", fontsize=14, color='r')
+                    # ax2.grid()
+                    # align_yaxis(ax1, 0, ax2, 0)
+                else:
+                    plt.plot(wind_time, np.array(state[i])[:, 0], 'b', lw=0.7, label='x')
+                    plt.plot(wind_time, np.array(state[i])[:, 1], 'r', lw=0.7, label='y')
+                    # plt.legend(loc='upper right', fontsize=14)
         # if "Thrust" in list_name[i]:
         #     thr_wind = np.argwhere(np.array(min_state) > 0)
         #     init = np.max([thr_wind.min() - 1, 0])
@@ -178,13 +210,13 @@ def plot_normal_tangent_velocity(min_state_full, folder=None, name=None, plot_fl
     plt.subplots_adjust(left=0.16, right=0.95, top=0.9)
     fig_alt, ax_alt = plt.subplots(1, 1)
     plt.subplots_adjust(left=0.16, right=0.95, top=0.9)
-    ax_radial.set_ylabel("Radial Velocity [km/s]", fontsize=14)
+    ax_radial.set_ylabel("Radial Velocity [m/s]", fontsize=14)
     ax_radial.set_xlabel("Time [min]", fontsize=14)
     ax_radial.grid()
     ax_alt.set_ylabel("Altitude [km]", fontsize=14)
     ax_alt.set_xlabel("Time [min]", fontsize=14)
     ax_alt.grid()
-    ax_tang.set_ylabel("Tangential Velocity [km/s]", fontsize=14)
+    ax_tang.set_ylabel("Tangential Velocity [m/s]", fontsize=14)
     ax_tang.set_xlabel("Time [min]", fontsize=14)
     ax_tang.grid()
     for min_state in min_state_full:
