@@ -40,6 +40,8 @@ class BasicThruster(ABC):
         self.thrust_profile_type = thruster_properties['thrust_profile']['type']
         self.max_dead_time = thruster_properties['max_ignition_dead_time']
         self.ignition_dead_time = np.random.uniform(0, self.max_dead_time)
+        if self.max_dead_time > 0 and self.ignition_dead_time < 1e-3:
+            self.ignition_dead_time = 1e-3
 
     def reset_variables(self):
         """

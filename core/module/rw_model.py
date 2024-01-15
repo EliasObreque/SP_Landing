@@ -18,7 +18,7 @@ class RWModel(object):
         self.target_angular_velocity = 0.0
         self.lag_coef = 0.5
         self.current_velocity = 0.0
-        self.max_torque = 10
+        self.max_torque = 1
         self.min_torque = 0
         self.target_angular_accl_before = 0
 
@@ -35,7 +35,7 @@ class RWModel(object):
         self.current_velocity = angular_velocity
         angular_acc = (angular_velocity - pre_angular_velocity) / self.dt
         rw_torque = self.inertia * angular_acc
-        self.historical_rw_torque.append(rw_torque)
+        self.historical_rw_torque.append(self.inertia * self.target_angular_accl_before)
         self.historical_rw_velocity.append(angular_velocity)
         return rw_torque
 
